@@ -18,6 +18,7 @@ package com.mhs.onlinemarketingplatform.profile;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.amqp.core.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.annotation.Id;
@@ -95,9 +96,11 @@ class ProfileController {
 class ProfileService {
 
 	private final ProfileRepository profileRepository;
+	private final ApplicationEventPublisher publisher;
 
-	public ProfileService(ProfileRepository profileRepository) {
+	public ProfileService(ProfileRepository profileRepository, ApplicationEventPublisher publisher) {
 		this.profileRepository = profileRepository;
+		this.publisher = publisher;
 	}
 
 	ProfileResponse add(AddProfileRequest addProfileRequest, UUID credential) {
@@ -107,9 +110,9 @@ class ProfileService {
 		}
 
 		Profile profile = Profile.createNewProfile(addProfileRequest,credential);
-		Profile savedProfile = profileRepository.save(profile);
-
-		return  ProfileResponse.from(savedProfile,true);
+		Profile storedProfile = profileRepository.save(profile);
+		publisher.publishEvent(new ProfileAddEvent(storedProfile.id()));
+		return  ProfileResponse.from(storedProfile,true);
 	}
 
 	ProfileResponse enable(UUID profileId, UUID credential) {
@@ -119,6 +122,7 @@ class ProfileService {
 		if(!exisitngProfile.profileStatus().status.trim().equals("ENABLED")){
 			Profile updatingProfile = Profile.withProfileStatus(exisitngProfile, credential);
 			Profile storedProfile = profileRepository.save(updatingProfile);
+			publisher.publishEvent(new ProfileUpdateEvent(storedProfile.id()));
 			return ProfileResponse.from(storedProfile,true);
 		}
 
@@ -132,6 +136,7 @@ class ProfileService {
 		if(!exisitngProfile.profileStatus().status.trim().equals("DISABLED")){
 			Profile updatingProfile = Profile.withProfileStatus(exisitngProfile, credential);
 			Profile storedProfile = profileRepository.save(updatingProfile);
+			publisher.publishEvent(new ProfileUpdateEvent(storedProfile.id()));
 			return ProfileResponse.from(storedProfile,true);
 		}
 
@@ -153,6 +158,7 @@ class ProfileService {
 				exisitngProfile.credential());
 
 		Profile storedProfile = profileRepository.save(updatingProfile);
+		publisher.publishEvent(new ProfileUpdateEvent(storedProfile.id()));
 		return ProfileResponse.from(storedProfile,true);
 	}
 
