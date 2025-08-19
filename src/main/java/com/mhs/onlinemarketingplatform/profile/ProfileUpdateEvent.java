@@ -25,5 +25,5 @@ import java.util.UUID;
  */
 
 @Externalized(target = RabbitMqProfilesIntegrationConfig.PROFILE_Q)
-public record ProfileAddEvent(UUID profileId) {
+public record ProfileUpdateEvent(UUID profileId) {
 }

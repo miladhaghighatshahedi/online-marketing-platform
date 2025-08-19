@@ -17,6 +17,9 @@ package com.mhs.onlinemarketingplatform.profile;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.amqp.core.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Table;
@@ -302,4 +305,26 @@ class ProfileAlreadyDisabledException extends RuntimeException {
 }
 
 // controller // service // repository // model // enum // dto // exception
+
+@Configuration
+class RabbitMqProfilesIntegrationConfig {
+
+	static final String PROFILE_Q = "profiles";
+
+	@Bean
+	Binding profileBinding(Queue profileQueue, Exchange profileExchange){
+		return BindingBuilder.bind(profileQueue).to(profileExchange).with(PROFILE_Q).noargs();
+	}
+
+	@Bean
+	Exchange profileExchange(){
+		return ExchangeBuilder.directExchange(PROFILE_Q).build();
+	}
+
+	@Bean
+	Queue profileQueue(){
+		return QueueBuilder.durable(PROFILE_Q).build();
+	}
+}
+
 
