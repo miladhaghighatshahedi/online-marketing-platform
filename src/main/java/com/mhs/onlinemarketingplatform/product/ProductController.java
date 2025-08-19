@@ -124,6 +124,7 @@ class ProductService {
 		if(!exisitngProduct.productStatus().status.trim().equals("ENABLED")){
 			Product updatingProduct = Product.withProductStatus(exisitngProduct, credential);
 			Product storedProduct = productRepository.save(updatingProduct);
+			publisher.publishEvent(new ProductUpdateEvent(storedProduct.id()));
 			return ProductResponse.from(storedProduct,true);
 		}
 
@@ -137,6 +138,7 @@ class ProductService {
 		if(!exisitngProduct.productStatus().status.trim().equals("DISABLED")){
 			Product updatingProduct = Product.withProductStatus(exisitngProduct, credential);
 			Product storedProduct = productRepository.save(updatingProduct);
+			publisher.publishEvent(new ProductUpdateEvent(storedProduct.id()));
 			return ProductResponse.from(storedProduct,true);
 		}
 
