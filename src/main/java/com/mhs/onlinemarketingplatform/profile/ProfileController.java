@@ -38,116 +38,112 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- *
  * @author Milad Haghighat Shahedi
  */
-
 @Controller
 @ResponseBody
 @Validated
 class ProfileController {
 
-	private final ProfileService profileService;
-	private final static String CREDENTIAL = "26712732-813a-4b3b-8ecf-54e47e428160";
+    private final ProfileService profileService;
+    private final static String CREDENTIAL = "26712732-813a-4b3b-8ecf-54e47e428160";
 
-	public ProfileController(ProfileService profileService) {
-		this.profileService = profileService;
-	}
+    public ProfileController(ProfileService profileService) {
+        this.profileService = profileService;
+    }
 
-	@PostMapping("/api/profiles")
-	public ResponseEntity<ProfileResponse> create(@RequestBody AddProfileRequest addProfileRequest) {
-		return ResponseEntity.ok(this.profileService.add(addProfileRequest,UUID.fromString(CREDENTIAL)));
-	}
+    @PostMapping("/api/profiles")
+    public ResponseEntity<ProfileResponse> create(@RequestBody AddProfileRequest addProfileRequest) {
+        return ResponseEntity.ok(this.profileService.add(addProfileRequest, UUID.fromString(CREDENTIAL)));
+    }
 
-	@GetMapping("/api/profiles")
-	public ResponseEntity<ProfileResponse> findByCredential() {
-		return ResponseEntity.ok(this.profileService.findByCredential(UUID.fromString(CREDENTIAL)));
-	}
+    @GetMapping("/api/profiles")
+    public ResponseEntity<ProfileResponse> findByCredential() {
+        return ResponseEntity.ok(this.profileService.findByCredential(UUID.fromString(CREDENTIAL)));
+    }
 
-	@GetMapping("/api/profiles/{id}")
-	public ResponseEntity<ProfileResponse> findById(@PathVariable("id") String id) {
-		return ResponseEntity.ok(this.profileService.findById(UUID.fromString(id)));
-	}
+    @GetMapping("/api/profiles/{id}")
+    public ResponseEntity<ProfileResponse> findById(@PathVariable("id") String id) {
+        return ResponseEntity.ok(this.profileService.findById(UUID.fromString(id)));
+    }
 
-	@PutMapping("/api/profiles/{id}")
-	public ResponseEntity<ProfileResponse> update( @RequestBody UpdateProfileRequest updateProfileRequest, @PathVariable("id") String id) {
-		return ResponseEntity.ok(this.profileService.update(updateProfileRequest,UUID.fromString(id),UUID.fromString(CREDENTIAL)));
-	}
+    @PutMapping("/api/profiles/{id}")
+    public ResponseEntity<ProfileResponse> update(@RequestBody UpdateProfileRequest updateProfileRequest, @PathVariable("id") String id) {
+        return ResponseEntity.ok(this.profileService.update(updateProfileRequest, UUID.fromString(id), UUID.fromString(CREDENTIAL)));
+    }
 
-	@GetMapping(value = "/api/profiles",params = "name")
-	public ResponseEntity<ProfileResponse> findByName(@RequestParam("name") String name) {
-		return ResponseEntity.ok(this.profileService.findByName(name));
-	}
+    @GetMapping(value = "/api/profiles", params = "name")
+    public ResponseEntity<ProfileResponse> findByName(@RequestParam("name") String name) {
+        return ResponseEntity.ok(this.profileService.findByName(name));
+    }
 
-	@PutMapping("/api/profiles/{id}/enable")
-	public ResponseEntity<ProfileResponse> enable( @PathVariable("id") String id) {
-		return ResponseEntity.ok(this.profileService.enable(UUID.fromString(id),UUID.fromString(CREDENTIAL)));
-	}
+    @PutMapping("/api/profiles/{id}/activate")
+    public ResponseEntity<ProfileResponse> activate(@PathVariable("id") String id) {
+        return ResponseEntity.ok(this.profileService.activate(UUID.fromString(id), UUID.fromString(CREDENTIAL)));
+    }
 
-	@PutMapping("/api/profiles/{id}/disable")
-	public ResponseEntity<ProfileResponse> disable( @PathVariable("id") String id) {
-		return ResponseEntity.ok(this.profileService.disable(UUID.fromString(id),UUID.fromString(CREDENTIAL)));
-	}
-
+    @PutMapping("/api/profiles/{id}/deactivate")
+    public ResponseEntity<ProfileResponse> deactivate(@PathVariable("id") String id) {
+        return ResponseEntity.ok(this.profileService.deactivate(UUID.fromString(id), UUID.fromString(CREDENTIAL)));
+    }
 }
 
 @Service
 @Transactional
 class ProfileService {
 
-	private final ProfileRepository profileRepository;
-	private final ApplicationEventPublisher publisher;
+    private final ProfileRepository profileRepository;
+    private final ApplicationEventPublisher publisher;
 
-	public ProfileService(ProfileRepository profileRepository, ApplicationEventPublisher publisher) {
-		this.profileRepository = profileRepository;
-		this.publisher = publisher;
-	}
+    public ProfileService(ProfileRepository profileRepository, ApplicationEventPublisher publisher) {
+        this.profileRepository = profileRepository;
+        this.publisher = publisher;
+    }
 
-	ProfileResponse add(AddProfileRequest addProfileRequest, UUID credential) {
-		if (profileRepository.existsByCredential(credential)) {
+    ProfileResponse add(AddProfileRequest addProfileRequest, UUID credential) {
+        if (profileRepository.existsByCredential(credential)) {
+            throw new ProfileAlreadyExistsException("Profile with user " + credential + " already exists");
+        }
 
-			throw new ProfileAlreadyExistsException("Profile with user " + credential  + " already exists");
-		}
+        Profile profile = Profile.createNewProfile(addProfileRequest, credential);
+        Profile storedProfile = profileRepository.save(profile);
+        publisher.publishEvent(new AddProfileEvent(storedProfile.id()));
+        return ProfileResponse.from(storedProfile, true);
+    }
 
-		Profile profile = Profile.createNewProfile(addProfileRequest,credential);
-		Profile storedProfile = profileRepository.save(profile);
-		publisher.publishEvent(new ProfileAddEvent(storedProfile.id()));
-		return  ProfileResponse.from(storedProfile,true);
-	}
-
-	ProfileResponse enable(UUID profileId, UUID credential) {
-		Profile exisitngProfile = profileRepository.findByIdAndCredential(profileId, credential)
+    ProfileResponse activate(UUID profileId, UUID credential) {
+        Profile exisitngProfile = profileRepository.findByIdAndCredential(profileId, credential)
 				.orElseThrow(() -> new ProfileNotFoundException("Profile with id " + profileId + " not found"));
 
-		if(!exisitngProfile.profileStatus().status.trim().equals("ENABLED")){
-			Profile updatingProfile = Profile.withProfileStatus(exisitngProfile, credential);
-			Profile storedProfile = profileRepository.save(updatingProfile);
-			publisher.publishEvent(new ProfileUpdateEvent(storedProfile.id()));
-			return ProfileResponse.from(storedProfile,true);
-		}
+        if (!exisitngProfile.profileStatus().status.trim().equals("ACTIVE")) {
+            Profile updatingProfile = Profile.withProfileStatusActivated(exisitngProfile, credential);
+            Profile storedProfile = profileRepository.save(updatingProfile);
+            publisher.publishEvent(new UpdateProfileEvent(storedProfile.id()));
+            return ProfileResponse.from(storedProfile, true);
+        }
 
         throw new ProfileAlreadyExistsException("Profile with name " + exisitngProfile.name() + " is already enabled");
-	}
+    }
 
-	ProfileResponse disable(UUID profileId, UUID credential) {
-		Profile exisitngProfile = profileRepository.findByIdAndCredential(profileId, credential)
+    ProfileResponse deactivate(UUID profileId, UUID credential) {
+        Profile exisitngProfile = profileRepository.findByIdAndCredential(profileId, credential)
 				.orElseThrow(() -> new ProfileNotFoundException("Profile with id " + profileId + " not found"));
 
-		if(!exisitngProfile.profileStatus().status.trim().equals("DISABLED")){
-			Profile updatingProfile = Profile.withProfileStatus(exisitngProfile, credential);
-			Profile storedProfile = profileRepository.save(updatingProfile);
-			publisher.publishEvent(new ProfileUpdateEvent(storedProfile.id()));
-			return ProfileResponse.from(storedProfile,true);
-		}
+        if (!exisitngProfile.profileStatus().status.trim().equals("INACTIVE")) {
+            Profile updatingProfile = Profile.withProfileStatusDeactivated(exisitngProfile, credential);
+            Profile storedProfile = profileRepository.save(updatingProfile);
+            publisher.publishEvent(new UpdateProfileEvent(storedProfile.id()));
+            return ProfileResponse.from(storedProfile, true);
+        }
 
-		throw new ProfileAlreadyDisabledException("Profile with name " + exisitngProfile.name() + " is already disabled");
-	}
+        throw new ProfileAlreadyDisabledException("Profile with name " + exisitngProfile.name() + " is already disabled");
+    }
 
-	ProfileResponse update(UpdateProfileRequest updateProfileRequest, UUID profileId, UUID credential) {
-		Profile exisitngProfile = profileRepository.findByIdAndCredential(profileId, credential)
+    ProfileResponse update(UpdateProfileRequest updateProfileRequest, UUID profileId, UUID credential) {
+        Profile exisitngProfile = profileRepository.findByIdAndCredential(profileId, credential)
 				.orElseThrow(() -> new ProfileNotFoundException("Profile with id " + profileId + " not found"));
 
-		Profile updatingProfile = new Profile(
+        Profile updatingProfile = new Profile(
 				exisitngProfile.id(),
 				exisitngProfile.version(),
 				updateProfileRequest.name(),
@@ -157,157 +153,170 @@ class ProfileService {
 				exisitngProfile.activationDate(),
 				exisitngProfile.credential());
 
-		Profile storedProfile = profileRepository.save(updatingProfile);
-		publisher.publishEvent(new ProfileUpdateEvent(storedProfile.id()));
-		return ProfileResponse.from(storedProfile,true);
-	}
+        Profile storedProfile = profileRepository.save(updatingProfile);
+        publisher.publishEvent(new UpdateProfileEvent(storedProfile.id()));
+        return ProfileResponse.from(storedProfile, true);
+    }
 
-	ProfileResponse findByName(String name) {
-		Profile profile = profileRepository.findByName(name)
+    ProfileResponse findByName(String name) {
+        Profile profile = profileRepository.findByName(name)
 				.orElseThrow(() -> new ProfileNotFoundException("Profile with name " + name + " not found"));
 
-		return ProfileResponse.from(profile,true);
-	}
+        return ProfileResponse.from(profile, true);
+    }
 
-	ProfileResponse findById(UUID id) {
-		Profile profile = profileRepository.findById(id)
+    ProfileResponse findById(UUID id) {
+        Profile profile = profileRepository.findById(id)
 				.orElseThrow(() -> new ProfileNotFoundException("Profile with id " + id + " not found"));
 
-		return ProfileResponse.from(profile,true);
-	}
+        return ProfileResponse.from(profile, true);
+    }
 
-	ProfileResponse findByCredential(UUID credential) {
-		Profile profile = profileRepository.findByCredential(credential)
+    ProfileResponse findByCredential(UUID credential) {
+        Profile profile = profileRepository.findByCredential(credential)
 				.orElseThrow(() -> new ProfileNotFoundException("Profile with  " + credential + " not found"));
 
-		return ProfileResponse.from(profile,true);
-	}
+        return ProfileResponse.from(profile, true);
+    }
 
 }
 
 @Repository
-interface ProfileRepository extends CrudRepository<Profile,Integer> {
-	Optional<Profile> findByIdAndCredential(UUID profileId,UUID credential);
-	Optional<Profile> findByCredential(UUID credential);
-	Optional<Profile> findByName(String name);
-	Optional<Profile> findById(UUID id);
-	boolean existsByCredential(UUID credential);
+interface ProfileRepository extends CrudRepository<Profile, Integer> {
+
+    Optional<Profile> findByIdAndCredential(UUID profileId, UUID credential);
+
+    Optional<Profile> findByCredential(UUID credential);
+
+    Optional<Profile> findByName(String name);
+
+    Optional<Profile> findById(UUID id);
+
+    boolean existsByCredential(UUID credential);
+
 }
 
 @Table(name = "profiles")
-record Profile (@Id UUID id,
-                @Version Integer version,
-                String name,
-                String about,
-                ProfileType profileType,
-                ProfileStatus profileStatus,
-		        LocalDateTime activationDate,
-                UUID credential) {
+record Profile(@Id UUID id,
+			   @Version Integer version,
+			   String name,
+			   String about,
+			   ProfileType profileType,
+               ProfileStatus profileStatus,
+			   LocalDateTime activationDate,
+			   UUID credential) {
 
-	public static Profile createNewProfile(AddProfileRequest addProfileRequest,UUID credential){
-		return new Profile(
+    public static Profile createNewProfile(AddProfileRequest addProfileRequest, UUID credential) {
+        return new Profile(
 				UUID.randomUUID(),
-				null,
-				addProfileRequest.name(),
+				null, addProfileRequest.name(),
 				addProfileRequest.about(),
 				ProfileType.valueOf(addProfileRequest.profileType().trim().toUpperCase()),
-				ProfileStatus.DISABLE,
+				ProfileStatus.INACTIVE,
 				null,
-				credential
-		);
-	}
+				credential);
+    }
 
-	public static Profile withProfileStatus(Profile exisitngProfile, UUID credential){
-		return new Profile(
+    public static Profile withProfileStatusActivated(Profile exisitngProfile, UUID credential) {
+        return new Profile(
 				exisitngProfile.id,
 				exisitngProfile.version(),
 				exisitngProfile.name,
 				exisitngProfile.about,
 				exisitngProfile.profileType,
-				ProfileStatus.ENABLED,
+				ProfileStatus.ACTIVE,
 				LocalDateTime.now(),
-				credential
-		);
-	}
+				credential);
+    }
+
+    public static Profile withProfileStatusDeactivated(Profile exisitngProfile, UUID credential) {
+        return new Profile(exisitngProfile.id,
+				exisitngProfile.version(),
+				exisitngProfile.name,
+				exisitngProfile.about,
+				exisitngProfile.profileType,
+				ProfileStatus.INACTIVE,
+				LocalDateTime.now(),
+				credential);
+    }
 
 }
 
 enum ProfileStatus {
+    ACTIVE("ACTIVE"), INACTIVE("INACTIVE");
 
-	DISABLE("DISABLE"),
-	ENABLED("ENABLED");
+    final String status;
 
-	final String status;
-
-	ProfileStatus(String status){
-		this.status = status;
-	}
-
+    ProfileStatus(String status) {
+        this.status = status;
+    }
 }
+
 
 enum ProfileType {
 
-	INDIVIDUAL("INDIVIDUAL"),
-	COMPANY("COMPANY"),
-	STORE("STORE");
+    INDIVIDUAL("INDIVIDUAL"), COMPANY("COMPANY"), STORE("STORE");
 
     final String type;
 
-	ProfileType(String type){
-		this.type = type;
-	}
+    ProfileType(String type) {
+        this.type = type;
+    }
 
 }
 
-record AddProfileRequest( @NotNull String name, @NotBlank String about, @NotNull String profileType) { }
+record AddProfileRequest(@NotNull String name,
+						 @NotBlank String about,
+						 @NotNull String profileType) {
+}
 
-record UpdateProfileRequest( @NotNull String name, @NotBlank String about, @NotNull String profileType) { }
+record UpdateProfileRequest(@NotNull String name,
+							@NotBlank String about,
+							@NotNull String profileType) {
+}
 
 record ProfileResponse(String id,
-                       String name,
-                       String about,
-                       String profileType,
-                       String profileStatus,
+					   String name,
+					   String about,
+					   String profileType,
+					   String profileStatus,
                        LocalDateTime activationDate,
-                       String credential
-) {
+					   String credential) {
 
-	public static ProfileResponse from(Profile profile, boolean includeSensitive){
-		return new ProfileResponse(
+    public static ProfileResponse from(Profile profile, boolean includeSensitive) {
+        return new ProfileResponse(
 				includeSensitive ? profile.id().toString() : null,
-				profile.name(),
-				profile.about(),
+				profile.name(), profile.about(),
 				profile.profileType().toString(),
 				includeSensitive ? profile.profileStatus().toString() : null,
 				includeSensitive ? profile.activationDate() : null,
-				includeSensitive ? profile.credential().toString() : null
-		);
-	}
+				includeSensitive ? profile.credential().toString() : null);
+    }
 
 }
 
 class ProfileAlreadyExistsException extends RuntimeException {
-	public ProfileAlreadyExistsException(String message) {
-		super(message);
-	}
+    public ProfileAlreadyExistsException(String message) {
+        super(message);
+    }
 }
 
 class ProfileNotFoundException extends RuntimeException {
-	ProfileNotFoundException(String message) {
-		super(message);
-	}
+    ProfileNotFoundException(String message) {
+        super(message);
+    }
 }
 
 class ProfileAlreadyEnabledException extends RuntimeException {
-	ProfileAlreadyEnabledException(String message) {
-		super(message);
-	}
+    ProfileAlreadyEnabledException(String message) {
+        super(message);
+    }
 }
 
 class ProfileAlreadyDisabledException extends RuntimeException {
-	ProfileAlreadyDisabledException(String message) {
-		super(message);
-	}
+    ProfileAlreadyDisabledException(String message) {
+        super(message);
+    }
 }
 
 // controller // service // repository // model // enum // dto // exception
@@ -315,22 +324,23 @@ class ProfileAlreadyDisabledException extends RuntimeException {
 @Configuration
 class RabbitMqProfilesIntegrationConfig {
 
-	static final String PROFILE_Q = "profiles";
+    static final String PROFILE_Q = "profiles";
 
-	@Bean
-	Binding profileBinding(Queue profileQueue, Exchange profileExchange){
-		return BindingBuilder.bind(profileQueue).to(profileExchange).with(PROFILE_Q).noargs();
-	}
+    @Bean
+    Binding profileBinding(Queue profileQueue, Exchange profileExchange) {
+        return BindingBuilder.bind(profileQueue).to(profileExchange).with(PROFILE_Q).noargs();
+    }
 
-	@Bean
-	Exchange profileExchange(){
-		return ExchangeBuilder.directExchange(PROFILE_Q).build();
-	}
+    @Bean
+    Exchange profileExchange() {
+        return ExchangeBuilder.directExchange(PROFILE_Q).build();
+    }
 
-	@Bean
-	Queue profileQueue(){
-		return QueueBuilder.durable(PROFILE_Q).build();
-	}
+    @Bean
+    Queue profileQueue() {
+        return QueueBuilder.durable(PROFILE_Q).build();
+    }
+
 }
 
 

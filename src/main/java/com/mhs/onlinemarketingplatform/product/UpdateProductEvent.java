@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.profile;
+package com.mhs.onlinemarketingplatform.product;
 
 import org.springframework.modulith.events.Externalized;
 
 import java.util.UUID;
 
 /**
- *
  * @author Milad Haghighat Shahedi
  */
-
-@Externalized(target = RabbitMqProfilesIntegrationConfig.PROFILE_Q)
-public record ProfileAddEvent(UUID profileId) {
-}
+@Externalized(target = RabbitMqProductsIntegrationConfig.PRODUCT_Q)
+public record UpdateProductEvent(UUID productId) {}

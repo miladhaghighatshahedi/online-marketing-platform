@@ -42,10 +42,8 @@ import java.util.UUID;
 /**
  * @author Milad Haghighat Shahedi
  */
-
 @Controller
 @ResponseBody
-
 class ProductController {
 
 	private final ProductService productService;
@@ -56,43 +54,43 @@ class ProductController {
 	}
 
 	@PostMapping("/api/products")
-	ResponseEntity<ProductResponse> add(@RequestBody AddProductRequest addProductRequest) {
-		return ResponseEntity.ok(this.productService.add(addProductRequest,UUID.fromString(CREDENTIAL)));
+	ResponseEntity<CategoryResponse> add(@RequestBody AddProductRequest addProductRequest) {
+		return ResponseEntity.ok(this.productService.add(addProductRequest, UUID.fromString(CREDENTIAL)));
 	}
 
 	@GetMapping("/api/products")
-	ResponseEntity<List<ProductResponse>> findAll() {
+	ResponseEntity<List<CategoryResponse>> findAll() {
 		return ResponseEntity.ok(this.productService.findAllByCredential(UUID.fromString(CREDENTIAL)));
 	}
 
-	@GetMapping(value = "/api/products",params = "name")
-	ResponseEntity<ProductResponse> findByName(@RequestParam("name") String name) {
+	@GetMapping(value = "/api/products", params = "name")
+	ResponseEntity<CategoryResponse> findByName(@RequestParam("name") String name) {
 		return ResponseEntity.ok(this.productService.findByName(name));
 	}
 
-	@GetMapping(value = "/api/products",params = "status")
-	public ResponseEntity<List<ProductResponse>> findAllByStatus(@RequestParam("status") String status) {
+	@GetMapping(value = "/api/products", params = "status")
+	public ResponseEntity<List<CategoryResponse>> findAllByStatus(@RequestParam("status") String status) {
 		return ResponseEntity.ok(this.productService.findAllByCredentialAndStatus(UUID.fromString(CREDENTIAL), ProductStatus.valueOf(status.trim().toUpperCase())));
 	}
 
 	@GetMapping("/api/products/{id}")
-	ResponseEntity<ProductResponse> findById(@RequestBody @PathVariable("id") String id) {
+	ResponseEntity<CategoryResponse> findById(@RequestBody @PathVariable("id") String id) {
 		return ResponseEntity.ok(this.productService.findById(UUID.fromString(id)));
 	}
 
 	@PutMapping("/api/products/{id}")
-	ResponseEntity<ProductResponse> update(@RequestBody UpdateProductRequest updateProductRequest, @PathVariable("id") String id) {
+	ResponseEntity<CategoryResponse> update(@RequestBody UpdateProductRequest updateProductRequest, @PathVariable("id") String id) {
 		return ResponseEntity.ok(this.productService.update(updateProductRequest, UUID.fromString(id), UUID.fromString(CREDENTIAL)));
 	}
 
-	@PutMapping("/api/products/{id}/enable")
-	public ResponseEntity<ProductResponse> enable(@PathVariable("id") String id) {
-		return ResponseEntity.ok(this.productService.enable(UUID.fromString(id),UUID.fromString(CREDENTIAL)));
+	@PutMapping("/api/products/{id}/activate")
+	public ResponseEntity<CategoryResponse> activate(@PathVariable("id") String id) {
+		return ResponseEntity.ok(this.productService.activate(UUID.fromString(id), UUID.fromString(CREDENTIAL)));
 	}
 
-	@PutMapping("/api/products/{id}/disable")
-	public ResponseEntity<ProductResponse> disable(@PathVariable("id") String id) {
-		return ResponseEntity.ok(this.productService.disable(UUID.fromString(id),UUID.fromString(CREDENTIAL)));
+	@PutMapping("/api/products/{id}/deactivate")
+	public ResponseEntity<CategoryResponse> deactivate(@PathVariable("id") String id) {
+		return ResponseEntity.ok(this.productService.deactivate(UUID.fromString(id), UUID.fromString(CREDENTIAL)));
 	}
 
 }
@@ -109,43 +107,43 @@ class ProductService {
 		this.publisher = publisher;
 	}
 
-	ProductResponse add(AddProductRequest addProductRequest,UUID credential) {
-		Product product = Product.createNewProduct(addProductRequest,credential);
+	CategoryResponse add(AddProductRequest addProductRequest, UUID credential) {
+		Product product = Product.createNewProduct(addProductRequest, credential);
 		Product storedProduct = productRepository.save(product);
-		this.publisher.publishEvent(new ProductAddEvent(storedProduct.id()));
-		return ProductResponse.from(storedProduct, true);
+		this.publisher.publishEvent(new AddProductEvent(storedProduct.id()));
+		return CategoryResponse.from(storedProduct, true);
 
 	}
 
-	ProductResponse enable(UUID productId, UUID credential) {
+	CategoryResponse activate(UUID productId, UUID credential) {
 		Product exisitngProduct = productRepository.findByIdAndCredential(productId, credential)
 				.orElseThrow(() -> new ProductNotFoundException("Product with id " + productId + " not found"));
 
-		if(!exisitngProduct.productStatus().status.trim().equals("ENABLED")){
-			Product updatingProduct = Product.withProductStatus(exisitngProduct, credential);
+		if (!exisitngProduct.productStatus().status.trim().equals("ACTIVE")) {
+			Product updatingProduct = Product.withProductStatusActivated(exisitngProduct, credential);
 			Product storedProduct = productRepository.save(updatingProduct);
-			publisher.publishEvent(new ProductUpdateEvent(storedProduct.id()));
-			return ProductResponse.from(storedProduct,true);
+			publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
+			return CategoryResponse.from(storedProduct, true);
 		}
 
 		throw new ProductAlreadyEnabledException("Product with name " + exisitngProduct.name() + " is already enabled");
 	}
 
-	ProductResponse disable(UUID productId, UUID credential) {
+	CategoryResponse deactivate(UUID productId, UUID credential) {
 		Product exisitngProduct = productRepository.findByIdAndCredential(productId, credential)
 				.orElseThrow(() -> new ProductNotFoundException("Product with id " + productId + " not found"));
 
-		if(!exisitngProduct.productStatus().status.trim().equals("DISABLED")){
-			Product updatingProduct = Product.withProductStatus(exisitngProduct, credential);
+		if (!exisitngProduct.productStatus().status.trim().equals("INACTIVE")) {
+			Product updatingProduct = Product.withProductStatusDeactivated(exisitngProduct, credential);
 			Product storedProduct = productRepository.save(updatingProduct);
-			publisher.publishEvent(new ProductUpdateEvent(storedProduct.id()));
-			return ProductResponse.from(storedProduct,true);
+			publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
+			return CategoryResponse.from(storedProduct, true);
 		}
 
 		throw new ProductAlreadyDisabledException("Product with name " + exisitngProduct.name() + " is already disabled");
 	}
 
-	ProductResponse update(UpdateProductRequest updateProductRequest, UUID productId, UUID credential) {
+	CategoryResponse update(UpdateProductRequest updateProductRequest, UUID productId, UUID credential) {
 
 		Product product = productRepository.findByIdAndCredential(productId, credential)
 				.orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + productId));
@@ -158,50 +156,64 @@ class ProductService {
 				product.insertDate(),
 				LocalDateTime.now(),
 				new BigDecimal(updateProductRequest.price().trim()),
-				ProductStatus.DISABLED,
+				ProductStatus.INACTIVE,
 				product.credential());
 
 		Product storedProduct = productRepository.save(newProduct);
-		this.publisher.publishEvent(new ProductUpdateEvent(storedProduct.id()));
-		return ProductResponse.from(storedProduct, true);
+		this.publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
+		return CategoryResponse.from(storedProduct, true);
 	}
 
-	ProductResponse findByName(String name) {
+	CategoryResponse findByName(String name) {
 		Product product = productRepository.findByName(name).orElseThrow(() -> new ProductNotFoundException("Product not found: " + name));
-		return ProductResponse.from(product, true);
+		return CategoryResponse.from(product, true);
 	}
 
-	ProductResponse findById(UUID productId) {
+	CategoryResponse findById(UUID productId) {
 		Product product = productRepository.findById(productId)
 				.orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + productId));
-		return ProductResponse.from(product, true);
+		return CategoryResponse.from(product, true);
 	}
 
-	List<ProductResponse> findAllByCredential(UUID credential) {
+	List<CategoryResponse> findAllByCredential(UUID credential) {
 		List<Product> products = productRepository.findByCredential(credential);
-		return products.stream().map(product -> ProductResponse.from(product, true)).toList();
+		return products.stream().map(product -> CategoryResponse.from(product, true)).toList();
 	}
 
-	List<ProductResponse> findAllByCredentialAndStatus(UUID credential,ProductStatus status) {
-		List<Product> products = productRepository.findByCredentialAndProductStatus(credential,status);
-		return products.stream().map(product -> ProductResponse.from(product, true)).toList();
+	List<CategoryResponse> findAllByCredentialAndStatus(UUID credential, ProductStatus status) {
+		List<Product> products = productRepository.findByCredentialAndProductStatus(credential, status);
+		return products.stream().map(product -> CategoryResponse.from(product, true)).toList();
 	}
 
 }
 
 @Repository
 interface ProductRepository extends CrudRepository<Product, UUID> {
+
 	Optional<Product> findById(UUID id);
+
 	Optional<Product> findByName(String name);
+
 	Optional<Product> findByIdAndCredential(UUID id, UUID credential);
+
 	List<Product> findByCredential(UUID credential);
-	List<Product> findByCredentialAndProductStatus( @Param("credential") UUID credential,@Param("productStatus") ProductStatus productStatus);
+
+	List<Product> findByCredentialAndProductStatus(@Param("credential") UUID credential, @Param("productStatus") ProductStatus productStatus);
+
 }
 
 @Table("products")
-record Product( @Id UUID id, @Version Integer version, String name, String description, LocalDateTime insertDate, LocalDateTime updateDate, BigDecimal price, ProductStatus productStatus, UUID credential) {
+record Product(@Id UUID id,
+			   @Version Integer version,
+			   String name,
+			   String description,
+			   LocalDateTime insertDate,
+			   LocalDateTime updateDate,
+			   BigDecimal price,
+			   ProductStatus productStatus,
+			   UUID credential) {
 
-	public static Product createNewProduct(AddProductRequest addProductRequest,UUID credential) {
+	public static Product createNewProduct(AddProductRequest addProductRequest, UUID credential) {
 		return new Product(
 				UUID.randomUUID(),
 				null,
@@ -210,11 +222,11 @@ record Product( @Id UUID id, @Version Integer version, String name, String descr
 				LocalDateTime.now(),
 				null,
 				new BigDecimal(addProductRequest.price().trim()),
-				ProductStatus.DISABLED,
+				ProductStatus.INACTIVE,
 				credential);
 	}
 
-	public static Product withProductStatus(Product product,UUID credential){
+	public static Product withProductStatusActivated(Product product, UUID credential) {
 		return new Product(
 				product.id,
 				product.version(),
@@ -223,7 +235,20 @@ record Product( @Id UUID id, @Version Integer version, String name, String descr
 				product.insertDate,
 				LocalDateTime.now(),
 				product.price,
-				ProductStatus.ENABLED,
+				ProductStatus.ACTIVE,
+				credential);
+	}
+
+	public static Product withProductStatusDeactivated(Product product, UUID credential) {
+		return new Product(
+				product.id,
+				product.version(),
+				product.name(),
+				product.description(),
+				product.insertDate,
+				LocalDateTime.now(),
+				product.price,
+				ProductStatus.INACTIVE,
 				credential);
 	}
 
@@ -233,8 +258,8 @@ enum ProductStatus {
 
 	IN_STOCK("IN_STOCK"),
 	OUT_OF_STUCK("OUT_OF_STUCK"),
-	DISABLED("DISABLED"),
-	ENABLED("ENABLED");
+	ACTIVE("ACTIVE"),
+	INACTIVE("INACTIVE");
 
 	final String status;
 
@@ -244,14 +269,27 @@ enum ProductStatus {
 
 }
 
-record AddProductRequest( @NotNull String name, @NotBlank String description, @NotNull String price) { }
+record AddProductRequest(@NotNull String name,
+						 @NotBlank String description,
+						 @NotNull String price) {
+}
 
-record UpdateProductRequest( @NotNull String name, @NotBlank String description, @NotNull String price) { }
+record UpdateProductRequest(@NotNull String name,
+							@NotBlank String description,
+							@NotNull String price) {
+}
 
-record ProductResponse(String id, String name, String description, LocalDateTime insertDate, LocalDateTime updateDate, String price, String productStatus, String credential) {
+record CategoryResponse(String id,
+						String name,
+						String description,
+						LocalDateTime insertDate,
+						LocalDateTime updateDate,
+						String price,
+						String productStatus,
+						String credential) {
 
-	public static ProductResponse from(Product product, boolean includeSensitive) {
-		return new ProductResponse(
+	public static CategoryResponse from(Product product, boolean includeSensitive) {
+		return new CategoryResponse(
 				includeSensitive ? product.id().toString() : null,
 				product.name(),
 				product.description(),
@@ -297,19 +335,20 @@ class RabbitMqProductsIntegrationConfig {
 	static final String PRODUCT_Q = "products";
 
 	@Bean
-	Binding productBinding(Queue productQueue, Exchange productExchange){
+	Binding productBinding(Queue productQueue, Exchange productExchange) {
 		return BindingBuilder.bind(productQueue).to(productExchange).with(PRODUCT_Q).noargs();
 	}
 
 	@Bean
-	Exchange productExchange(){
+	Exchange productExchange() {
 		return ExchangeBuilder.directExchange(PRODUCT_Q).build();
 	}
 
 	@Bean
-	Queue productQueue(){
+	Queue productQueue() {
 		return QueueBuilder.durable(PRODUCT_Q).build();
 	}
+
 }
 
 
