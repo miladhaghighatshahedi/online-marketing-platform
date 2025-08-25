@@ -1,0 +1,16 @@
+###
+POST http://localhost:8080/api/me/products/a912dd5f-39a0-445e-92ac-25b5f64b3683
+Content-Type: application/json
+
+{
+  "name": "test",
+  "description": "test",
+  "price": "5000000"
+}
+
+###
+GET http://localhost:8080/api/me/products
+
+###
+GET http://localhost:8080/api/me/products/5dd67631-810e-4c60-a706-f665affc93f1
+

@@ -1,6 +1,7 @@
 services:
   postgres:
     image: 'postgres:17.5'
+    container_name: postgres_omp
     environment:
       - 'POSTGRES_USER=user'
       - 'POSTGRES_PASSWORD=password'
@@ -11,11 +12,26 @@ services:
       - postgres-data:/var/lib/postgresql/data
   rabbitmq:
     image: 'rabbitmq:3.12.6-management'
+    container_name: rabbitmq_omp
     environment:
       - 'RABBITMQ_DEFAULT_USER=user'
       - 'RABBITMQ_DEFAULT_PASS=password'
     ports:
       - '5672:5672'
       - '15672:15672'
+  elasticsearch:
+    image: elasticsearch:9.1.2
+    container_name: elasticsearch_omp
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - 'ELASTICSEARCH_USERNAME=user'
+      - 'ELASTIC_PASSWORD=password'
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch-data:/var/lib/elasticsearch/data
 volumes:
   postgres-data:
+  elasticsearch-data:

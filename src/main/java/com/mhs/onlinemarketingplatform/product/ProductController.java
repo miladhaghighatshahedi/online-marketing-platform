@@ -15,17 +15,25 @@
  */
 package com.mhs.onlinemarketingplatform.product;
 
+import com.mhs.onlinemarketingplatform.catalog.CategoryApi;
+import com.mhs.onlinemarketingplatform.product.event.AddProductEvent;
+import com.mhs.onlinemarketingplatform.product.event.UpdateProductEvent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.amqp.core.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jdbc.repository.query.Modifying;
+import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.relational.core.mapping.Table;
-import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
@@ -47,50 +55,52 @@ import java.util.UUID;
 class ProductController {
 
 	private final ProductService productService;
-	private final static String CREDENTIAL = "26712732-813a-4b3b-8ecf-54e47e428160";
+	private final static String OWNER = "26712732-813a-4b3b-8ecf-54e47e428160";
 
-	public ProductController(ProductService productService) {
+	ProductController(ProductService productService) {
 		this.productService = productService;
 	}
 
-	@PostMapping("/api/products")
-	ResponseEntity<CategoryResponse> add(@RequestBody AddProductRequest addProductRequest) {
-		return ResponseEntity.ok(this.productService.add(addProductRequest, UUID.fromString(CREDENTIAL)));
+	@PostMapping("/api/me/products/{category}")
+	ResponseEntity<ProductResponse> addByOwner(@RequestBody AddProductRequest addProductRequest, @PathVariable("category") String category) {
+		return ResponseEntity.ok(this.productService.addByOwner(addProductRequest, UUID.fromString(OWNER),UUID.fromString(category)));
 	}
 
-	@GetMapping("/api/products")
-	ResponseEntity<List<CategoryResponse>> findAll() {
-		return ResponseEntity.ok(this.productService.findAllByCredential(UUID.fromString(CREDENTIAL)));
+	@GetMapping("/api/me/products")
+	ProductPagedResponse<ProductResponse> findAllByOwner(@PageableDefault(size = 20) Pageable pageable) {
+		return this.productService.findAllByOwner(UUID.fromString(OWNER), pageable);
 	}
 
-	@GetMapping(value = "/api/products", params = "name")
-	ResponseEntity<CategoryResponse> findByName(@RequestParam("name") String name) {
-		return ResponseEntity.ok(this.productService.findByName(name));
+	@GetMapping(value = "/api/me/products", params = "name")
+	ResponseEntity<ProductResponse> findByNameAndOwner(@RequestParam("name") String name) {
+		return ResponseEntity.ok(this.productService.findByNameAndOwner(name,UUID.fromString(OWNER)));
 	}
 
-	@GetMapping(value = "/api/products", params = "status")
-	public ResponseEntity<List<CategoryResponse>> findAllByStatus(@RequestParam("status") String status) {
-		return ResponseEntity.ok(this.productService.findAllByCredentialAndStatus(UUID.fromString(CREDENTIAL), ProductStatus.valueOf(status.trim().toUpperCase())));
+	@GetMapping(value = "/api/me/products", params = "status")
+	ProductPagedResponse<ProductResponse> findAllByStatusAndOwner(@RequestParam("status") String status, @PageableDefault(size = 20) Pageable pageable) {
+		return this.productService.findAllByProductStatusAndOwner(
+				ProductStatus.valueOf(status.trim().toUpperCase()),
+				UUID.fromString(OWNER),pageable);
 	}
 
-	@GetMapping("/api/products/{id}")
-	ResponseEntity<CategoryResponse> findById(@RequestBody @PathVariable("id") String id) {
-		return ResponseEntity.ok(this.productService.findById(UUID.fromString(id)));
+	@GetMapping("/api/me/products/{id}")
+	ResponseEntity<ProductResponse> findByIdAndOwner(@RequestBody @PathVariable("id") String id) {
+		return ResponseEntity.ok(this.productService.findByIdAndOwner(UUID.fromString(id),UUID.fromString(OWNER)));
 	}
 
-	@PutMapping("/api/products/{id}")
-	ResponseEntity<CategoryResponse> update(@RequestBody UpdateProductRequest updateProductRequest, @PathVariable("id") String id) {
-		return ResponseEntity.ok(this.productService.update(updateProductRequest, UUID.fromString(id), UUID.fromString(CREDENTIAL)));
+	@PutMapping("/api/me/products/{id}")
+	ResponseEntity<ProductResponse> updateByOwner(@RequestBody UpdateProductRequest updateProductRequest, @PathVariable("id") String id) {
+		return ResponseEntity.ok(this.productService.updateByIdAndOwner(updateProductRequest, UUID.fromString(id), UUID.fromString(OWNER)));
 	}
 
-	@PutMapping("/api/products/{id}/activate")
-	public ResponseEntity<CategoryResponse> activate(@PathVariable("id") String id) {
-		return ResponseEntity.ok(this.productService.activate(UUID.fromString(id), UUID.fromString(CREDENTIAL)));
+	@PutMapping("/api/me/products/{id}/activate")
+	ResponseEntity<ProductResponse> activateByIdAndOwner(@PathVariable("id") String id) {
+		return ResponseEntity.ok(this.productService.activateByOwner(UUID.fromString(id), UUID.fromString(OWNER)));
 	}
 
-	@PutMapping("/api/products/{id}/deactivate")
-	public ResponseEntity<CategoryResponse> deactivate(@PathVariable("id") String id) {
-		return ResponseEntity.ok(this.productService.deactivate(UUID.fromString(id), UUID.fromString(CREDENTIAL)));
+	@PutMapping("/api/me/products/{id}/deactivate")
+	ResponseEntity<ProductResponse> deactivateByIdAndOwner(@PathVariable("id") String id) {
+		return ResponseEntity.ok(this.productService.deactivateByOwner(UUID.fromString(id), UUID.fromString(OWNER)));
 	}
 
 }
@@ -100,166 +110,164 @@ class ProductController {
 class ProductService {
 
 	private final ProductRepository productRepository;
+	private final CategoryApi categoryApi;
+	private final ProductMapper mapper;
 	private final ApplicationEventPublisher publisher;
 
-	public ProductService(ProductRepository productRepository, ApplicationEventPublisher publisher) {
+	ProductService(ProductRepository productRepository, CategoryApi categoryApi, ProductMapper mapper, ApplicationEventPublisher publisher) {
 		this.productRepository = productRepository;
+		this.categoryApi = categoryApi;
+		this.mapper = mapper;
 		this.publisher = publisher;
 	}
 
-	CategoryResponse add(AddProductRequest addProductRequest, UUID credential) {
-		Product product = Product.createNewProduct(addProductRequest, credential);
-		Product storedProduct = productRepository.save(product);
-		this.publisher.publishEvent(new AddProductEvent(storedProduct.id()));
-		return CategoryResponse.from(storedProduct, true);
+	ProductResponse addByOwner(AddProductRequest addProductRequest, UUID owner, UUID categoryId) {
+		if(!this.categoryApi.existsById(categoryId)){
+			throw new CategoryNotFoundException("Category with id " + categoryId + "not found");
+		}
 
+		Product mappedProduct = this.mapper.mapAddRequestToProduct(addProductRequest,owner);
+		Product storedProduct = this.productRepository.save(mappedProduct);
+		this.productRepository.linkProductToCategory(storedProduct.id(),categoryId);
+
+		this.publisher.publishEvent(new AddProductEvent(storedProduct.id()));
+		return this.mapper.mapProductToResponse(storedProduct);
 	}
 
-	CategoryResponse activate(UUID productId, UUID credential) {
-		Product exisitngProduct = productRepository.findByIdAndCredential(productId, credential)
-				.orElseThrow(() -> new ProductNotFoundException("Product with id " + productId + " not found"));
+	ProductResponse activateByOwner(UUID id, UUID owner) {
+		Product exisitngProduct = this.productRepository.findByIdAndCredential(id, owner)
+				.orElseThrow(() -> new ProductNotFoundException("Product with id " + id + " not found"));
 
 		if (!exisitngProduct.productStatus().status.trim().equals("ACTIVE")) {
-			Product updatingProduct = Product.withProductStatusActivated(exisitngProduct, credential);
-			Product storedProduct = productRepository.save(updatingProduct);
-			publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
-			return CategoryResponse.from(storedProduct, true);
+			Product updatingProduct = Product.withProductStatusActivated(exisitngProduct, owner);
+			Product storedProduct = this.productRepository.save(updatingProduct);
+			this.publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
+			return this.mapper.mapProductToResponse(storedProduct);
 		}
 
-		throw new ProductAlreadyEnabledException("Product with name " + exisitngProduct.name() + " is already enabled");
+		throw new ProductAlreadyEnabledException("Product with name " + exisitngProduct.name() + " is already " + "enabled");
 	}
 
-	CategoryResponse deactivate(UUID productId, UUID credential) {
-		Product exisitngProduct = productRepository.findByIdAndCredential(productId, credential)
-				.orElseThrow(() -> new ProductNotFoundException("Product with id " + productId + " not found"));
+	ProductResponse deactivateByOwner(UUID id, UUID owner) {
+		Product exisitngProduct = this.productRepository.findByIdAndCredential(id, owner)
+				.orElseThrow(() -> new ProductNotFoundException("Product with id " + id + " not found"));
 
-		if (!exisitngProduct.productStatus().status.trim().equals("INACTIVE")) {
-			Product updatingProduct = Product.withProductStatusDeactivated(exisitngProduct, credential);
-			Product storedProduct = productRepository.save(updatingProduct);
-			publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
-			return CategoryResponse.from(storedProduct, true);
+		if (! exisitngProduct.productStatus().status.trim().equals("INACTIVE")) {
+			Product updatingProduct = Product.withProductStatusDeactivated(exisitngProduct, owner);
+			Product storedProduct = this.productRepository.save(updatingProduct);
+			this.publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
+			return this.mapper.mapProductToResponse(storedProduct);
 		}
 
-		throw new ProductAlreadyDisabledException("Product with name " + exisitngProduct.name() + " is already disabled");
+		throw new ProductAlreadyDisabledException("Product with name " + exisitngProduct.name() + " is already " + "disabled");
 	}
 
-	CategoryResponse update(UpdateProductRequest updateProductRequest, UUID productId, UUID credential) {
+	ProductResponse updateByIdAndOwner(UpdateProductRequest updateProductRequest, UUID id, UUID owner) {
+		Product exisitngProduct = this.productRepository.findByIdAndCredential(id, owner)
+				.orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + id));
 
-		Product product = productRepository.findByIdAndCredential(productId, credential)
-				.orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + productId));
-
-		Product newProduct = new Product(
-				product.id(),
-				product.version(),
-				updateProductRequest.name(),
-				updateProductRequest.description(),
-				product.insertDate(),
-				LocalDateTime.now(),
-				new BigDecimal(updateProductRequest.price().trim()),
-				ProductStatus.INACTIVE,
-				product.credential());
-
-		Product storedProduct = productRepository.save(newProduct);
+		Product mappedProduct = this.mapper.mapUpdateRequestToProduct(updateProductRequest, exisitngProduct);
+		Product storedProduct = this.productRepository.save(mappedProduct);
 		this.publisher.publishEvent(new UpdateProductEvent(storedProduct.id()));
-		return CategoryResponse.from(storedProduct, true);
+		return this.mapper.mapProductToResponse(storedProduct);
 	}
 
-	CategoryResponse findByName(String name) {
-		Product product = productRepository.findByName(name).orElseThrow(() -> new ProductNotFoundException("Product not found: " + name));
-		return CategoryResponse.from(product, true);
+	ProductResponse findByNameAndOwner(String name, UUID owner) {
+		Product product = this.productRepository.findByNameAndCredential(name, owner)
+				.orElseThrow(() -> new ProductNotFoundException("Product not found: " + name));
+		return this.mapper.mapProductToResponse(product);
 	}
 
-	CategoryResponse findById(UUID productId) {
-		Product product = productRepository.findById(productId)
-				.orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + productId));
-		return CategoryResponse.from(product, true);
+	ProductResponse findByIdAndOwner(UUID id, UUID owner) {
+		Product product = this.productRepository.findByIdAndCredential(id, owner)
+				.orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + id));
+		return this.mapper.mapProductToResponse(product);
 	}
 
-	List<CategoryResponse> findAllByCredential(UUID credential) {
-		List<Product> products = productRepository.findByCredential(credential);
-		return products.stream().map(product -> CategoryResponse.from(product, true)).toList();
+	ProductPagedResponse<ProductResponse> findAllByOwner(UUID owner, Pageable pageable) {
+		Page<Product> products = this.productRepository.findAllByCredential(owner, pageable);
+		return this.mapper.mapProductToPagedResponse(products);
 	}
 
-	List<CategoryResponse> findAllByCredentialAndStatus(UUID credential, ProductStatus status) {
-		List<Product> products = productRepository.findByCredentialAndProductStatus(credential, status);
-		return products.stream().map(product -> CategoryResponse.from(product, true)).toList();
+	ProductPagedResponse<ProductResponse> findAllByProductStatusAndOwner(ProductStatus status, UUID owner, Pageable pageable) {
+		Page<Product> products = this.productRepository.findAllByProductStatusAndCredential(status, owner, pageable);
+		return this.mapper.mapProductToPagedResponse(products);
 	}
 
 }
 
 @Repository
-interface ProductRepository extends CrudRepository<Product, UUID> {
-
-	Optional<Product> findById(UUID id);
-
-	Optional<Product> findByName(String name);
+interface ProductRepository extends ListCrudRepository<Product, UUID> {
 
 	Optional<Product> findByIdAndCredential(UUID id, UUID credential);
 
-	List<Product> findByCredential(UUID credential);
+	Optional<Product> findByNameAndCredential(String name, UUID credential);
 
-	List<Product> findByCredentialAndProductStatus(@Param("credential") UUID credential, @Param("productStatus") ProductStatus productStatus);
+	Page<Product> findAllByCredential(UUID credential, Pageable pageable);
+
+	Page<Product> findAllByProductStatusAndCredential(
+			@Param("productStatus") ProductStatus productStatus,
+			@Param("credential") UUID credential,
+			Pageable pageable);
+
+	@Modifying
+	@Query("INSERT INTO product_category(product,category) VALUES (:product,:category)")
+	void linkProductToCategory(@Param("product")UUID product,@Param("category") UUID category);
+
+	@Modifying
+	@Query("DELETE FROM product_category WHERE product= :product")
+	void unlinkAllCategories(@Param("product") UUID product);
 
 }
 
 @Table("products")
-record Product(@Id UUID id,
-			   @Version Integer version,
-			   String name,
-			   String description,
-			   LocalDateTime insertDate,
-			   LocalDateTime updateDate,
-			   BigDecimal price,
-			   ProductStatus productStatus,
-			   UUID credential) {
+record Product(
+		@Id UUID id,
+		@Version Integer version,
+		String name,
+		String description,
+		LocalDateTime insertedAt,
+		LocalDateTime updatedAt,
+		BigDecimal price,
+		ProductStatus productStatus,
+		UUID credential) {
 
-	public static Product createNewProduct(AddProductRequest addProductRequest, UUID credential) {
-		return new Product(
-				UUID.randomUUID(),
-				null,
-				addProductRequest.name(),
-				addProductRequest.description(),
-				LocalDateTime.now(),
-				null,
-				new BigDecimal(addProductRequest.price().trim()),
-				ProductStatus.INACTIVE,
-				credential);
-	}
-
-	public static Product withProductStatusActivated(Product product, UUID credential) {
+	static Product withProductStatusActivated(Product product, UUID owner) {
 		return new Product(
 				product.id,
 				product.version(),
 				product.name(),
 				product.description(),
-				product.insertDate,
+				product.insertedAt,
 				LocalDateTime.now(),
 				product.price,
 				ProductStatus.ACTIVE,
-				credential);
+				owner
+		);
 	}
 
-	public static Product withProductStatusDeactivated(Product product, UUID credential) {
+	static Product withProductStatusDeactivated(Product product, UUID owner) {
 		return new Product(
 				product.id,
 				product.version(),
 				product.name(),
 				product.description(),
-				product.insertDate,
+				product.insertedAt,
 				LocalDateTime.now(),
 				product.price,
 				ProductStatus.INACTIVE,
-				credential);
+				owner
+		);
 	}
 
 }
 
+@Table("product_category")
+record ProductCategory(UUID product, UUID catalog) {}
+
 enum ProductStatus {
 
-	IN_STOCK("IN_STOCK"),
-	OUT_OF_STUCK("OUT_OF_STUCK"),
-	ACTIVE("ACTIVE"),
-	INACTIVE("INACTIVE");
+	ACTIVE("ACTIVE"), INACTIVE("INACTIVE");
 
 	final String status;
 
@@ -269,86 +277,100 @@ enum ProductStatus {
 
 }
 
-record AddProductRequest(@NotNull String name,
-						 @NotBlank String description,
-						 @NotNull String price) {
-}
+record AddProductRequest(
+		@NotNull String name,
+		@NotBlank String description,
+		@NotNull String price) {}
 
-record UpdateProductRequest(@NotNull String name,
-							@NotBlank String description,
-							@NotNull String price) {
-}
+record UpdateProductRequest(
+		@NotNull String name,
+		@NotBlank String description,
+		@NotNull String price) {}
 
-record CategoryResponse(String id,
-						String name,
-						String description,
-						LocalDateTime insertDate,
-						LocalDateTime updateDate,
-						String price,
-						String productStatus,
-						String credential) {
+record ProductResponse(
+		String id,
+		String name,
+		String description,
+		LocalDateTime insertedAt,
+		LocalDateTime updateAt,
+		String price,
+		String productStatus,
+		String credential) {}
 
-	public static CategoryResponse from(Product product, boolean includeSensitive) {
-		return new CategoryResponse(
-				includeSensitive ? product.id().toString() : null,
-				product.name(),
-				product.description(),
-				product.insertDate(),
-				product.updateDate(),
-				String.valueOf(product.price()),
-				product.productStatus().toString(),
-				includeSensitive ? product.credential().toString() : null
-		);
+record ProductPagedResponse<T>(
+		List<T> content,
+		int page,
+		int size,
+		long totalElements,
+		int totalPages) {}
+
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+interface ProductMapper {
+
+	@Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
+	@Mapping(target = "version", ignore = true)
+	@Mapping(target = "insertedAt", expression = "java(java.time.LocalDateTime.now())")
+	@Mapping(target = "updatedAt", ignore = true)
+	@Mapping(target = "productStatus", constant = "INACTIVE")
+	@Mapping(target = "credential", source = "owner")
+	Product mapAddRequestToProduct(AddProductRequest addProductRequest,UUID owner);
+
+	default Product mapUpdateRequestToProduct(UpdateProductRequest updateProductRequest, Product product){
+		return new Product(
+				product.id(),
+				product.version(),
+				updateProductRequest.name(),
+				updateProductRequest.description(),
+				product.insertedAt(),
+				LocalDateTime.now(),
+				new BigDecimal(updateProductRequest.price()),
+				ProductStatus.INACTIVE,
+				product.credential());
+	}
+
+	@Mapping(target = "productStatus", source = "productStatus")
+	ProductResponse mapProductToResponse(Product product);
+
+	default ProductPagedResponse<ProductResponse> mapProductToPagedResponse(Page<Product> page) {
+		return new ProductPagedResponse<>(page.getContent().stream().map(this::mapProductToResponse).toList(), page.getNumber(),
+				page.getSize(), page.getTotalElements(), page.getTotalPages());
+	}
+
+	default String map(ProductStatus status) {
+		return status != null ? status.name() : null;
 	}
 
 }
 
-class ProductAlreadyExistsException extends RuntimeException {
-	public ProductAlreadyExistsException(String message) {
-		super(message);
-	}
-}
-
-class ProductNotFoundException extends RuntimeException {
-	public ProductNotFoundException(String message) {
+class ProductAlreadyDisabledException extends RuntimeException {
+	ProductAlreadyDisabledException(String message) {
 		super(message);
 	}
 }
 
 class ProductAlreadyEnabledException extends RuntimeException {
-	public ProductAlreadyEnabledException(String message) {
+	ProductAlreadyEnabledException(String message) {
 		super(message);
 	}
 }
 
-class ProductAlreadyDisabledException extends RuntimeException {
-	public ProductAlreadyDisabledException(String message) {
+class ProductAlreadyExistsException extends RuntimeException {
+	ProductAlreadyExistsException(String message) {
 		super(message);
 	}
 }
 
-// controller // service // repository // model // enum // dto // exception
-
-@Configuration
-class RabbitMqProductsIntegrationConfig {
-
-	static final String PRODUCT_Q = "products";
-
-	@Bean
-	Binding productBinding(Queue productQueue, Exchange productExchange) {
-		return BindingBuilder.bind(productQueue).to(productExchange).with(PRODUCT_Q).noargs();
+class ProductNotFoundException extends RuntimeException {
+	ProductNotFoundException(String message) {
+		super(message);
 	}
-
-	@Bean
-	Exchange productExchange() {
-		return ExchangeBuilder.directExchange(PRODUCT_Q).build();
-	}
-
-	@Bean
-	Queue productQueue() {
-		return QueueBuilder.durable(PRODUCT_Q).build();
-	}
-
 }
 
+class CategoryNotFoundException extends RuntimeException {
+	CategoryNotFoundException(String message) {
+		super(message);
+	}
+}
+
+// controller // service // repository // model // enum // dto // mapper // exception
 

@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.product;
+package com.mhs.onlinemarketingplatform.product.event;
 
+import com.mhs.onlinemarketingplatform.product.config.RabbitMqProductsIntegrationConfig;
 import org.springframework.modulith.events.Externalized;
 
 import java.util.UUID;
