@@ -1,0 +1,60 @@
+### add new catalog 1
+POST http://localhost:8080/api/catalogs
+Content-Type: application/json
+
+{
+  "name": "Computer Electronics",
+  "description": "a catalog which holds computer electronics",
+  "slug": "computer_electronic"
+}
+
+### add new catalog 1
+POST http://localhost:8080/api/catalogs
+Content-Type: application/json
+
+{
+  "name": "Grocery Items",
+  "description": "a catalog which holds grocery items",
+  "slug": "grocery_items"
+}
+
+### update existing catalog 1
+PUT http://localhost:8080/api/catalogs/f1bd6f58-bb37-4552-a539-fe3fe15ece06
+Content-Type: application/json
+
+{
+  "name": "Grocery Items",
+  "description": "a catalog which holds grocery items",
+  "slug": "grocery_items"
+}
+
+### get catalog with its id 1
+GET http://localhost:8080/api/catalogs/f1bd6f58-bb37-4552-a539-fe3fe15ece06
+Content-Type: application/json
+
+### get catalog with its name 1
+GET http://localhost:8080/api/catalogs?name=Computer%20Electronics
+Content-Type: application/json
+
+### get catalog with its slug 1
+GET http://localhost:8080/api/catalogs?slug=computer_electronic
+Content-Type: application/json
+
+### get all catalogs
+GET http://localhost:8080/api/catalogs
+Content-Type: application/json
+
+### delete by id
+DELETE http://localhost:8080/api/catalogs/c0c7caa6-cc95-4a65-9688-05706b11b986
+Content-Type: application/json
+
+### add test category
+POST http://localhost:8080/api/catalogs
+Content-Type: application/json
+
+{
+  "name": "test",
+  "description": "test",
+  "slug": "test_test"
+}
+

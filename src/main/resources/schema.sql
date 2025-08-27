@@ -19,8 +19,6 @@ create table if not exists profiles
     credential      uuid unique references credentials (id)
 );
 
-create index if not exists index_profiles_credential on products (credential);
-
 create table if not exists products
 (
     id             uuid primary key not null,
@@ -33,16 +31,6 @@ create table if not exists products
     product_status varchar(50)      not null,
     credential     uuid references credentials (id)
 );
-
-create index if not exists index_products_credential on products (credential);
-
-create table if not exists product_category
-(
-    product  uuid not null references products (id),
-    category uuid not null references categories (id),
-    primary key (product, category)
-);
-
 
 create table if not exists catalogs
 (
@@ -63,8 +51,17 @@ create table if not exists categories
     updated_at      timestamp,
     category_status varchar(50)         not null,
     slug            varchar(160) unique not null,
-    catalogs        uuid                not null REFERENCES catalogs (id)
+    category_id uuid references categories (id),
+    catalog_id  uuid not null REFERENCES catalogs (id)
 );
 
+create table if not exists product_category
+(
+    productId  uuid not null references products (id),
+    categoryId uuid not null references categories (id),
+    primary key (productId, categoryId)
+);
 
+create index if not exists index_profiles_credential on products (credential);
+create index if not exists index_products_credential on products (credential);
 
