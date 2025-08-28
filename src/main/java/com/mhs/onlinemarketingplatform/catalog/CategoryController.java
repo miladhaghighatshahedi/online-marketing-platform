@@ -56,19 +56,14 @@ class CategoryController {
         this.categoryService = categoryService;
     }
 
-    @PostMapping("/api/catalogs/{catalogId}/categories")
-    ResponseEntity<CategoryResponse> add(
-            @RequestBody AddCategoryRequest addCategoryRequest,
-            @PathVariable("catalogId") String catalogId) {
-        return ResponseEntity.ok(this.categoryService.add(addCategoryRequest,UUID.fromString(catalogId)));
+    @PostMapping("/api/categories")
+    ResponseEntity<CategoryResponse> add(@RequestBody AddCategoryRequest addCategoryRequest) {
+        return ResponseEntity.ok(this.categoryService.add(addCategoryRequest));
     }
 
-    @PutMapping("/api/catalogs/{catalogId}/categories/{id}")
-    ResponseEntity<CategoryResponse> update(
-            @RequestBody UpdateCategoryRequest updateCategoryRequest,
-            @PathVariable("catalogId") String catalogId,
-            @PathVariable("id") String id) {
-        return ResponseEntity.ok(this.categoryService.update(updateCategoryRequest,UUID.fromString(catalogId),UUID.fromString(id)));
+    @PutMapping("/api/categories/{id}")
+    ResponseEntity<CategoryResponse> update(@RequestBody UpdateCategoryRequest updateCategoryRequest, @PathVariable("id") String id) {
+        return ResponseEntity.ok(this.categoryService.update(updateCategoryRequest,UUID.fromString(id)));
     }
 
     @GetMapping("/api/categories/{id}")
@@ -102,8 +97,9 @@ class CategoryController {
     }
 
     @DeleteMapping("/api/categories/{id}")
-    CategoryPagedResponse<CategoryResponse> deleteById(@PageableDefault(size = 20) Pageable pageable, @PathVariable("id") String id) {
-        return this.categoryService.delete(pageable,UUID.fromString(id));
+    ResponseEntity<?> deleteById(@PathVariable("id") String id) {
+        this.categoryService.delete(UUID.fromString(id));
+        return ResponseEntity.noContent().build();
     }
 
 }
@@ -127,8 +123,10 @@ class CategoryService implements CategoryApi {
         this.publisher = publisher;
     }
 
-    CategoryResponse add(AddCategoryRequest addCategoryRequest, UUID catalogId) {
-        if(this.catalogService.existsById(catalogId)) {
+    CategoryResponse add(AddCategoryRequest addCategoryRequest) {
+        UUID catalogId = UUID.fromString(addCategoryRequest.catalogId());
+
+        if(!this.catalogService.existsById(catalogId)) {
             throw new CatalogNotFoundException("Catalog with id " + catalogId + " not found");
         }
 
@@ -138,7 +136,7 @@ class CategoryService implements CategoryApi {
             throw new CategoryAlreadyExistsException("Category with duplicate name or slug " + addCategoryRequest.name() + " " + addCategoryRequest.slug() + " already exists");
         }
 
-        Category mappedCategory = this.mapper.mapAddRequestToCategory(addCategoryRequest,catalogId);
+        Category mappedCategory = this.mapper.mapAddRequestToCategory(addCategoryRequest);
 
         Category storedCategory = this.categoryRepository.save(mappedCategory);
         this.publisher.publishEvent(new AddCategoryEvent(storedCategory.id()));
@@ -146,8 +144,10 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
-    CategoryResponse update(UpdateCategoryRequest updateCategoryRequest,UUID catalogId,UUID id) {
-        if(this.catalogService.existsById(catalogId)) {
+    CategoryResponse update(UpdateCategoryRequest updateCategoryRequest,UUID id) {
+        UUID catalogId = UUID.fromString(updateCategoryRequest.catalogId());
+
+        if(!this.catalogService.existsById(catalogId)) {
             throw new CatalogNotFoundException("Catalog with id " + catalogId + " not found");
         }
 
@@ -217,12 +217,11 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToPagedResponse(categories);
     }
 
-    CategoryPagedResponse<CategoryResponse> delete(Pageable pageable,UUID categoryId) {
+    void delete(UUID categoryId) {
         Category category = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new CategoryNotFoundException("Category with id " + categoryId + " not found"));
 
         this.categoryRepository.delete(category);
-        return findAll(pageable);
     }
 
     public boolean existsById(UUID categoryId){
@@ -305,12 +304,14 @@ enum CategoryStatus {
 record AddCategoryRequest(
         @NotNull String name,
         @NotBlank String description,
-        @NotNull String slug) {}
+        @NotNull String slug,
+        @NotNull String catalogId) {}
 
 record UpdateCategoryRequest(
         @NotNull String name,
         @NotBlank String description,
-        @NotNull String slug) {}
+        @NotNull String slug,
+        @NotNull String catalogId) {}
 
 record CategoryResponse(
         String id,
@@ -338,9 +339,8 @@ interface CategoryMapper {
     @Mapping(target = "categoryStatus", constant = "INACTIVE")
     @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "catalogId", source = "catalogId")
     @Mapping(target = "categoryId", ignore = true)
-    Category mapAddRequestToCategory(AddCategoryRequest addCategoryRequest,UUID catalogId);
+    Category mapAddRequestToCategory(AddCategoryRequest addCategoryRequest);
 
     default Category mapUpdateRequestToCategory(UpdateCategoryRequest request, Category category) {
         return new Category(
