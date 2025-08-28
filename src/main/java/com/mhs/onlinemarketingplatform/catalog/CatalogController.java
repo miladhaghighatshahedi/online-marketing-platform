@@ -59,9 +59,9 @@ class CatalogController {
 		return ResponseEntity.ok(this.catalogService.add(addCatalogRequest));
 	}
 
-	@PutMapping("/api/catalogs/{id}")
-	ResponseEntity<CatalogResponse> update(@RequestBody UpdateCatalogRequest updateCatalogRequest, @PathVariable("id") String id) {
-		return ResponseEntity.ok(this.catalogService.update(updateCatalogRequest,UUID.fromString(id)));
+	@PutMapping("/api/catalogs")
+	ResponseEntity<CatalogResponse> update(@RequestBody UpdateCatalogRequest updateCatalogRequest) {
+		return ResponseEntity.ok(this.catalogService.update(updateCatalogRequest));
 	}
 
 	@GetMapping("/api/catalogs/{id}")
@@ -121,7 +121,9 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
 	}
 
-	CatalogResponse update(UpdateCatalogRequest updateCatalogRequest,UUID id) {
+	CatalogResponse update(UpdateCatalogRequest updateCatalogRequest) {
+		UUID id = UUID.fromString(updateCatalogRequest.id());
+
 		Catalog exisitngCatalog = this.catalogRepository.findById(id)
 				.orElseThrow(() -> new CatalogNotFoundException("Catalog with id " + id + " not found"));
 
@@ -209,6 +211,7 @@ record AddCatalogRequest(
 		@NotNull String slug) {}
 
 record UpdateCatalogRequest(
+		@NotNull String id,
 		@NotNull String name,
 		@NotNull String description,
 		@NotNull String slug) {}

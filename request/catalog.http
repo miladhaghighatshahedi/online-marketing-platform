@@ -19,10 +19,11 @@ Content-Type: application/json
 }
 
 ### update existing catalog 1
-PUT http://localhost:8080/api/catalogs/f1bd6f58-bb37-4552-a539-fe3fe15ece06
+PUT http://localhost:8080/api/catalogs
 Content-Type: application/json
 
 {
+  "id": "f1bd6f58-bb37-4552-a539-fe3fe15ece06",
   "name": "Grocery Items",
   "description": "a catalog which holds grocery items",
   "slug": "grocery_items"

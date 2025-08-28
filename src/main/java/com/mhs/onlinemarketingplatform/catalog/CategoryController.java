@@ -61,9 +61,9 @@ class CategoryController {
         return ResponseEntity.ok(this.categoryService.add(addCategoryRequest));
     }
 
-    @PutMapping("/api/categories/{id}")
-    ResponseEntity<CategoryResponse> update(@RequestBody UpdateCategoryRequest updateCategoryRequest, @PathVariable("id") String id) {
-        return ResponseEntity.ok(this.categoryService.update(updateCategoryRequest,UUID.fromString(id)));
+    @PutMapping("/api/categories")
+    ResponseEntity<CategoryResponse> update(@RequestBody UpdateCategoryRequest updateCategoryRequest) {
+        return ResponseEntity.ok(this.categoryService.update(updateCategoryRequest));
     }
 
     @GetMapping("/api/categories/{id}")
@@ -100,6 +100,11 @@ class CategoryController {
     ResponseEntity<?> deleteById(@PathVariable("id") String id) {
         this.categoryService.delete(UUID.fromString(id));
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/api/categories/{parentId}/sub-category")
+    ResponseEntity<CategoryResponse> addSubCategory(@RequestBody AddChildCategoryRequest addChildCategoryRequest,@PathVariable("parentId") String parentId) {
+        return ResponseEntity.ok(this.categoryService.addChildCategory(addChildCategoryRequest,UUID.fromString(parentId)));
     }
 
 }
@@ -144,8 +149,9 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
-    CategoryResponse update(UpdateCategoryRequest updateCategoryRequest,UUID id) {
+    CategoryResponse update(UpdateCategoryRequest updateCategoryRequest) {
         UUID catalogId = UUID.fromString(updateCategoryRequest.catalogId());
+        UUID id = UUID.fromString(updateCategoryRequest.id());
 
         if(!this.catalogService.existsById(catalogId)) {
             throw new CatalogNotFoundException("Catalog with id " + catalogId + " not found");
@@ -159,6 +165,10 @@ class CategoryService implements CategoryApi {
 
         Category existingCategory = this.categoryRepository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException("Category with id " + id + " not found"));
+
+        if(!existingCategory.catalogId().equals(catalogId)){
+            throw new CategoryNotBelongToCatalog("Category with id " + id + " does not belong to this catalog");
+        }
 
         Category mappedCategory = this.mapper.mapUpdateRequestToCategory(updateCategoryRequest,existingCategory);
         Category storedCategory = this.categoryRepository.save(mappedCategory);
@@ -222,6 +232,32 @@ class CategoryService implements CategoryApi {
                 .orElseThrow(() -> new CategoryNotFoundException("Category with id " + categoryId + " not found"));
 
         this.categoryRepository.delete(category);
+    }
+
+    CategoryResponse addChildCategory(AddChildCategoryRequest addChildCategoryRequest, UUID parentId) {
+        UUID catalogId = UUID.fromString(addChildCategoryRequest.catalogId());
+
+        if(!this.catalogService.existsById(catalogId)) {
+            throw new CatalogNotFoundException("Catalog with id " + catalogId + " not found");
+        }
+
+        boolean existsByName = this.categoryRepository.existsByName(addChildCategoryRequest.name());
+        boolean existsBySlug = this.categoryRepository.existsBySlug(addChildCategoryRequest.slug());
+        if(existsByName || existsBySlug) {
+            throw new CategoryAlreadyExistsException("Category with duplicate name or slug " + addChildCategoryRequest.name() + " " + addChildCategoryRequest.slug() + " already exists");
+        }
+
+        Category existingCategory = this.categoryRepository.findById(parentId)
+                .orElseThrow(() -> new CategoryNotFoundException("Category with id " + parentId + " not found"));
+
+        if(!existingCategory.catalogId().equals(catalogId)){
+            throw new CategoryNotBelongToCatalog("Category with id " + parentId + " does not belong to this catalog");
+        }
+
+        Category mappedCategory = this.mapper.mapAddChildRequestYoCategory(addChildCategoryRequest,parentId);
+
+        Category storedChildCategory = this.categoryRepository.save(mappedCategory);
+        return this.mapper.mapCategoryToResponse(storedChildCategory);
     }
 
     public boolean existsById(UUID categoryId){
@@ -307,7 +343,14 @@ record AddCategoryRequest(
         @NotNull String slug,
         @NotNull String catalogId) {}
 
+record AddChildCategoryRequest(
+        @NotNull String name,
+        @NotBlank String description,
+        @NotNull String slug,
+        @NotNull String catalogId) {}
+
 record UpdateCategoryRequest(
+        @NotNull String id,
         @NotNull String name,
         @NotBlank String description,
         @NotNull String slug,
@@ -341,6 +384,13 @@ interface CategoryMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "categoryId", ignore = true)
     Category mapAddRequestToCategory(AddCategoryRequest addCategoryRequest);
+
+    @Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "categoryStatus", constant = "INACTIVE")
+    @Mapping(target = "categoryId", source = "parentId")
+    Category mapAddChildRequestYoCategory(AddChildCategoryRequest AddChildCategoryRequest,UUID parentId);
 
     default Category mapUpdateRequestToCategory(UpdateCategoryRequest request, Category category) {
         return new Category(
@@ -394,6 +444,12 @@ class CategoryAlreadyDeactivatedException extends RuntimeException {
 
 class CategoryAlreadyExistsException extends RuntimeException {
     CategoryAlreadyExistsException(String message) {
+        super(message);
+    }
+}
+
+class CategoryNotBelongToCatalog extends RuntimeException {
+    public CategoryNotBelongToCatalog(String message) {
         super(message);
     }
 }

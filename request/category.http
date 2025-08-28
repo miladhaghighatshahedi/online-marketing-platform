@@ -21,13 +21,14 @@ Content-Type: application/json
 }
 
 ### update existing category with its id and it catalogId
-PUT http://localhost:8080/api/categories/d5140e12-8d24-41bc-bb87-9ff3d359f7f7
+PUT http://localhost:8080/api/categories
 Content-Type: application/json
 
 {
-  "name": "Vegetable Items",
+  "id": "d5140e12-8d24-41bc-bb87-9ff3d359f7f7",
+  "name": "Vegetable Items updated",
   "description": "a category which holds desktop computers which belongs to Grocery catalog",
-  "slug": "vegetable_items",
+  "slug": "vegetable_items_updated",
   "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
 }
 
@@ -51,7 +52,7 @@ Content-Type: application/json
 DELETE http://localhost:8080/api/categories/2f35b174-3425-421b-aec1-ffbb38f3dd31
 Content-Type: application/json
 
-### add test category
+### add parent test category
 POST http://localhost:8080/api/categories
 Content-Type: application/json
 
@@ -62,3 +63,13 @@ Content-Type: application/json
   "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
 }
 
+### add child category 1
+POST http://localhost:8080/api/categories/d5140e12-8d24-41bc-bb87-9ff3d359f7f7/sub-category
+Content-Type: application/json
+
+{
+  "name": "subcategory",
+  "description": "subcategory",
+  "slug": "subcategory",
+  "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
+}
