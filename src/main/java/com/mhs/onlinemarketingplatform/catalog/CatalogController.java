@@ -85,8 +85,9 @@ class CatalogController {
 	}
 
 	@DeleteMapping("/api/catalogs/{id}")
-	CatalogPagedResponse<CatalogResponse> deleteById(@PageableDefault(size = 20) Pageable pageable,@PathVariable("id") String id) {
-		return this.catalogService.delete(pageable,UUID.fromString(id));
+	ResponseEntity<?> deleteById(@PathVariable("id") String id) {
+		this.catalogService.delete(UUID.fromString(id));
+		return ResponseEntity.noContent().build();
 	}
 
 }
@@ -164,12 +165,11 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToPagedResponse(catalogs);
 	}
 
-	CatalogPagedResponse<CatalogResponse> delete(Pageable pageable,UUID id) {
+	void delete(UUID id) {
 		Catalog catalog = this.catalogRepository.findById(id)
 				.orElseThrow(() -> new SlugNotFoundException("Catalog with id " + id + " not found"));
 
 		this.catalogRepository.delete(catalog);
-		return findAll(pageable);
 	}
 
 	boolean existsById(UUID id) {
