@@ -87,7 +87,7 @@ class CategoryController {
     }
 
     @PutMapping("/api/categories/{id}/deactivate")
-     ResponseEntity<CategoryResponse> inactive(@PathVariable("id") String id) {
+    ResponseEntity<CategoryResponse> inactive(@PathVariable("id") String id) {
         return ResponseEntity.ok(this.categoryService.deactivate(UUID.fromString(id)));
     }
 
@@ -96,15 +96,30 @@ class CategoryController {
         return this.categoryService.findAll(pageable);
     }
 
-    @DeleteMapping("/api/categories/{id}")
-    ResponseEntity<?> deleteById(@PathVariable("id") String id) {
-        this.categoryService.delete(UUID.fromString(id));
+    @GetMapping("/api/categories/top-category")
+    CategoryPagedResponse<CategoryResponse> findAllTopCategories(@PageableDefault(size = 20) Pageable pageable) {
+        return this.categoryService.findAllTopCategories(pageable);
+    }
+
+    @GetMapping("/api/categories/sub-category/{id}")
+    CategoryPagedResponse<CategoryResponse> findAllSubCategories(@PageableDefault(size = 20) Pageable pageable,@PathVariable("id") String id) {
+        return this.categoryService.findSubCategories(pageable, UUID.fromString(id));
+    }
+
+    @DeleteMapping(value = {"/api/categories/{id}","/api/categories/sub-category/{id}"})
+    ResponseEntity<?> deleteParentById(@PathVariable("id") String id) {
+        this.categoryService.deleteParent(UUID.fromString(id));
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/api/categories/{parentId}/sub-category")
-    ResponseEntity<CategoryResponse> addSubCategory(@RequestBody AddChildCategoryRequest addChildCategoryRequest,@PathVariable("parentId") String parentId) {
-        return ResponseEntity.ok(this.categoryService.addChildCategory(addChildCategoryRequest,UUID.fromString(parentId)));
+    @PostMapping("/api/categories/sub-category")
+    ResponseEntity<CategoryResponse> addSubCategory(@RequestBody AddChildCategoryRequest addChildCategoryRequest) {
+        return ResponseEntity.ok(this.categoryService.addChildCategory(addChildCategoryRequest));
+    }
+
+    @PutMapping("/api/categories/sub-category")
+    ResponseEntity<CategoryResponse> updateSubCategory(@RequestBody UpdateChildCategoryRequest updateChildCategoryRequest) {
+        return ResponseEntity.ok(this.categoryService.updateChildCategory(updateChildCategoryRequest));
     }
 
 }
@@ -172,7 +187,7 @@ class CategoryService implements CategoryApi {
 
         Category mappedCategory = this.mapper.mapUpdateRequestToCategory(updateCategoryRequest,existingCategory);
         Category storedCategory = this.categoryRepository.save(mappedCategory);
-        this.publisher.publishEvent(new AddCategoryEvent(storedCategory.id()));
+        this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
         return this.mapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
@@ -227,15 +242,26 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToPagedResponse(categories);
     }
 
-    void delete(UUID categoryId) {
+    CategoryPagedResponse<CategoryResponse> findAllTopCategories(Pageable pageable) {
+        Page<Category> categories = this.categoryRepository.findAllByCategoryIdNull(pageable);
+        return this.mapper.mapCategoryToPagedResponse(categories);
+    }
+
+    CategoryPagedResponse<CategoryResponse> findSubCategories(Pageable pageable,UUID id) {
+        Page<Category> categories = this.categoryRepository.findByCategoryId(pageable, id);
+        return this.mapper.mapCategoryToPagedResponse(categories);
+    }
+
+    void deleteParent(UUID categoryId) {
         Category category = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new CategoryNotFoundException("Category with id " + categoryId + " not found"));
 
         this.categoryRepository.delete(category);
     }
 
-    CategoryResponse addChildCategory(AddChildCategoryRequest addChildCategoryRequest, UUID parentId) {
+    CategoryResponse addChildCategory(AddChildCategoryRequest addChildCategoryRequest) {
         UUID catalogId = UUID.fromString(addChildCategoryRequest.catalogId());
+        UUID parentId = UUID.fromString(addChildCategoryRequest.categoryId());
 
         if(!this.catalogService.existsById(catalogId)) {
             throw new CatalogNotFoundException("Catalog with id " + catalogId + " not found");
@@ -244,7 +270,10 @@ class CategoryService implements CategoryApi {
         boolean existsByName = this.categoryRepository.existsByName(addChildCategoryRequest.name());
         boolean existsBySlug = this.categoryRepository.existsBySlug(addChildCategoryRequest.slug());
         if(existsByName || existsBySlug) {
-            throw new CategoryAlreadyExistsException("Category with duplicate name or slug " + addChildCategoryRequest.name() + " " + addChildCategoryRequest.slug() + " already exists");
+            throw new CategoryAlreadyExistsException(
+                    String.format("Category with duplicate name %s or slug %s already exists",
+                            addChildCategoryRequest.name(),
+                            addChildCategoryRequest.slug()));
         }
 
         Category existingCategory = this.categoryRepository.findById(parentId)
@@ -254,15 +283,52 @@ class CategoryService implements CategoryApi {
             throw new CategoryNotBelongToCatalog("Category with id " + parentId + " does not belong to this catalog");
         }
 
-        Category mappedCategory = this.mapper.mapAddChildRequestYoCategory(addChildCategoryRequest,parentId);
+        Category mappedCategory = this.mapper.mapAddChildRequestYoCategory(addChildCategoryRequest);
 
         Category storedChildCategory = this.categoryRepository.save(mappedCategory);
+        this.publisher.publishEvent(new AddCategoryEvent(storedChildCategory.id()));
+        return this.mapper.mapCategoryToResponse(storedChildCategory);
+    }
+
+    CategoryResponse updateChildCategory(UpdateChildCategoryRequest updateChildCategoryRequest){
+        UUID catalogId = UUID.fromString(updateChildCategoryRequest.catalogId());
+        UUID parentId = UUID.fromString(updateChildCategoryRequest.categoryId());
+        UUID id = UUID.fromString(updateChildCategoryRequest.id());
+
+        if(!this.catalogService.existsById(catalogId)) {
+            throw new CatalogNotFoundException("Catalog with id " + catalogId + " not found");
+        }
+
+        boolean existsByName = this.categoryRepository.existsByName(updateChildCategoryRequest.name());
+        boolean existsBySlug = this.categoryRepository.existsBySlug(updateChildCategoryRequest.slug());
+        if(existsByName || existsBySlug) {
+            throw new CategoryAlreadyExistsException(
+                    String.format("Category with duplicate name %s or slug %s already exists",
+                            updateChildCategoryRequest.name(),
+                            updateChildCategoryRequest.slug()));
+        }
+
+        Category existingParentCategory = this.categoryRepository.findById(parentId)
+                .orElseThrow(() -> new CategoryNotFoundException("Category with id " + parentId + " not found"));
+
+        if(!existingParentCategory.catalogId().equals(catalogId)){
+            throw new CategoryNotBelongToCatalog("Category with id " + parentId + " does not belong to this catalog");
+        }
+
+        Category existingChildCategory = this.categoryRepository.findById(id)
+                .orElseThrow(() -> new CategoryNotFoundException("Category with id " + id + " not found"));
+
+        Category mappedCategory = this.mapper.mapUpdateChildRequestYoCategory(updateChildCategoryRequest,existingChildCategory);
+
+        Category storedChildCategory = this.categoryRepository.save(mappedCategory);
+        this.publisher.publishEvent(new UpdateCategoryEvent(storedChildCategory.id()));
         return this.mapper.mapCategoryToResponse(storedChildCategory);
     }
 
     public boolean existsById(UUID categoryId){
         return this.categoryRepository.existsById(categoryId);
     }
+
 }
 
 @Repository("categoryRepository")
@@ -275,6 +341,10 @@ interface CategoryRepository extends ListCrudRepository<Category, UUID> {
     Optional<Category> findBySlug(String slug);
 
     Page<Category> findAll(Pageable pageable);
+
+    Page<Category> findAllByCategoryIdNull(Pageable pageable);
+
+    Page<Category> findByCategoryId(Pageable pageable,UUID id);
 
     boolean existsByName(@Param("name") String name);
 
@@ -328,7 +398,8 @@ record Category(
 
 enum CategoryStatus {
 
-    ACTIVE("ACTIVE"), INACTIVE("INACTIVE");
+    ACTIVE("ACTIVE"),
+    INACTIVE("INACTIVE");
 
     final String status;
 
@@ -347,6 +418,15 @@ record AddChildCategoryRequest(
         @NotNull String name,
         @NotBlank String description,
         @NotNull String slug,
+        @NotNull String categoryId,
+        @NotNull String catalogId) {}
+
+record UpdateChildCategoryRequest(
+        @NotNull String id,
+        @NotNull String name,
+        @NotBlank String description,
+        @NotNull String slug,
+        @NotNull String categoryId,
         @NotNull String catalogId) {}
 
 record UpdateCategoryRequest(
@@ -389,10 +469,23 @@ interface CategoryMapper {
     @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "categoryStatus", constant = "INACTIVE")
-    @Mapping(target = "categoryId", source = "parentId")
-    Category mapAddChildRequestYoCategory(AddChildCategoryRequest AddChildCategoryRequest,UUID parentId);
+    Category mapAddChildRequestYoCategory(AddChildCategoryRequest AddChildCategoryRequest);
 
-    default Category mapUpdateRequestToCategory(UpdateCategoryRequest request, Category category) {
+    default Category mapUpdateRequestToCategory(UpdateCategoryRequest request,Category category) {
+        return new Category(
+                category.id(),
+                category.version(),
+                request.name() != null ? request.name() :category.name(),
+                request.description() != null ? request.description() :category.description(),
+                category.createdAt(),
+                LocalDateTime.now(),
+                CategoryStatus.INACTIVE,
+                request.slug() != null ? request.slug() :category.slug(),
+                category.categoryId(),
+                category.catalogId());
+    }
+
+    default Category mapUpdateChildRequestYoCategory(UpdateChildCategoryRequest request,Category category) {
         return new Category(
                 category.id(),
                 category.version(),
