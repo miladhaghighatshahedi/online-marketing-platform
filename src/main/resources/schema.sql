@@ -51,8 +51,15 @@ create table if not exists categories
     updated_at      timestamp,
     category_status varchar(50)         not null,
     slug            varchar(160) unique not null,
-    category_id uuid references categories (id),
-    catalog_id  uuid not null REFERENCES catalogs (id)
+    catalog_id      uuid                not null REFERENCES catalogs (id)
+);
+
+create table if not exists category_closure
+(
+    parent_id uuid             not null references categories (id),
+    child_id  uuid             not null references categories (id),
+    depth     integer          not null,
+    primary key (parent_id,child_id)
 );
 
 create table if not exists product_category
@@ -64,4 +71,4 @@ create table if not exists product_category
 
 create index if not exists index_profiles_credential on products (credential);
 create index if not exists index_products_credential on products (credential);
-
+create index if not exists index_category_closure_parent_child ON category_closure(parent_id, child_id);

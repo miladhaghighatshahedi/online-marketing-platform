@@ -1,99 +1,149 @@
-### add a new category to a catalog 1
+@catalogId_computer_electronics = "59501b01-64c4-4f4b-a817-9b4915c22715"
+@catalogId_grocery_items = "f1bd6f58-bb37-4552-a539-fe3fe15ece06"
+@categoryId_computer_electronics_root = "3ec82e85-da8c-4126-be36-aa4b1b157258"
+
+
+@category_uri = 3d009975-4a7d-4b99-ac2a-ba6b653a6d6a
+@categoryId_computer_electronics_root_uri = 3ec82e85-da8c-4126-be36-aa4b1b157258
+@categoryId_category_with_ancestor_uri = 400c31b1-12bc-42d8-bdb0-02e22bdcd560
+@categoryId_category_without_ancestor_uri = 78710ae4-cb8d-4756-a403-faa7794ce511
+@categoryId_category_with_descendants_uri = 3ec82e85-da8c-4126-be36-aa4b1b157258
+@categoryId_category_without_descendants_uri = 400c31b1-12bc-42d8-bdb0-02e22bdcd560
+
+
+### add a root category to a catalog
 POST http://localhost:8080/api/categories
 Content-Type: application/json
 
 {
   "name": "Desktop Computer",
-  "description": "a category which holds desktop computers which belongs to electronics catalog",
+  "description": "a category that holds desktop computers and belongs to electronics catalog",
   "slug": "desktop_computer",
-  "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
+  "catalogId": {{@catalogId_computer_electronics}}
 }
 
-### add a new category to a catalog 2
+### add a root category to a catalog
 POST http://localhost:8080/api/categories
 Content-Type: application/json
 
 {
   "name": "Vegetable Items",
-  "description": "a category which holds desktop computers which belongs to Grocery  catalog",
+  "description": "a category that holds desktop computers and belongs to Grocery catalog",
   "slug": "vegetable_items",
-  "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
+  "catalogId": {{catalogId_grocery_items}}
 }
 
-### update an existing category with its id and it catalogId
+### add a descendant category to a root 1
+POST http://localhost:8080/api/categories/descendants
+Content-Type: application/json
+
+{
+  "name": "ram",
+  "description": "a category that holds ram and belongs to Desktop Computer",
+  "slug": "ram",
+  "parentId" : {{categoryId_computer_electronics_root}},
+  "catalogId": {{catalogId_computer_electronics}}
+}
+
+### add a descendant category to a parent 2
+POST http://localhost:8080/api/categories/descendants
+Content-Type: application/json
+
+{
+  "name": "cpu",
+  "description": "a category that holds cpu and belongs to Desktop Computer",
+  "slug": "cpu",
+  "parentId" : {{categoryId_computer_electronics_root}},
+  "catalogId": {{catalogId_computer_electronics}}
+}
+
+### add a descendant category to a parent 3
+POST http://localhost:8080/api/categories/descendants
+Content-Type: application/json
+
+{
+  "name": "hdd",
+  "description": "a category that holds hdd and belongs to Desktop Computer",
+  "slug": "hdd",
+  "parentId" : {{categoryId_computer_electronics_root}},
+  "catalogId": {{catalogId_computer_electronics}}
+}
+
+### update a root category
 PUT http://localhost:8080/api/categories
 Content-Type: application/json
 
 {
-  "id": "d5140e12-8d24-41bc-bb87-9ff3d359f7f7",
-  "name": "Vegetable Items updated",
-  "description": "a category which holds desktop computers which belongs to Grocery catalog",
-  "slug": "vegetable_items_updated",
+  "id": "35980f98-5355-43c9-973e-3d4e59e4acf2",
+  "name": "Vegetable Items",
+  "description": "a category that holds desktop computers and belongs to Grocery catalog",
+  "slug": "vegetable_items",
   "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
 }
 
 ### get a category by its id
-GET http://localhost:8080/api/categories/d5140e12-8d24-41bc-bb87-9ff3d359f7f7
+GET http://localhost:8080/api/categories/{{category_uri}}
 Content-Type: application/json
 
 ### get a category by its name
-GET http://localhost:8080/api/categories?name=Vegetable%20Items
+GET http://localhost:8080/api/categories?name=ram
 Content-Type: application/json
 
 ### get a category by its slug
-GET http://localhost:8080/api/categories?slug=vegetable_items
+GET http://localhost:8080/api/categories?slug=ram
 Content-Type: application/json
 
+### activate a category
+PUT http://localhost:8080/api/categories/{{categoryId_computer_electronics_root_uri}}/activate
+Content-Type: application/json
 
+### deactivate a category
+PUT http://localhost:8080/api/categories/{{categoryId_computer_electronics_root_uri}}/deactivate
+Content-Type: application/json
 
 ### get all categories
 GET http://localhost:8080/api/categories
 Content-Type: application/json
 
-### get all parent categories
-GET http://localhost:8080/api/categories/top-category
+### get all ancestors categories
+GET http://localhost:8080/api/categories/ancestors/{{categoryId_category_without_ancestor_uri}}
 Content-Type: application/json
 
-### get all child categories
-GET http://localhost:8080/api/categories/sub-category/d5140e12-8d24-41bc-bb87-9ff3d359f7f7
+### get all descendants categories
+GET http://localhost:8080/api/categories/descendants/{{categoryId_category_without_descendants_uri}}
 Content-Type: application/json
 
-
-
-### delete a parent category by id
-DELETE http://localhost:8080/api/categories/2f35b174-3425-421b-aec1-ffbb38f3dd31
-Content-Type: application/json
-
-
-
-### add a child category
-POST http://localhost:8080/api/categories/sub-category
+### activate or deactivate without versioning (ACTIVE || INACTIVE)
+PUT http://localhost:8080/api/categories/{{categoryId_computer_electronics_root_uri}}
 Content-Type: application/json
 
 {
-  "name": "xxx",
-  "description": "xxx",
-  "slug": "xxx",
-  "categoryId": "d5140e12-8d24-41bc-bb87-9ff3d359f7f7",
-  "catalogId": "f1bd6f58-bb37-4552-a539-fe3fe15ece06"
+  "categoryStatus" : "ACTIVE"
 }
 
-### update a child category
-PUT http://localhost:8080/api/categories/sub-category
+### activate or deactivate with versioning (ACTIVE || INACTIVE)
+PUT http://localhost:8080/api/categories/{{categoryId_computer_electronics_root_uri}}/versioned
 Content-Type: application/json
 
 {
-  "id": "cc7d1fff-bb17-4355-9783-b03b29dc9d8b",
-  "name": "xx",
-  "description": "xx",
-  "slug": "xx",
-  "categoryId": "d5140e12-8d24-41bc-bb87-9ff3d359f7f7",
-  "catalogId": "f1bd6f58-bb37-4552-a539-fe3fe15ece06"
+  "categoryStatus" : "INACTIVE"
 }
 
-### delete a child category
-DELETE http://localhost:8080/api/categories/sub-category/e9dfd936-57cd-4f0e-9b11-418ba2b03987
+
+
+### add a child category to a parent (test)
+POST http://localhost:8080/api/categories/descendants
 Content-Type: application/json
 
+{
+  "name": "test",
+  "description": "test",
+  "slug": "test",
+  "parentId" : {{categoryId_computer_electronics_root}},
+  "catalogId": {{catalogId_computer_electronics}}
+}
 
+### remove a child category with no descendants
+DELETE http://localhost:8080/api/categories/5a84aa6f-fdb4-4dbd-ae11-c67adfcf0c90
+Content-Type: application/json
 
