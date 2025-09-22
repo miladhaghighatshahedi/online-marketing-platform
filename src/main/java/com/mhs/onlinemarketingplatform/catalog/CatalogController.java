@@ -22,10 +22,13 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -37,9 +40,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
 
 /**
  * @author Milad Haghighat Shahedi
@@ -65,8 +67,8 @@ class CatalogController {
 	}
 
 	@GetMapping("/api/catalogs/{id}")
-	ResponseEntity<CatalogResponse> findById(@PathVariable("id") String id) {
-		return ResponseEntity.ok(this.catalogService.findById(UUID.fromString(id)));
+	ResponseEntity<CatalogResponse> findById(@PathVariable("id") UUID id) {
+		return ResponseEntity.ok(this.catalogService.findById(id));
 	}
 
 	@GetMapping(value = "/api/catalogs",params = "name")
@@ -85,8 +87,8 @@ class CatalogController {
 	}
 
 	@DeleteMapping("/api/catalogs/{id}")
-	ResponseEntity<?> deleteById(@PathVariable("id") String id) {
-		this.catalogService.delete(UUID.fromString(id));
+	ResponseEntity<?> deleteById(@PathVariable("id") UUID id) {
+		this.catalogService.delete(id);
 		return ResponseEntity.noContent().build();
 	}
 
@@ -99,11 +101,17 @@ class CatalogService {
 	private final CatalogRepository catalogRepository;
 	private final CatalogMapper catalogMapper;
 	private final ApplicationEventPublisher publisher;
+	private final MessageSource messageSource;
 
-	public CatalogService(CatalogRepository catalogRepository, CatalogMapper catalogMapper, ApplicationEventPublisher publisher) {
+	public CatalogService(
+			CatalogRepository catalogRepository,
+			CatalogMapper catalogMapper,
+			ApplicationEventPublisher publisher,
+			MessageSource messageSource) {
 		this.catalogRepository = catalogRepository;
 		this.catalogMapper = catalogMapper;
 		this.publisher = publisher;
+		this.messageSource = messageSource;
 	}
 
 	CatalogResponse add(AddCatalogRequest addCatalogRequest) {
@@ -112,8 +120,11 @@ class CatalogService {
 
 		if(existsByName || existsBySlug) {
 			throw new CatalogAlreadyExistsException(
-					String.format("Catalog with duplicate name %s or slug %s already exists",addCatalogRequest.name(),addCatalogRequest.slug()));
-		}
+					messageSource.getMessage("error.catalog.catalog.already.exists",
+							new Object[]{addCatalogRequest.name(),
+									     addCatalogRequest.slug()},
+							             LocaleContextHolder.getLocale()),
+					                     CatalogErrorCode.CATALOG_ALREADY_EXISTS);}
 
 		Catalog mappedCatalog = this.catalogMapper.mapAddRequestToCatalog(addCatalogRequest);
 		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
@@ -125,14 +136,22 @@ class CatalogService {
 		UUID id = UUID.fromString(updateCatalogRequest.id());
 
 		Catalog exisitngCatalog = this.catalogRepository.findById(id)
-				.orElseThrow(() -> new CatalogNotFoundException("Catalog with id " + id + " not found"));
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+									 new Object[]{updateCatalogRequest.id()},
+									              LocaleContextHolder.getLocale()),
+							                      CatalogErrorCode.CATALOG_NOT_FOUND));
 
-		boolean existsByName = this.catalogRepository.existsByName(updateCatalogRequest.name());
-		boolean existsBySlug = this.catalogRepository.existsBySlug(updateCatalogRequest.slug());
-
-		if(existsByName || existsBySlug) {
-			throw new CatalogAlreadyExistsException(
-					String.format("Catalog with duplicate name %s or slug %s already exists",updateCatalogRequest.name(),updateCatalogRequest.slug()));
+		if(!exisitngCatalog.name().equals(updateCatalogRequest.name()) || !exisitngCatalog.slug().equals(updateCatalogRequest.slug())) {
+			boolean exists = catalogRepository.existsByNameOrSlugAndNotId(updateCatalogRequest.name(), updateCatalogRequest.slug(), id);
+			if (exists) {
+				throw new CatalogAlreadyExistsException(
+						messageSource.getMessage("error.catalog.catalog.with.duplicate.name.or.slug",
+								new Object[]{updateCatalogRequest.name(),
+										updateCatalogRequest.slug()},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_ALREADY_EXISTS);
+			}
 		}
 
 		Catalog mappedCatalog = this.catalogMapper.mapUpdateRequestToCatalog(updateCatalogRequest,exisitngCatalog);
@@ -143,21 +162,33 @@ class CatalogService {
 
 	CatalogResponse findById(UUID id) {
 		Catalog catalog = this.catalogRepository.findById(id)
-				.orElseThrow(() -> new SlugNotFoundException("Catalog with id " + id + " not found"));
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+								new Object[]{id},
+								LocaleContextHolder.getLocale()),
+						        CatalogErrorCode.CATALOG_NOT_FOUND));
 
 		return this.catalogMapper.mapCatalogToResponse(catalog);
 	}
 
 	CatalogResponse findByName(String name) {
 		Catalog catalog = this.catalogRepository.findByName(name)
-				.orElseThrow(() -> new SlugNotFoundException("Catalog with name " + name + " not found"));
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.name.not.found",
+						new Object[]{name},
+						LocaleContextHolder.getLocale()),
+				CatalogErrorCode.CATALOG_NOT_FOUND));
 
 		return this.catalogMapper.mapCatalogToResponse(catalog);
 	}
 
 	CatalogResponse findBySlug(String slug) {
 		Catalog catalog = this.catalogRepository.findBySlug(slug)
-				.orElseThrow(() -> new SlugNotFoundException("Catalog with slug " + slug + " not found"));
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.slug.not.found",
+								new Object[]{slug},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_NOT_FOUND));
 
 		return this.catalogMapper.mapCatalogToResponse(catalog);
 	}
@@ -169,7 +200,11 @@ class CatalogService {
 
 	void delete(UUID id) {
 		Catalog catalog = this.catalogRepository.findById(id)
-				.orElseThrow(() -> new SlugNotFoundException("Catalog with id " + id + " not found"));
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+								new Object[]{id},
+								LocaleContextHolder.getLocale()),
+						        CatalogErrorCode.CATALOG_NOT_FOUND));
 
 		this.catalogRepository.delete(catalog);
 	}
@@ -195,6 +230,9 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
 
 	boolean existsBySlug(@Param("slug") String slug);
 
+	@Query("SELECT COUNT(*) > 0 FROM Catalogs c WHERE (c.name = :name OR c.slug = :slug) AND c.id <> :id")
+	boolean existsByNameOrSlugAndNotId(@Param("name") String name, @Param("slug") String slug, @Param("id") UUID id);
+
 }
 
 @Table("catalogs")
@@ -203,7 +241,10 @@ record Catalog(
 		@Version Integer version,
 		String name,
 		String description,
-		String slug) {}
+		String slug,
+		LocalDateTime createdAt,
+		LocalDateTime updatedAt
+		) {}
 
 record AddCatalogRequest(
 		@NotNull String name,
@@ -242,7 +283,9 @@ interface CatalogMapper {
 				catalog.version(),
 				request.name() != null ? request.name() :catalog.name(),
 				request.description() != null ? request.description() :catalog.description(),
-				request.slug() != null ? request.slug() :catalog.slug());
+				request.slug() != null ? request.slug() :catalog.slug(),
+				catalog.createdAt(),
+				LocalDateTime.now());
 	}
 
 
@@ -256,25 +299,37 @@ interface CatalogMapper {
 				page.getTotalElements(),
 				page.getTotalPages());
 	}
-
-}
-
-class CatalogAlreadyExistsException extends RuntimeException {
-	CatalogAlreadyExistsException(String message) {
-		super(message);
-	}
 }
 
 class CatalogNotFoundException extends RuntimeException {
-	CatalogNotFoundException(String message) {
+	private final CatalogErrorCode code;
+
+	public CatalogNotFoundException(String message, CatalogErrorCode code) {
 		super(message);
+		this.code = code;
+	}
+
+	public CatalogErrorCode getCode() {
+		return code;
 	}
 }
 
-class SlugNotFoundException extends RuntimeException {
-	SlugNotFoundException(String message) {
+class CatalogAlreadyExistsException extends RuntimeException {
+	private final CatalogErrorCode code;
+
+	public CatalogAlreadyExistsException(String message, CatalogErrorCode code) {
 		super(message);
+		this.code = code;
 	}
+
+	public CatalogErrorCode getCode() {
+		return code;
+	}
+}
+
+enum CatalogErrorCode {
+	CATALOG_NOT_FOUND,
+	CATALOG_ALREADY_EXISTS,
 }
 
 // controller // service // repository // model // enum // dto // mapper // exception
