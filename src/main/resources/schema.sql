@@ -38,7 +38,9 @@ create table if not exists catalogs
     version     integer             not null,
     name        varchar(150)        not null,
     description text,
-    slug        varchar(160) unique not null
+    slug        varchar(160) unique not null,
+    created_at  timestamp           not null,
+    updated_at  timestamp
 );
 
 create table if not exists categories
@@ -69,6 +71,11 @@ create table if not exists product_category
     primary key (productId, categoryId)
 );
 
+
 create index if not exists index_profiles_credential on products (credential);
 create index if not exists index_products_credential on products (credential);
-create index if not exists index_category_closure_parent_child ON category_closure(parent_id, child_id);
+
+create index if not exists index_category_catalog on categories(catalog_id);
+create index if not exists index_category_closure_parent_child on category_closure(parent_id, child_id);
+create index if not exists index_category_closure_descendant_depth on category_closure(child_id, depth);
+create index if not exists index_category_closure_descendant_depth1 on category_closure(child_id) where depth = 1;

@@ -59,3 +59,11 @@ Content-Type: application/json
   "slug": "test_test"
 }
 
+### get all catalogs with root categories
+GET http://localhost:8080/api/catalogs/with-root-categories
+Content-Type: application/json
+
+
+### get a catalog with root categories by its id
+GET http://localhost:8080/api/catalogs/59501b01-64c4-4f4b-a817-9b4915c22715/with-root-categories
+Content-Type: application/json

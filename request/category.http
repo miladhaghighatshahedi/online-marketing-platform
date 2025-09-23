@@ -16,11 +16,13 @@ POST http://localhost:8080/api/categories
 Content-Type: application/json
 
 {
-  "name": "Desktop Computer",
-  "description": "a category that holds desktop computers and belongs to electronics catalog",
-  "slug": "desktop_computer",
-  "catalogId": {{@catalogId_computer_electronics}}
+  "name": "laptop",
+  "description": "a category that holds laptop computers and belongs to electronics catalog",
+  "slug": "laptop_computer",
+  "catalogId": {{catalogId_computer_electronics}}
 }
+
+
 
 ### add a root category to a catalog
 POST http://localhost:8080/api/categories
