@@ -1,4 +1,5 @@
 services:
+
   postgres:
     image: 'postgres:17.5'
     container_name: postgres_omp
@@ -32,6 +33,24 @@ services:
       - xpack.security.enabled=false
     volumes:
       - elasticsearch-data:/var/lib/elasticsearch/data
+
+
+  # NEW: Your React Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   postgres-data:
   elasticsearch-data:
