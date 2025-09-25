@@ -88,6 +88,11 @@ class CatalogController {
 		return this.catalogService.findAllWithRootCategories(page,size);
 	}
 
+	@GetMapping("/api/catalogs/{id}/with-root-categories")
+	public ResponseEntity<CatalogDto> findCatalogWithRootCategories(@PathVariable("id") UUID id) {
+		return ResponseEntity.ok(this.catalogService.findByIdAndWithRootCategories(id));
+	}
+
 	@GetMapping("/api/catalogs")
 	CatalogPagedResponse<CatalogResponse> findAll(@PageableDefault(size = 20) Pageable pageable) {
 		return this.catalogService.findAll(pageable);
@@ -256,6 +261,34 @@ class CatalogService {
 		);
 	}
 
+	CatalogDto findByIdAndWithRootCategories(UUID id) {
+		Catalog catalog = this.catalogRepository.findById(id)
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+								new Object[]{id},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_NOT_FOUND));
+
+		List<CatalogWithRootCategory> rows = this.catalogRepository.findByIdAndWithRootCategories(catalog.id());
+
+		CatalogDto catalogDto = new CatalogDto(
+				rows.get(0).catalog_id(),
+				rows.get(0).catalog_name(),
+				rows.get(0).catalog_slug(),
+				rows.get(0).catalog_description(),
+				rows.get(0).catalog_created_at(),
+				rows.get(0).catalog_updated_at(),
+				new ArrayList<>());
+
+		for (CatalogWithRootCategory row : rows) {
+			if (row.category_id() != null) {
+				catalogDto.rootCategories().add(new CategoryDto(row.category_id(), row.category_name(), row.category_slug()));
+			}
+		}
+
+		return catalogDto;
+	}
+
 	void delete(UUID id) {
 		Catalog catalog = this.catalogRepository.findById(id)
 				.orElseThrow(() -> new CatalogNotFoundException(
@@ -307,6 +340,24 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
         LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1 WHERE cc.parent_id is NULL AND c.catalog_id IN (:catalogIds)
     """)
 	List<CatalogWithRootCategory> findRootCategoriesForCatalogs(List<UUID> catalogIds);
+
+	@Query(""" 
+        SELECT
+        cat.id   AS catalog_id,
+        cat.name AS catalog_name,
+        cat.slug AS catalog_slug,
+        cat.description AS catalog_description,
+        cat.created_at AS catalog_created_at,
+        cat.updated_at AS catalog_updated_at,
+        c.id     AS category_id,
+        c.name   AS category_name,
+        c.slug   AS category_slug
+        FROM catalogs cat
+        LEFT JOIN categories c ON cat.id = c.catalog_id
+        LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1 WHERE cat.id = :catalogId AND cc.parent_id is NULL
+        order by c.created_at
+    """)
+	List<CatalogWithRootCategory> findByIdAndWithRootCategories(@Param("catalogId") UUID id);
 
 	boolean existsByName(@Param("name") String name);
 

@@ -15,8 +15,9 @@
  */
 package com.mhs.onlinemarketingplatform.profile;
 
-import java.util.UUID;
 import org.springframework.modulith.events.Externalized;
+
+import java.util.UUID;
 
 /**
  * @author Milad Haghighat Shahedi

@@ -211,11 +211,11 @@ interface ProductRepository extends ListCrudRepository<Product, UUID> {
 			Pageable pageable);
 
 	@Modifying
-	@Query("INSERT INTO product_category(product,category) VALUES (:product,:category)")
-	void linkProductToCategory(@Param("product")UUID product,@Param("category") UUID category);
+	@Query("INSERT INTO product_category (productId,categoryId) VALUES (:product,:category)")
+	void linkProductToCategory(@Param("product") UUID product,@Param("category") UUID category);
 
 	@Modifying
-	@Query("DELETE FROM product_category WHERE product= :product")
+	@Query("DELETE FROM product_category WHERE productId = :product")
 	void unlinkAllCategories(@Param("product") UUID product);
 
 }
@@ -263,11 +263,12 @@ record Product(
 }
 
 @Table("product_category")
-record ProductCategory(UUID product, UUID catalog) {}
+record ProductCategory(UUID productId, UUID catalogId) {}
 
 enum ProductStatus {
 
-	ACTIVE("ACTIVE"), INACTIVE("INACTIVE");
+	ACTIVE("ACTIVE"),
+	INACTIVE("INACTIVE");
 
 	final String status;
 

@@ -34,7 +34,6 @@ import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.CrudRepository;
-import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -345,7 +344,7 @@ class CategoryService implements CategoryApi {
         findById(id);
         List<Category> descendants = this.categoryRepository.findDescendants(id);
         if(descendants.isEmpty()){
-            log.info("Category {} has no descendants", id);
+            log.info("Category.jsx {} has no descendants", id);
         }
         return descendants;
     }
@@ -354,7 +353,7 @@ class CategoryService implements CategoryApi {
         findById(id);
         List<Category> ancestors = this.categoryRepository.findAncestors(id);
         if(ancestors.isEmpty()){
-            log.info("Category {} has no ancestors", id);
+            log.info("Category.jsx {} has no ancestors", id);
         }
         return ancestors;
     }
@@ -385,7 +384,7 @@ class CategoryService implements CategoryApi {
         List<Category> children = this.categoryRepository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
 
         if (children.isEmpty()) {
-            log.info("Category {} has no descendants to deactivate", categoryId);
+            log.info("Category.jsx {} has no descendants to deactivate", categoryId);
             return;
         }
 
@@ -398,7 +397,7 @@ class CategoryService implements CategoryApi {
         List<Category> children = this.categoryRepository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
 
         if (children.isEmpty()) {
-            log.info("Category {} has no descendants to deactivate", categoryId);
+            log.info("Category.jsx {} has no descendants to deactivate", categoryId);
             return;
         }
         List<Category> deactivatedChildren = this.mapper.toActivateList(children);
@@ -409,7 +408,7 @@ class CategoryService implements CategoryApi {
         findById(id);
         List<Category> descendants = findDescendants(id);
         if(!descendants.isEmpty()){
-            log.info("Category {} has descendants ", id);
+            log.info("Category.jsx {} has descendants ", id);
             return;
         }
         this.categoryRepository.delete(id);
@@ -437,7 +436,7 @@ class CategoryService implements CategoryApi {
 }
 
 @Repository("categoryRepository")
-interface CategoryRepository extends ListCrudRepository<Category, UUID> {
+interface CategoryRepository extends CrudRepository<Category, UUID>{
 
     Optional<Category> findById(UUID id);
 
