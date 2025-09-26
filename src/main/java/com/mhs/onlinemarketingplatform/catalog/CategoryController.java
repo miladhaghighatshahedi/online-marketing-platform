@@ -29,6 +29,8 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
@@ -44,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -103,8 +106,13 @@ class CategoryController {
     }
 
     @GetMapping(value = "/api/categories")
-    CategoryPagedResponse<CategoryResponse> findAll(@PageableDefault(size = 20) Pageable pageable) {
+    CategoryPagedResponse<CategoryResponse> findAll(@PageableDefault(size = 10) Pageable pageable) {
         return this.categoryService.findAll(pageable);
+    }
+
+    @GetMapping(value = "/api/categories/root")
+    Page<RootCategoryResponse> findAllrootCategories(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        return this.categoryService.findAllRootCategoried(page,size);
     }
 
     @GetMapping("/api/categories/ancestors/{id}")
@@ -340,6 +348,26 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToPagedResponse(categories);
     }
 
+    Page<RootCategoryResponse> findAllRootCategoried(int page,int size) {
+        int offset = page * size;
+
+        List<Category> categories = this.categoryRepository.findAllRootCategories(size, offset);
+
+        if (categories.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page, size), 0);
+        }
+
+        long total = this.categoryRepository.countRootCategories();
+
+        List<RootCategoryResponse> rootCategoryResponseList = this.mapper.toRootCategoryResponseList(categories);
+
+        return new PageImpl<>(
+                rootCategoryResponseList,
+                PageRequest.of(page,size),
+                total
+        );
+    }
+
     List<Category> findDescendants(UUID id) {
         findById(id);
         List<Category> descendants = this.categoryRepository.findDescendants(id);
@@ -447,6 +475,26 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     Page<Category> findAll(Pageable pageable);
 
     @Query("""
+        SELECT
+        c.id,
+        c.name,
+        c.slug,
+        c.description,
+        c.category_status,
+        c.created_at,
+        c.updated_at
+        FROM categories c
+        WHERE NOT EXISTS (
+        SELECT 1
+        FROM category_closure cc
+        WHERE cc.child_id = c.id
+        AND cc.depth = 1
+        )
+        ORDER BY c.created_at LIMIT :size OFFSET :offset
+    """)
+    List<Category> findAllRootCategories(int size,int offset);
+
+    @Query("""
          SELECT c.* FROM categories c
                  JOIN category_closure cc ON cc.child_id = c.id
                  WHERE cc.parent_id = :parentId AND cc.depth = 1
@@ -488,6 +536,11 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
             DELETE FROM category_closure WHERE child_id = :id OR parent_id = :id
             """)
     void delete(@Param("id") UUID id);
+
+    @Query("""
+        SELECT COUNT(*) FROM categories c WHERE NOT EXISTS ( SELECT 1 FROM category_closure cc WHERE cc.child_id = c.id AND cc.depth = 1 )
+    """)
+    long countRootCategories();
 
 }
 
@@ -585,10 +638,23 @@ interface CategoryMapper {
                 category.catalogId());
     }
 
+    @Mapping(target = "id", source = "id")
+    @Mapping(target = "name", source = "name")
+    @Mapping(target = "description", source = "description")
+    @Mapping(target = "status", source = "categoryStatus")
+    @Mapping(target = "slug", source = "slug")
+    @Mapping(target = "createdAt", source = "createdAt")
+    @Mapping(target = "updatedAt", source = "updatedAt")
+    RootCategoryResponse toRootCategoryResponse(Category category);
+
+    List<RootCategoryResponse> toRootCategoryResponseList(List<Category> list);
+
+
     @Named("toDeactivate")
     @Mapping(target = "categoryStatus", constant = "INACTIVE")
     @Mapping(target = "updatedAt", expression = "java(java.time.LocalDateTime.now())")
     Category toDeactivate(Category category);
+
     @IterableMapping(qualifiedByName = "toDeactivate")
     List<Category> toDeactivateList(List<Category> category);
 
@@ -596,6 +662,7 @@ interface CategoryMapper {
     @Mapping(target = "categoryStatus", constant = "ACTIVE")
     @Mapping(target = "updatedAt", expression = "java(java.time.LocalDateTime.now())")
     Category toActivate(Category category);
+
     @IterableMapping(qualifiedByName = "toActivate")
     List<Category> toActivateList(List<Category> category);
 
@@ -669,6 +736,15 @@ record CategoryPagedResponse<T>(
         int size,
         long totalElements,
         int totalPages) {}
+
+record RootCategoryResponse(
+        String id,
+        String name,
+        String description,
+        String createdAt,
+        String updatedAt,
+        String status,
+        String slug) {}
 
 class CategoryNotFoundException extends RuntimeException {
 

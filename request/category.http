@@ -149,3 +149,8 @@ Content-Type: application/json
 DELETE http://localhost:8080/api/categories/5a84aa6f-fdb4-4dbd-ae11-c67adfcf0c90
 Content-Type: application/json
 
+
+### find all root categories
+GET http://localhost:8080/api/categories/root
+Content-Type: application/json
+

@@ -84,7 +84,7 @@ class CatalogController {
 	}
 
 	@GetMapping(value = "/api/catalogs/with-root-categories")
-	Page<CatalogDto> findAllWithRootCategories2(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+	Page<CatalogDto> findAllWithRootCategories(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
 		return this.catalogService.findAllWithRootCategories(page,size);
 	}
 
@@ -252,7 +252,7 @@ class CatalogService {
 			}
 		}
 
-		long total = catalogRepository.countCatalogs();
+		long total = this.catalogRepository.countCatalogs();
 
 		return new PageImpl<>(
 				new ArrayList<>(catalogMap.values()),
