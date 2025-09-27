@@ -84,7 +84,7 @@ class CatalogController {
 	}
 
 	@GetMapping(value = "/api/catalogs/with-root-categories")
-	Page<CatalogDto> findAllWithRootCategories(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+	Page<CatalogDto> findAllWithRootCategories(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "6") int size) {
 		return this.catalogService.findAllWithRootCategories(page,size);
 	}
 
@@ -94,7 +94,7 @@ class CatalogController {
 	}
 
 	@GetMapping("/api/catalogs")
-	CatalogPagedResponse<CatalogResponse> findAll(@PageableDefault(size = 20) Pageable pageable) {
+	CatalogPagedResponse<CatalogResponse> findAll(@PageableDefault(size = 6) Pageable pageable) {
 		return this.catalogService.findAll(pageable);
 	}
 
@@ -247,7 +247,11 @@ class CatalogService {
 						.add(new CategoryDto(
 								row.category_id(),
 								row.category_name(),
-								row.category_slug()
+								row.category_slug(),
+								row.category_description(),
+								row.category_status(),
+								row.catalog_id()
+
 						));
 			}
 		}
@@ -282,7 +286,13 @@ class CatalogService {
 
 		for (CatalogWithRootCategory row : rows) {
 			if (row.category_id() != null) {
-				catalogDto.rootCategories().add(new CategoryDto(row.category_id(), row.category_name(), row.category_slug()));
+				catalogDto.rootCategories().add(new CategoryDto(
+						row.category_id(),
+						row.category_name(),
+						row.category_slug(),
+						row.category_description(),
+						row.category_status(),
+						row.catalog_id()));
 			}
 		}
 
@@ -351,7 +361,9 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
         cat.updated_at AS catalog_updated_at,
         c.id     AS category_id,
         c.name   AS category_name,
-        c.slug   AS category_slug
+        c.slug   AS category_slug,
+        c.description AS category_description,
+        c.category_status AS category_status
         FROM catalogs cat
         LEFT JOIN categories c ON cat.id = c.catalog_id
         LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1 WHERE cat.id = :catalogId AND cc.parent_id is NULL
@@ -421,7 +433,10 @@ record CatalogDto(
 record CategoryDto(
 		UUID id,
 		String name,
-		String slug
+		String slug,
+		String description,
+		String status,
+		UUID catalogId
 ) {}
 
 record CatalogWithRootCategory(
@@ -433,7 +448,9 @@ record CatalogWithRootCategory(
 		LocalDateTime catalog_updated_at,
 		UUID category_id,
 		String category_name,
-		String category_slug
+		String category_slug,
+		String category_description,
+		String category_status
 ) {}
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)

@@ -149,6 +149,11 @@ class CategoryController {
 
     }
 
+    @GetMapping("/api/categories/root/count")
+    long countRootCategories() {
+        return this.categoryService.countRootCategories();
+    }
+
 }
 
 @Service("categoryService")
@@ -248,14 +253,24 @@ class CategoryService implements CategoryApi {
                             LocaleContextHolder.getLocale()),
                             CatalogErrorCode.CATALOG_NOT_FOUND);}
 
-        validateDuplicatesByNameAndSlug(updateParentRequest,UpdateParentRequest::name,UpdateParentRequest::slug);
-
         Category existingCategory = this.categoryRepository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
                                                   new Object[]{id},
                                                   LocaleContextHolder.getLocale()),
                                                   CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        if(!existingCategory.name().equals(updateParentRequest.name()) || !existingCategory.slug().equals(updateParentRequest.slug())) {
+            boolean exists = this.categoryRepository.existsByNameOrSlugAndNotId(updateParentRequest.name(), updateParentRequest.slug(), id);
+            if (exists) {
+                throw new CategoryAlreadyExistsException(
+                        messageSource.getMessage("error.category.category.with.duplicate.name.or.slug",
+                                new Object[]{updateParentRequest.name(),
+                                        updateParentRequest.slug()},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_ALREADY_EXISTS);
+            }
+        }
 
         if(!existingCategory.catalogId().equals(catalogId)){
            throw new CategoryNotBelongToCatalog(
@@ -461,6 +476,10 @@ class CategoryService implements CategoryApi {
         }
     }
 
+    long countRootCategories() {
+        return this.categoryRepository.countRootCategories();
+    }
+
 }
 
 @Repository("categoryRepository")
@@ -530,6 +549,9 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     boolean existsBySlug(@Param("slug") String slug);
 
     boolean existsById(@Param("id") UUID id);
+
+    @Query("SELECT COUNT(*) > 0 FROM categories c WHERE (c.name = :name OR c.slug = :slug) AND c.id <> :id")
+    boolean existsByNameOrSlugAndNotId(@Param("name") String name, @Param("slug") String slug, @Param("id") UUID id);
 
     @Modifying
     @Query("""
