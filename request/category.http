@@ -2,14 +2,12 @@
 @catalogId_grocery_items = "f1bd6f58-bb37-4552-a539-fe3fe15ece06"
 @categoryId_computer_electronics_root = "3ec82e85-da8c-4126-be36-aa4b1b157258"
 
-
 @category_uri = 3d009975-4a7d-4b99-ac2a-ba6b653a6d6a
 @categoryId_computer_electronics_root_uri = 3ec82e85-da8c-4126-be36-aa4b1b157258
 @categoryId_category_with_ancestor_uri = 400c31b1-12bc-42d8-bdb0-02e22bdcd560
 @categoryId_category_without_ancestor_uri = 78710ae4-cb8d-4756-a403-faa7794ce511
 @categoryId_category_with_descendants_uri = 3ec82e85-da8c-4126-be36-aa4b1b157258
 @categoryId_category_without_descendants_uri = 400c31b1-12bc-42d8-bdb0-02e22bdcd560
-
 
 ### add a root category to a catalog
 POST http://localhost:8080/api/categories
@@ -22,8 +20,6 @@ Content-Type: application/json
   "catalogId": {{catalogId_computer_electronics}}
 }
 
-
-
 ### add a root category to a catalog
 POST http://localhost:8080/api/categories
 Content-Type: application/json
@@ -35,7 +31,7 @@ Content-Type: application/json
   "catalogId": {{catalogId_grocery_items}}
 }
 
-### add a descendant category to a root 1
+### add a descendant category to a root
 POST http://localhost:8080/api/categories/descendants
 Content-Type: application/json
 
@@ -43,30 +39,6 @@ Content-Type: application/json
   "name": "ram",
   "description": "a category that holds ram and belongs to Desktop Computer",
   "slug": "ram",
-  "parentId" : {{categoryId_computer_electronics_root}},
-  "catalogId": {{catalogId_computer_electronics}}
-}
-
-### add a descendant category to a parent 2
-POST http://localhost:8080/api/categories/descendants
-Content-Type: application/json
-
-{
-  "name": "cpu",
-  "description": "a category that holds cpu and belongs to Desktop Computer",
-  "slug": "cpu",
-  "parentId" : {{categoryId_computer_electronics_root}},
-  "catalogId": {{catalogId_computer_electronics}}
-}
-
-### add a descendant category to a parent 3
-POST http://localhost:8080/api/categories/descendants
-Content-Type: application/json
-
-{
-  "name": "hdd",
-  "description": "a category that holds hdd and belongs to Desktop Computer",
-  "slug": "hdd",
   "parentId" : {{categoryId_computer_electronics_root}},
   "catalogId": {{catalogId_computer_electronics}}
 }
@@ -107,12 +79,17 @@ Content-Type: application/json
 GET http://localhost:8080/api/categories
 Content-Type: application/json
 
+### get root category with its 1 level descendants by id
+GET http://localhost:8080/api/categories/3ec82e85-da8c-4126-be36-aa4b1b157258/with-sub-categories
+Content-Type: application/json
+
+
 ### get all ancestors categories
 GET http://localhost:8080/api/categories/ancestors/{{categoryId_category_without_ancestor_uri}}
 Content-Type: application/json
 
 ### get all descendants categories
-GET http://localhost:8080/api/categories/descendants/{{categoryId_category_without_descendants_uri}}
+GET http://localhost:8080/api/categories/descendants/3ec82e85-da8c-4126-be36-aa4b1b157258
 Content-Type: application/json
 
 ### activate or deactivate without versioning (ACTIVE || INACTIVE)
@@ -131,8 +108,6 @@ Content-Type: application/json
   "categoryStatus" : "INACTIVE"
 }
 
-
-
 ### add a child category to a parent (test)
 POST http://localhost:8080/api/categories/descendants
 Content-Type: application/json
@@ -149,8 +124,8 @@ Content-Type: application/json
 DELETE http://localhost:8080/api/categories/5a84aa6f-fdb4-4dbd-ae11-c67adfcf0c90
 Content-Type: application/json
 
-
 ### find all root categories
 GET http://localhost:8080/api/categories/root
 Content-Type: application/json
+
 

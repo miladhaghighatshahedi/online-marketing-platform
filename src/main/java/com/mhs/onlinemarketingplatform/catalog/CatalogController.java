@@ -89,7 +89,7 @@ class CatalogController {
 	}
 
 	@GetMapping("/api/catalogs/{id}/with-root-categories")
-	public ResponseEntity<CatalogDto> findCatalogWithRootCategories(@PathVariable("id") UUID id) {
+	ResponseEntity<CatalogDto> findCatalogWithRootCategories(@PathVariable("id") UUID id) {
 		return ResponseEntity.ok(this.catalogService.findByIdAndWithRootCategories(id));
 	}
 

@@ -105,6 +105,11 @@ class CategoryController {
         return ResponseEntity.ok(this.categoryService.deactivate(id));
     }
 
+    @GetMapping("/api/categories/{id}/with-sub-categories")
+    ResponseEntity<CategoryDtoWithSubs> findCategoryWithSubCategories(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(this.categoryService.findByIdAndWithSubCategories(id));
+    }
+
     @GetMapping(value = "/api/categories")
     CategoryPagedResponse<CategoryResponse> findAll(@PageableDefault(size = 10) Pageable pageable) {
         return this.categoryService.findAll(pageable);
@@ -112,7 +117,7 @@ class CategoryController {
 
     @GetMapping(value = "/api/categories/root")
     Page<RootCategoryResponse> findAllrootCategories(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        return this.categoryService.findAllRootCategoried(page,size);
+        return this.categoryService.findAllRootCategories(page,size);
     }
 
     @GetMapping("/api/categories/ancestors/{id}")
@@ -358,12 +363,49 @@ class CategoryService implements CategoryApi {
                         CategoryErrorCode.CATEGORY_ALREADY_DEACTIVATED);
     }
 
+    CategoryDtoWithSubs findByIdAndWithSubCategories(UUID categoryId) {
+        Category ancestor = this.categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{categoryId},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        List<Category> descendants = this.categoryRepository.findDescendants(categoryId);
+
+        List<CategoryDtoWithSubs> descendantDto = descendants.stream()
+                .map(c -> new CategoryDtoWithSubs(
+                        c.id(),
+                        c.name(),
+                        c.slug(),
+                        c.description(),
+                        c.categoryStatus().toString(),
+                        c.createdAt(),
+                        c.updatedAt(),
+                        c.catalogId(),
+                        List.of()
+                ))
+                .toList();
+
+        return new CategoryDtoWithSubs(
+                ancestor.id(),
+                ancestor.name(),
+                ancestor.slug(),
+                ancestor.description(),
+                ancestor.categoryStatus().toString(),
+                ancestor.createdAt(),
+                ancestor.updatedAt(),
+                ancestor.catalogId(),
+                descendantDto
+        );
+    }
+
     CategoryPagedResponse<CategoryResponse> findAll(Pageable pageable) {
         Page<Category> categories = this.categoryRepository.findAll(pageable);
         return this.mapper.mapCategoryToPagedResponse(categories);
     }
 
-    Page<RootCategoryResponse> findAllRootCategoried(int page,int size) {
+    Page<RootCategoryResponse> findAllRootCategories(int page, int size) {
         int offset = page * size;
 
         List<Category> categories = this.categoryRepository.findAllRootCategories(size, offset);
@@ -767,6 +809,18 @@ record RootCategoryResponse(
         String updatedAt,
         String status,
         String slug) {}
+
+record CategoryDtoWithSubs (
+        UUID id,
+        String name,
+        String slug,
+        String description,
+        String category_status,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt,
+        UUID catalogId,
+        List<CategoryDtoWithSubs> subCategories
+) {}
 
 class CategoryNotFoundException extends RuntimeException {
 
