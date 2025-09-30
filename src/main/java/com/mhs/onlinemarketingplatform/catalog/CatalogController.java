@@ -89,8 +89,8 @@ class CatalogController {
 	}
 
 	@GetMapping("/api/catalogs/{id}/with-root-categories")
-	ResponseEntity<CatalogDto> findCatalogWithRootCategories(@PathVariable("id") UUID id) {
-		return ResponseEntity.ok(this.catalogService.findByIdAndWithRootCategories(id));
+	ResponseEntity<CatalogDto> findACatalogWithRootCategoriesById(@PathVariable("id") UUID id) {
+		return ResponseEntity.ok(this.catalogService.findACatalogWithRootCategoriesById(id));
 	}
 
 	@GetMapping("/api/catalogs")
@@ -171,6 +171,17 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
 	}
 
+	void delete(UUID id) {
+		Catalog catalog = this.catalogRepository.findById(id)
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+								new Object[]{id},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_NOT_FOUND));
+
+		this.catalogRepository.delete(catalog);
+	}
+
 	CatalogResponse findById(UUID id) {
 		Catalog catalog = this.catalogRepository.findById(id)
 				.orElseThrow(() -> new CatalogNotFoundException(
@@ -214,7 +225,7 @@ class CatalogService {
 
 		List<CatalogWithRootCategory> rows = this.catalogRepository.findPagedCatalogs(size, offset);
 
-		if (rows.isEmpty()) {
+		if (rows == null || rows.isEmpty()) {
 			return new PageImpl<>(Collections.emptyList(), PageRequest.of(page, size), 0);
 		}
 
@@ -265,50 +276,27 @@ class CatalogService {
 		);
 	}
 
-	CatalogDto findByIdAndWithRootCategories(UUID id) {
-		Catalog catalog = this.catalogRepository.findById(id)
-				.orElseThrow(() -> new CatalogNotFoundException(
-						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
-								new Object[]{id},
-								LocaleContextHolder.getLocale()),
-						CatalogErrorCode.CATALOG_NOT_FOUND));
+	CatalogDto findACatalogWithRootCategoriesById(UUID id) {
+		List<CatalogWithRootCategory> rows = this.catalogRepository.findACatalogWithRootCategoriesById(id);
 
-		List<CatalogWithRootCategory> rows = this.catalogRepository.findByIdAndWithRootCategories(catalog.id());
+		if(rows == null || rows.isEmpty()) {
+			throw new CatalogNotFoundException(
+					messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+							new Object[]{id},
+							LocaleContextHolder.getLocale()),
+					CatalogErrorCode.CATALOG_NOT_FOUND);}
 
-		CatalogDto catalogDto = new CatalogDto(
-				rows.get(0).catalog_id(),
-				rows.get(0).catalog_name(),
-				rows.get(0).catalog_slug(),
-				rows.get(0).catalog_description(),
-				rows.get(0).catalog_created_at(),
-				rows.get(0).catalog_updated_at(),
-				new ArrayList<>());
 
-		for (CatalogWithRootCategory row : rows) {
-			if (row.category_id() != null) {
-				catalogDto.rootCategories().add(new CategoryDto(
-						row.category_id(),
-						row.category_name(),
-						row.category_slug(),
-						row.category_description(),
-						row.category_status(),
-						row.catalog_id()));
-			}
-		}
+		CatalogWithRootCategory catalog = rows.get(0);
+		List<CategoryDto> categories = rows.stream()
+				.filter(row -> row.category_id() != null)
+				.map(catalogMapper::mapToCategoryDto)
+				.distinct()
+				.toList();
 
-		return catalogDto;
+		return this.catalogMapper.mapToCatalogDto(catalog,categories);
 	}
 
-	void delete(UUID id) {
-		Catalog catalog = this.catalogRepository.findById(id)
-				.orElseThrow(() -> new CatalogNotFoundException(
-						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
-								new Object[]{id},
-								LocaleContextHolder.getLocale()),
-						CatalogErrorCode.CATALOG_NOT_FOUND));
-
-		this.catalogRepository.delete(catalog);
-	}
 
 	boolean existsById(UUID id) {
 		return this.catalogRepository.existsById(id);
@@ -325,58 +313,63 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
 
 	Optional<Catalog> findByName(String name);
 
-	Page<Catalog> findAll(Pageable pageable);
-
-	@Query("""
-		SELECT
-		cat.id   AS catalog_id,
-		cat.name AS catalog_name,
-		cat.slug AS catalog_slug,
-		cat.description AS catalog_description,
-		cat.created_at AS catalog_created_at,
-		cat.updated_at AS catalog_updated_at
-		FROM catalogs cat
-		ORDER BY cat.created_at LIMIT :limit OFFSET :offset
-	""")
-	List<CatalogWithRootCategory> findPagedCatalogs(int limit, int offset);
-
-	@Query("""
-        SELECT
-        c.id AS category_id,
-        c.name AS category_name,
-        c.slug AS category_slug,
-        c.catalog_id AS catalog_id
-        FROM categories c
-        LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1 WHERE cc.parent_id is NULL AND c.catalog_id IN (:catalogIds)
-    """)
-	List<CatalogWithRootCategory> findRootCategoriesForCatalogs(List<UUID> catalogIds);
-
-	@Query(""" 
-        SELECT
-        cat.id   AS catalog_id,
-        cat.name AS catalog_name,
-        cat.slug AS catalog_slug,
-        cat.description AS catalog_description,
-        cat.created_at AS catalog_created_at,
-        cat.updated_at AS catalog_updated_at,
-        c.id     AS category_id,
-        c.name   AS category_name,
-        c.slug   AS category_slug,
-        c.description AS category_description,
-        c.category_status AS category_status
-        FROM catalogs cat
-        LEFT JOIN categories c ON cat.id = c.catalog_id
-        LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1 WHERE cat.id = :catalogId AND cc.parent_id is NULL
-        order by c.created_at
-    """)
-	List<CatalogWithRootCategory> findByIdAndWithRootCategories(@Param("catalogId") UUID id);
-
 	boolean existsByName(@Param("name") String name);
 
 	boolean existsBySlug(@Param("slug") String slug);
 
-	@Query("SELECT COUNT(*) > 0 FROM Catalogs c WHERE (c.name = :name OR c.slug = :slug) AND c.id <> :id")
+	@Query("""
+			SELECT COUNT(*) > 0 FROM Catalogs c
+			 WHERE (c.name = :name OR c.slug = :slug) AND c.id <> :id
+			 """)
 	boolean existsByNameOrSlugAndNotId(@Param("name") String name, @Param("slug") String slug, @Param("id") UUID id);
+
+	Page<Catalog> findAll(Pageable pageable);
+
+	@Query("""
+			SELECT
+			cat.id   AS catalog_id,
+			cat.name AS catalog_name,
+			cat.slug AS catalog_slug,
+			cat.description AS catalog_description,
+			cat.created_at AS catalog_created_at,
+			cat.updated_at AS catalog_updated_at
+			FROM catalogs cat
+			ORDER BY cat.created_at LIMIT :limit OFFSET :offset
+	""")
+	List<CatalogWithRootCategory> findPagedCatalogs(int limit, int offset);
+
+	@Query("""
+	        SELECT
+	        c.id AS category_id,
+	        c.name AS category_name,
+	        c.slug AS category_slug,
+	        c.catalog_id AS catalog_id
+	        FROM categories c
+	        LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1
+	        WHERE cc.parent_id is NULL AND c.catalog_id IN (:catalogIds)
+    """)
+	List<CatalogWithRootCategory> findRootCategoriesForCatalogs(List<UUID> catalogIds);
+
+	@Query(""" 
+	        SELECT
+	        cat.id   AS catalog_id,
+	        cat.name AS catalog_name,
+	        cat.slug AS catalog_slug,
+	        cat.description AS catalog_description,
+	        cat.created_at AS catalog_created_at,
+	        cat.updated_at AS catalog_updated_at,
+	        c.id     AS category_id,
+	        c.name   AS category_name,
+	        c.slug   AS category_slug,
+	        c.description AS category_description,
+	        c.category_status AS category_status
+	        FROM catalogs cat
+	        LEFT JOIN categories c ON cat.id = c.catalog_id
+	        LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1
+	        WHERE cat.id = :catalogId AND cc.parent_id is NULL
+            order by c.created_at
+    """)
+	List<CatalogWithRootCategory> findACatalogWithRootCategoriesById(@Param("catalogId") UUID id);
 
 	@Query("SELECT COUNT(*) FROM catalogs")
 	long countCatalogs();
@@ -473,7 +466,6 @@ interface CatalogMapper {
 				LocalDateTime.now());
 	}
 
-
 	CatalogResponse mapCatalogToResponse(Catalog catalog);
 
 	default CatalogPagedResponse<CatalogResponse> mapCatalogToPagedResponse(Page<Catalog> page) {
@@ -484,6 +476,23 @@ interface CatalogMapper {
 				page.getTotalElements(),
 				page.getTotalPages());
 	}
+
+	@Mapping(target = "id", source = "firstRow.catalog_id")
+	@Mapping(target = "name", source = "firstRow.catalog_name")
+	@Mapping(target = "slug", source = "firstRow.catalog_slug")
+	@Mapping(target = "description", source = "firstRow.catalog_description")
+	@Mapping(target = "createdAt", source = "firstRow.catalog_created_at")
+	@Mapping(target = "updatedAt", source = "firstRow.catalog_updated_at")
+	@Mapping(target = "rootCategories", source = "categories")
+	CatalogDto mapToCatalogDto(CatalogWithRootCategory firstRow,List<CategoryDto> categories);
+
+	@Mapping(target = "id", source = "category_id")
+	@Mapping(target = "name", source = "category_name")
+	@Mapping(target = "slug", source = "category_slug")
+	@Mapping(target = "description", source = "category_description")
+	@Mapping(target = "status", source = "category_status")
+	@Mapping(target = "catalogId", source = "catalog_id")
+	CategoryDto mapToCategoryDto(CatalogWithRootCategory row);
 }
 
 class CatalogNotFoundException extends RuntimeException {
