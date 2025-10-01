@@ -23,6 +23,8 @@ import org.mapstruct.*;
 import org.mapstruct.Mapping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -80,6 +82,13 @@ class CategoryController {
         return ResponseEntity.ok(this.categoryService.update(updateParentRequest));
     }
 
+    @DeleteMapping("/api/categories/{id}")
+    ResponseEntity<?> delete(@PathVariable("id") UUID id) {
+        this.categoryService.delete(id);
+        return ResponseEntity.noContent().build();
+
+    }
+
     @GetMapping("/api/categories/{id}")
     ResponseEntity<CategoryResponse> findById(@PathVariable("id") UUID id) {
         return ResponseEntity.ok(this.categoryService.findById(id));
@@ -95,30 +104,17 @@ class CategoryController {
         return ResponseEntity.ok(this.categoryService.findBySlug(slug));
     }
 
-    @PutMapping("/api/categories/{id}/activate")
-    ResponseEntity<CategoryResponse> activate(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(this.categoryService.activate(id));
-    }
-
-    @PutMapping("/api/categories/{id}/deactivate")
-    ResponseEntity<CategoryResponse> deactivate(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(this.categoryService.deactivate(id));
-    }
-
     @GetMapping("/api/categories/{id}/with-sub-categories")
-    ResponseEntity<CategoryDtoWithSubs> findCategoryWithSubCategories(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(this.categoryService.findByIdAndWithSubCategories(id));
-    }
-
-    @GetMapping(value = "/api/categories")
-    CategoryPagedResponse<CategoryResponse> findAll(@PageableDefault(size = 10) Pageable pageable) {
-        return this.categoryService.findAll(pageable);
+    ResponseEntity<CategoryDtoWithSubs> findACategoryWithSubCategoriesById(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(this.categoryService.findACategoryWithSubCategoriesById(id));
     }
 
     @GetMapping(value = "/api/categories/root")
     Page<RootCategoryResponse> findAllrootCategories(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         return this.categoryService.findAllRootCategories(page,size);
     }
+
+
 
     @GetMapping("/api/categories/ancestors/{id}")
     List<Category> findAllAncestors(@PathVariable("id") UUID id) {
@@ -129,6 +125,19 @@ class CategoryController {
     List<Category> findAllDescendants(@PathVariable("id") UUID id) {
         return this.categoryService.findDescendants(id);
     }
+
+
+    @PutMapping("/api/categories/{id}/activate")
+    ResponseEntity<CategoryResponse> activate(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(this.categoryService.activate(id));
+    }
+
+    @PutMapping("/api/categories/{id}/deactivate")
+    ResponseEntity<CategoryResponse> deactivate(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(this.categoryService.deactivate(id));
+    }
+
+
 
     @PutMapping("/api/categories/{id}")
     ResponseEntity<?> activateOrDeactivateParentAndChildrenWithoutVersioning(
@@ -145,13 +154,6 @@ class CategoryController {
 
         this.categoryService.activateOrDeactivateParentAndChildrenWithVersioning(id,request.categoryStatus());
         return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/api/categories/{id}")
-    ResponseEntity<?> deleteCategory(@PathVariable("id") UUID id) {
-        this.categoryService.deleteById(id);
-        return ResponseEntity.noContent().build();
-
     }
 
     @GetMapping("/api/categories/root/count")
@@ -210,9 +212,10 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
-    CategoryResponse addDescendant(AddChildRequest addChildRequest) {
+    @CacheEvict(value = "catalogs", allEntries = true)
+    public CategoryResponse addDescendant(AddChildRequest addChildRequest) {
         UUID catalogId = UUID.fromString(addChildRequest.catalogId());
-        UUID categoryId = UUID.fromString(addChildRequest.parentId());
+        UUID categoryId = UUID.fromString(addChildRequest.categoryId());
 
         if(!this.catalogService.existsById(catalogId)) {
             throw new CatalogNotFoundException(
@@ -247,7 +250,8 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToResponse(storedChildCategory);
     }
 
-    CategoryResponse update(UpdateParentRequest updateParentRequest) {
+    @CacheEvict(value = "catalogs", allEntries = true)
+    public CategoryResponse update(UpdateParentRequest updateParentRequest) {
         UUID catalogId = UUID.fromString(updateParentRequest.catalogId());
         UUID id = UUID.fromString(updateParentRequest.id());
 
@@ -290,6 +294,18 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
+    @CacheEvict(value = "catalogs", allEntries = true)
+    public void delete(UUID id) {
+        findById(id);
+        List<Category> descendants = findDescendants(id);
+        if(!descendants.isEmpty()){
+            log.info("Category.jsx {} has descendants ", id);
+            return;
+        }
+        this.categoryRepository.delete(id);
+        this.categoryRepository.deleteById(id);
+    }
+
     CategoryResponse findById(UUID categoryId) {
         Category category = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
@@ -319,6 +335,70 @@ class CategoryService implements CategoryApi {
                                 CategoryErrorCode.CATEGORY_NOT_FOUND));
         return this.mapper.mapCategoryToResponse(category);
     }
+
+    CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID categoryId) {
+        Category ancestor = this.categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{categoryId},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        List<Category> descendants = this.categoryRepository.findDescendants(categoryId);
+
+        List<CategoryDtoWithSubs> descendantDto = descendants.stream()
+                .map(c -> new CategoryDtoWithSubs(
+                        c.id(),
+                        c.name(),
+                        c.slug(),
+                        c.description(),
+                        c.categoryStatus().toString(),
+                        c.createdAt(),
+                        c.updatedAt(),
+                        c.catalogId(),
+                        List.of()
+                ))
+                .toList();
+
+        return new CategoryDtoWithSubs(
+                ancestor.id(),
+                ancestor.name(),
+                ancestor.slug(),
+                ancestor.description(),
+                ancestor.categoryStatus().toString(),
+                ancestor.createdAt(),
+                ancestor.updatedAt(),
+                ancestor.catalogId(),
+                descendantDto
+        );
+    }
+
+    Page<RootCategoryResponse> findAllRootCategories(int page, int size) {
+        int offset = page * size;
+
+        List<Category> categories = this.categoryRepository.findAllRootCategories(size, offset);
+
+        if (categories.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page, size), 0);
+        }
+
+        long total = this.categoryRepository.countRootCategories();
+
+        List<RootCategoryResponse> rootCategoryResponseList = this.mapper.toRootCategoryResponseList(categories);
+
+        return new PageImpl<>(
+                rootCategoryResponseList,
+                PageRequest.of(page,size),
+                total
+        );
+    }
+
+    CategoryPagedResponse<CategoryResponse> findAll(Pageable pageable) {
+        Page<Category> categories = this.categoryRepository.findAll(pageable);
+        return this.mapper.mapCategoryToPagedResponse(categories);
+    }
+
+
 
     CategoryResponse activate(UUID categoryId) {
         Category exsitingCategory = this.categoryRepository.findById(categoryId)
@@ -361,68 +441,6 @@ class CategoryService implements CategoryApi {
                         new Object[]{categoryId},
                         LocaleContextHolder.getLocale()),
                         CategoryErrorCode.CATEGORY_ALREADY_DEACTIVATED);
-    }
-
-    CategoryDtoWithSubs findByIdAndWithSubCategories(UUID categoryId) {
-        Category ancestor = this.categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new CategoryNotFoundException(
-                        messageSource.getMessage("error.category.category.with.id.not.found",
-                                new Object[]{categoryId},
-                                LocaleContextHolder.getLocale()),
-                        CategoryErrorCode.CATEGORY_NOT_FOUND));
-
-        List<Category> descendants = this.categoryRepository.findDescendants(categoryId);
-
-        List<CategoryDtoWithSubs> descendantDto = descendants.stream()
-                .map(c -> new CategoryDtoWithSubs(
-                        c.id(),
-                        c.name(),
-                        c.slug(),
-                        c.description(),
-                        c.categoryStatus().toString(),
-                        c.createdAt(),
-                        c.updatedAt(),
-                        c.catalogId(),
-                        List.of()
-                ))
-                .toList();
-
-        return new CategoryDtoWithSubs(
-                ancestor.id(),
-                ancestor.name(),
-                ancestor.slug(),
-                ancestor.description(),
-                ancestor.categoryStatus().toString(),
-                ancestor.createdAt(),
-                ancestor.updatedAt(),
-                ancestor.catalogId(),
-                descendantDto
-        );
-    }
-
-    CategoryPagedResponse<CategoryResponse> findAll(Pageable pageable) {
-        Page<Category> categories = this.categoryRepository.findAll(pageable);
-        return this.mapper.mapCategoryToPagedResponse(categories);
-    }
-
-    Page<RootCategoryResponse> findAllRootCategories(int page, int size) {
-        int offset = page * size;
-
-        List<Category> categories = this.categoryRepository.findAllRootCategories(size, offset);
-
-        if (categories.isEmpty()) {
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page, size), 0);
-        }
-
-        long total = this.categoryRepository.countRootCategories();
-
-        List<RootCategoryResponse> rootCategoryResponseList = this.mapper.toRootCategoryResponseList(categories);
-
-        return new PageImpl<>(
-                rootCategoryResponseList,
-                PageRequest.of(page,size),
-                total
-        );
     }
 
     List<Category> findDescendants(UUID id) {
@@ -489,16 +507,6 @@ class CategoryService implements CategoryApi {
         this.categoryRepository.saveAll(deactivatedChildren);
     }
 
-    void deleteById(UUID id) {
-        findById(id);
-        List<Category> descendants = findDescendants(id);
-        if(!descendants.isEmpty()){
-            log.info("Category.jsx {} has descendants ", id);
-            return;
-        }
-        this.categoryRepository.delete(id);
-        this.categoryRepository.deleteById(id);
-    }
 
     public boolean existsById(UUID categoryId){
         return this.categoryRepository.existsById(categoryId);
@@ -518,7 +526,8 @@ class CategoryService implements CategoryApi {
         }
     }
 
-    long countRootCategories() {
+    @Cacheable(key = "'rootCategoryCount'",value = "categories")
+    public long countRootCategories() {
         return this.categoryRepository.countRootCategories();
     }
 
@@ -558,7 +567,7 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     @Query("""
          SELECT c.* FROM categories c
                  JOIN category_closure cc ON cc.child_id = c.id
-                 WHERE cc.parent_id = :parentId AND cc.depth = 1
+                 WHERE cc.parent_id = :parentId AND cc.depth = 1 order by created_at
     """)
     List<Category> findDescendants(@Param("parentId") UUID id);
 
@@ -777,7 +786,7 @@ record AddChildRequest(
         @NotNull String name,
         @NotBlank String description,
         @NotNull String slug,
-        @NotNull String parentId,
+        @NotNull String categoryId,
         @NotNull String catalogId) {}
 
 record UpdateCategoryStatusRequest(

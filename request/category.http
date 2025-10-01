@@ -20,27 +20,16 @@ Content-Type: application/json
   "catalogId": {{catalogId_computer_electronics}}
 }
 
-### add a root category to a catalog
-POST http://localhost:8080/api/categories
-Content-Type: application/json
-
-{
-  "name": "Vegetable Items",
-  "description": "a category that holds desktop computers and belongs to Grocery catalog",
-  "slug": "vegetable_items",
-  "catalogId": {{catalogId_grocery_items}}
-}
-
-### add a descendant category to a root
+### add a descendant category to a root category
 POST http://localhost:8080/api/categories/descendants
 Content-Type: application/json
 
 {
-  "name": "ram",
-  "description": "a category that holds ram and belongs to Desktop Computer",
-  "slug": "ram",
-  "parentId" : {{categoryId_computer_electronics_root}},
-  "catalogId": {{catalogId_computer_electronics}}
+  "name": "x",
+  "description": "x",
+  "slug": "x",
+  "categoryId" : "79e784ec-b22d-456c-807f-300a21bffc2f",
+  "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
 }
 
 ### update a root category
@@ -67,6 +56,11 @@ Content-Type: application/json
 GET http://localhost:8080/api/categories?slug=ram
 Content-Type: application/json
 
+### get a parent category with its level 1 descendants by id
+GET http://localhost:8080/api/categories/79e784ec-b22d-456c-807f-300a21bffc2f/with-sub-categories
+Content-Type: application/json
+
+
 ### activate a category
 PUT http://localhost:8080/api/categories/{{categoryId_computer_electronics_root_uri}}/activate
 Content-Type: application/json
@@ -75,13 +69,7 @@ Content-Type: application/json
 PUT http://localhost:8080/api/categories/{{categoryId_computer_electronics_root_uri}}/deactivate
 Content-Type: application/json
 
-### get all categories
-GET http://localhost:8080/api/categories
-Content-Type: application/json
 
-### get root category with its 1 level descendants by id
-GET http://localhost:8080/api/categories/3ec82e85-da8c-4126-be36-aa4b1b157258/with-sub-categories
-Content-Type: application/json
 
 
 ### get all ancestors categories
@@ -89,7 +77,7 @@ GET http://localhost:8080/api/categories/ancestors/{{categoryId_category_without
 Content-Type: application/json
 
 ### get all descendants categories
-GET http://localhost:8080/api/categories/descendants/3ec82e85-da8c-4126-be36-aa4b1b157258
+GET http://localhost:8080/api/categories/descendants/79e784ec-b22d-456c-807f-300a21bffc2f
 Content-Type: application/json
 
 ### activate or deactivate without versioning (ACTIVE || INACTIVE)
