@@ -15,6 +15,9 @@
  */
 package com.mhs.onlinemarketingplatform.catalog;
 
+import com.mhs.onlinemarketingplatform.catalog.error.CatalogAlreadyExistsException;
+import com.mhs.onlinemarketingplatform.catalog.error.CatalogErrorCode;
+import com.mhs.onlinemarketingplatform.catalog.error.CatalogNotFoundException;
 import com.mhs.onlinemarketingplatform.catalog.event.AddCatalogEvent;
 import com.mhs.onlinemarketingplatform.catalog.event.UpdateCatalogEvent;
 import jakarta.validation.constraints.NotNull;
@@ -286,7 +289,7 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
 	        c.category_status AS category_status,
 	        c.created_at as category_created_at
 	        FROM catalogs cat
-	        JOIN categories c ON cat.id = c.catalog_id
+	        LEFT JOIN categories c ON cat.id = c.catalog_id
 	        LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1
 	        WHERE cat.id = :catalogId AND cc.parent_id is NULL
             order by c.created_at
@@ -420,36 +423,6 @@ interface CatalogMapper {
 	CategoryDto mapToCategoryDto(CatalogWithRootCategory row);
 }
 
-class CatalogNotFoundException extends RuntimeException {
-	private final CatalogErrorCode code;
-
-	public CatalogNotFoundException(String message, CatalogErrorCode code) {
-		super(message);
-		this.code = code;
-	}
-
-	public CatalogErrorCode getCode() {
-		return code;
-	}
-}
-
-class CatalogAlreadyExistsException extends RuntimeException {
-	private final CatalogErrorCode code;
-
-	public CatalogAlreadyExistsException(String message, CatalogErrorCode code) {
-		super(message);
-		this.code = code;
-	}
-
-	public CatalogErrorCode getCode() {
-		return code;
-	}
-}
-
-enum CatalogErrorCode {
-	CATALOG_NOT_FOUND,
-	CATALOG_ALREADY_EXISTS,
-}
 
 // controller // service // repository // model // enum // dto // mapper // exception
 

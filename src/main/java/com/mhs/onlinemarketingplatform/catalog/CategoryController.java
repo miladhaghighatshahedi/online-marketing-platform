@@ -15,6 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.catalog;
 
+import com.mhs.onlinemarketingplatform.catalog.error.*;
 import com.mhs.onlinemarketingplatform.catalog.event.AddCategoryEvent;
 import com.mhs.onlinemarketingplatform.catalog.event.UpdateCategoryEvent;
 import jakarta.validation.constraints.NotBlank;
@@ -33,13 +34,11 @@ import org.springframework.data.annotation.Version;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
@@ -191,7 +190,8 @@ class CategoryService implements CategoryApi {
         this.messageSource = messageSource;
     }
 
-    CategoryResponse addAncestor(AddParentRequest addParentRequest) {
+    @CacheEvict(value = "catalogs", allEntries = true)
+    public CategoryResponse addAncestor(AddParentRequest addParentRequest) {
         UUID catalogId = UUID.fromString(addParentRequest.catalogId());
 
         if(!this.catalogService.existsById(catalogId)) {
@@ -336,7 +336,8 @@ class CategoryService implements CategoryApi {
         return this.mapper.mapCategoryToResponse(category);
     }
 
-    CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID categoryId) {
+
+    public CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID categoryId) {
         Category ancestor = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
@@ -393,10 +394,6 @@ class CategoryService implements CategoryApi {
         );
     }
 
-    CategoryPagedResponse<CategoryResponse> findAll(Pageable pageable) {
-        Page<Category> categories = this.categoryRepository.findAll(pageable);
-        return this.mapper.mapCategoryToPagedResponse(categories);
-    }
 
 
 
@@ -541,8 +538,6 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     Optional<Category> findByName(String name);
 
     Optional<Category> findBySlug(String slug);
-
-    Page<Category> findAll(Pageable pageable);
 
     @Query("""
         SELECT
@@ -830,81 +825,6 @@ record CategoryDtoWithSubs (
         UUID catalogId,
         List<CategoryDtoWithSubs> subCategories
 ) {}
-
-class CategoryNotFoundException extends RuntimeException {
-
-    private final CategoryErrorCode errorCode;
-
-    public CategoryNotFoundException(String message, CategoryErrorCode errorCode) {
-        super(message);
-        this.errorCode = errorCode;
-    }
-
-    public CategoryErrorCode getErrorCode() {
-        return errorCode;
-    }
-}
-
-class CategoryAlreadyActivatedException extends RuntimeException {
-
-    private final CategoryErrorCode errorCode;
-
-    public CategoryAlreadyActivatedException(String message, CategoryErrorCode errorCode) {
-        super(message);
-        this.errorCode = errorCode;
-    }
-
-    public CategoryErrorCode getErrorCode() {
-        return errorCode;
-    }
-}
-
-class CategoryAlreadyDeactivatedException extends RuntimeException {
-    private final CategoryErrorCode errorCode;
-
-    public CategoryAlreadyDeactivatedException(String message, CategoryErrorCode errorCode) {
-        super(message);
-        this.errorCode = errorCode;
-    }
-
-    public CategoryErrorCode getErrorCode() {
-        return errorCode;
-    }
-}
-
-class CategoryAlreadyExistsException extends RuntimeException {
-    private final CategoryErrorCode errorCode;
-
-    public CategoryAlreadyExistsException(String message, CategoryErrorCode errorCode) {
-        super(message);
-        this.errorCode = errorCode;
-    }
-
-    public CategoryErrorCode getErrorCode() {
-        return errorCode;
-    }
-}
-
-class CategoryNotBelongToCatalog extends RuntimeException {
-    private final CategoryErrorCode errorCode;
-
-    public CategoryNotBelongToCatalog(String message, CategoryErrorCode errorCode) {
-        super(message);
-        this.errorCode = errorCode;
-    }
-
-    public CategoryErrorCode getErrorCode() {
-        return errorCode;
-    }
-}
-
-enum CategoryErrorCode {
-    CATEGORY_NOT_FOUND,
-    CATEGORY_ALREADY_ACTIVATED,
-    CATEGORY_ALREADY_DEACTIVATED,
-    CATEGORY_ALREADY_EXISTS,
-    CATEGORY_NOT_BELONG_TO_CATALOG
-}
 
 // controller // service // repository // model // mapper // enum // dto  // exception
 
