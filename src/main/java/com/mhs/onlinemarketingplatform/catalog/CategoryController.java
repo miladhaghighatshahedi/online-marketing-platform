@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -113,8 +114,6 @@ class CategoryController {
         return this.categoryService.findAllRootCategories(page,size);
     }
 
-
-
     @GetMapping("/api/categories/ancestors/{id}")
     List<Category> findAllAncestors(@PathVariable("id") UUID id) {
         return this.categoryService.findAncestors(id);
@@ -135,8 +134,6 @@ class CategoryController {
     ResponseEntity<CategoryResponse> deactivate(@PathVariable("id") UUID id) {
         return ResponseEntity.ok(this.categoryService.deactivate(id));
     }
-
-
 
     @PutMapping("/api/categories/{id}")
     ResponseEntity<?> activateOrDeactivateParentAndChildrenWithoutVersioning(
@@ -171,7 +168,7 @@ class CategoryService implements CategoryApi {
     private final CategoryRepository categoryRepository;
     private final CategoryClosureRepository categoryClosureRepository;
     private final CatalogService catalogService;
-    private final CategoryMapper mapper;
+    private final CategoryMapper categoryMapper;
     private final ApplicationEventPublisher publisher;
     private final MessageSource messageSource;
 
@@ -179,13 +176,13 @@ class CategoryService implements CategoryApi {
             CategoryRepository categoryRepository,
             CategoryClosureRepository categoryClosureRepository,
             CatalogService catalogService,
-            CategoryMapper mapper,
+            CategoryMapper categoryMapper,
             ApplicationEventPublisher publisher,
             MessageSource messageSource) {
         this.categoryRepository = categoryRepository;
         this.categoryClosureRepository = categoryClosureRepository;
         this.catalogService = catalogService;
-        this.mapper = mapper;
+        this.categoryMapper = categoryMapper;
         this.publisher = publisher;
         this.messageSource = messageSource;
     }
@@ -203,16 +200,16 @@ class CategoryService implements CategoryApi {
 
         validateDuplicatesByNameAndSlug(addParentRequest,AddParentRequest::name,AddParentRequest::slug);
 
-        Category mappedCategory = this.mapper.mapAddParentToCategory(addParentRequest);
+        Category mappedCategory = this.categoryMapper.mapAddParentToCategory(addParentRequest);
 
         Category storedCategory = this.categoryRepository.save(mappedCategory);
         this.categoryClosureRepository.insertSelf(storedCategory.id());
 
         this.publisher.publishEvent(new AddCategoryEvent(storedCategory.id()));
-        return this.mapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
+        return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
-    @CacheEvict(value = "catalogs", allEntries = true)
+    @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public CategoryResponse addDescendant(AddChildRequest addChildRequest) {
         UUID catalogId = UUID.fromString(addChildRequest.catalogId());
         UUID categoryId = UUID.fromString(addChildRequest.categoryId());
@@ -240,17 +237,17 @@ class CategoryService implements CategoryApi {
                             LocaleContextHolder.getLocale()),
                             CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
 
-        Category mappedCategory = this.mapper.mapAddChildToCategory(addChildRequest);
+        Category mappedCategory = this.categoryMapper.mapAddChildToCategory(addChildRequest);
 
         Category storedChildCategory = this.categoryRepository.save(mappedCategory);
         this.categoryClosureRepository.insertSelf(storedChildCategory.id());
         this.categoryClosureRepository.insertClosure(categoryId,storedChildCategory.id());
 
         this.publisher.publishEvent(new AddCategoryEvent(storedChildCategory.id()));
-        return this.mapper.mapCategoryToResponse(storedChildCategory);
+        return this.categoryMapper.mapCategoryToResponse(storedChildCategory);
     }
 
-    @CacheEvict(value = "catalogs", allEntries = true)
+    @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public CategoryResponse update(UpdateParentRequest updateParentRequest) {
         UUID catalogId = UUID.fromString(updateParentRequest.catalogId());
         UUID id = UUID.fromString(updateParentRequest.id());
@@ -288,13 +285,13 @@ class CategoryService implements CategoryApi {
                             LocaleContextHolder.getLocale()),
                             CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
 
-        Category mappedCategory = this.mapper.mapUpdateToCategory(updateParentRequest,existingCategory);
+        Category mappedCategory = this.categoryMapper.mapUpdateToCategory(updateParentRequest,existingCategory);
         Category storedCategory = this.categoryRepository.save(mappedCategory);
         this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
-        return this.mapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
+        return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
-    @CacheEvict(value = "catalogs", allEntries = true)
+    @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public void delete(UUID id) {
         findById(id);
         List<Category> descendants = findDescendants(id);
@@ -313,7 +310,7 @@ class CategoryService implements CategoryApi {
                                 new Object[]{categoryId},
                                 LocaleContextHolder.getLocale()),
                                 CategoryErrorCode.CATEGORY_NOT_FOUND));
-        return this.mapper.mapCategoryToResponse(category);
+        return this.categoryMapper.mapCategoryToResponse(category);
     }
 
     CategoryResponse findByName(String name) {
@@ -323,7 +320,7 @@ class CategoryService implements CategoryApi {
                                 new Object[]{name},
                                 LocaleContextHolder.getLocale()),
                                 CategoryErrorCode.CATEGORY_NOT_FOUND));
-        return this.mapper.mapCategoryToResponse(category);
+        return this.categoryMapper.mapCategoryToResponse(category);
     }
 
     CategoryResponse findBySlug(String slug) {
@@ -333,45 +330,25 @@ class CategoryService implements CategoryApi {
                                 new Object[]{slug},
                                 LocaleContextHolder.getLocale()),
                                 CategoryErrorCode.CATEGORY_NOT_FOUND));
-        return this.mapper.mapCategoryToResponse(category);
+        return this.categoryMapper.mapCategoryToResponse(category);
     }
 
-
-    public CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID categoryId) {
-        Category ancestor = this.categoryRepository.findById(categoryId)
+    @Cacheable(key = "#id" , value = "categories")
+    public CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID id) {
+        Category ancestor = this.categoryRepository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
-                                new Object[]{categoryId},
+                                new Object[]{id},
                                 LocaleContextHolder.getLocale()),
                         CategoryErrorCode.CATEGORY_NOT_FOUND));
 
-        List<Category> descendants = this.categoryRepository.findDescendants(categoryId);
+        List<Category> descendants = this.categoryRepository.findDescendants(id);
 
         List<CategoryDtoWithSubs> descendantDto = descendants.stream()
-                .map(c -> new CategoryDtoWithSubs(
-                        c.id(),
-                        c.name(),
-                        c.slug(),
-                        c.description(),
-                        c.categoryStatus().toString(),
-                        c.createdAt(),
-                        c.updatedAt(),
-                        c.catalogId(),
-                        List.of()
-                ))
+                .map(categoryMapper::toCategoryDtoWithSubs)
                 .toList();
 
-        return new CategoryDtoWithSubs(
-                ancestor.id(),
-                ancestor.name(),
-                ancestor.slug(),
-                ancestor.description(),
-                ancestor.categoryStatus().toString(),
-                ancestor.createdAt(),
-                ancestor.updatedAt(),
-                ancestor.catalogId(),
-                descendantDto
-        );
+        return this.categoryMapper.toCategoryDtoWithSubs(ancestor, descendantDto);
     }
 
     Page<RootCategoryResponse> findAllRootCategories(int page, int size) {
@@ -385,7 +362,7 @@ class CategoryService implements CategoryApi {
 
         long total = this.categoryRepository.countRootCategories();
 
-        List<RootCategoryResponse> rootCategoryResponseList = this.mapper.toRootCategoryResponseList(categories);
+        List<RootCategoryResponse> rootCategoryResponseList = this.categoryMapper.toRootCategoryResponseList(categories);
 
         return new PageImpl<>(
                 rootCategoryResponseList,
@@ -393,9 +370,6 @@ class CategoryService implements CategoryApi {
                 total
         );
     }
-
-
-
 
     CategoryResponse activate(UUID categoryId) {
         Category exsitingCategory = this.categoryRepository.findById(categoryId)
@@ -409,7 +383,7 @@ class CategoryService implements CategoryApi {
             Category updatedCategory = Category.withCategoryStatusActivated(exsitingCategory);
             Category storedCategory = this.categoryRepository.save(updatedCategory);
             this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
-            return this.mapper.mapCategoryToResponse(storedCategory);
+            return this.categoryMapper.mapCategoryToResponse(storedCategory);
         }
 
         throw new CategoryAlreadyActivatedException(
@@ -431,7 +405,7 @@ class CategoryService implements CategoryApi {
             Category updatedCategory = Category.withCategoryStatusDeactivated(exsitingCategory);
             Category storedCategory = this.categoryRepository.save(updatedCategory);
             this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
-            return this.mapper.mapCategoryToResponse(storedCategory);
+            return this.categoryMapper.mapCategoryToResponse(storedCategory);
         }
         throw new CategoryAlreadyDeactivatedException(
                 messageSource.getMessage("error.category.category.already.deactivated",
@@ -488,7 +462,7 @@ class CategoryService implements CategoryApi {
             return;
         }
 
-        List<Category> deactivatedChildren = this.mapper.toDeactivateList(children);
+        List<Category> deactivatedChildren = this.categoryMapper.toDeactivateList(children);
         this.categoryRepository.saveAll(deactivatedChildren);
     }
 
@@ -500,10 +474,9 @@ class CategoryService implements CategoryApi {
             log.info("Category.jsx {} has no descendants to deactivate", categoryId);
             return;
         }
-        List<Category> deactivatedChildren = this.mapper.toActivateList(children);
+        List<Category> deactivatedChildren = this.categoryMapper.toActivateList(children);
         this.categoryRepository.saveAll(deactivatedChildren);
     }
-
 
     public boolean existsById(UUID categoryId){
         return this.categoryRepository.existsById(categoryId);
@@ -583,11 +556,7 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     """)
     void findDescendantsForActivationOrDeactivationWithoutVersioning(@Param("id") UUID id, @Param("categoryStatus") CategoryStatus categoryStatus);
 
-    @Query("""
-        SELECT c.* FROM categories c WHERE c.id IN (
-            SELECT cc.child_id FROM category_closure cc WHERE cc.parent_id = :id
-        )
-    """)
+    @Query("SELECT c.* FROM categories c WHERE c.id IN (SELECT cc.child_id FROM category_closure cc WHERE cc.parent_id = :id)")
     List<Category> findDescendantsForActivationOrDeactivationWithVersioning(@Param("id") UUID id);
 
     boolean existsByName(@Param("name") String name);
@@ -600,14 +569,10 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     boolean existsByNameOrSlugAndNotId(@Param("name") String name, @Param("slug") String slug, @Param("id") UUID id);
 
     @Modifying
-    @Query("""
-            DELETE FROM category_closure WHERE child_id = :id OR parent_id = :id
-            """)
+    @Query("DELETE FROM category_closure WHERE child_id = :id OR parent_id = :id")
     void delete(@Param("id") UUID id);
 
-    @Query("""
-        SELECT COUNT(*) FROM categories c WHERE NOT EXISTS ( SELECT 1 FROM category_closure cc WHERE cc.child_id = c.id AND cc.depth = 1 )
-    """)
+    @Query("SELECT COUNT(*) FROM categories c WHERE NOT EXISTS ( SELECT 1 FROM category_closure cc WHERE cc.child_id = c.id AND cc.depth = 1 )")
     long countRootCategories();
 
 }
@@ -677,81 +642,6 @@ record CategoryClosure (
      UUID childId,
      int depth) {}
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
-interface CategoryMapper {
-
-    @Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
-    @Mapping(target = "version", ignore = true)
-    @Mapping(target = "categoryStatus", constant = "INACTIVE")
-    @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
-    @Mapping(target = "updatedAt", ignore = true)
-    Category mapAddParentToCategory(AddParentRequest request);
-
-    @Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
-    @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
-    @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "categoryStatus", constant = "INACTIVE")
-    Category mapAddChildToCategory(AddChildRequest request);
-
-    default Category mapUpdateToCategory(UpdateParentRequest request, Category category) {
-        return new Category(
-                category.id(),
-                category.version(),
-                request.name() != null ? request.name() :category.name(),
-                request.description() != null ? request.description() :category.description(),
-                category.createdAt(),
-                LocalDateTime.now(),
-                CategoryStatus.INACTIVE,
-                request.slug() != null ? request.slug() :category.slug(),
-                category.catalogId());
-    }
-
-    @Mapping(target = "id", source = "id")
-    @Mapping(target = "name", source = "name")
-    @Mapping(target = "description", source = "description")
-    @Mapping(target = "status", source = "categoryStatus")
-    @Mapping(target = "slug", source = "slug")
-    @Mapping(target = "createdAt", source = "createdAt")
-    @Mapping(target = "updatedAt", source = "updatedAt")
-    RootCategoryResponse toRootCategoryResponse(Category category);
-
-    List<RootCategoryResponse> toRootCategoryResponseList(List<Category> list);
-
-
-    @Named("toDeactivate")
-    @Mapping(target = "categoryStatus", constant = "INACTIVE")
-    @Mapping(target = "updatedAt", expression = "java(java.time.LocalDateTime.now())")
-    Category toDeactivate(Category category);
-
-    @IterableMapping(qualifiedByName = "toDeactivate")
-    List<Category> toDeactivateList(List<Category> category);
-
-    @Named("toActivate")
-    @Mapping(target = "categoryStatus", constant = "ACTIVE")
-    @Mapping(target = "updatedAt", expression = "java(java.time.LocalDateTime.now())")
-    Category toActivate(Category category);
-
-    @IterableMapping(qualifiedByName = "toActivate")
-    List<Category> toActivateList(List<Category> category);
-
-    @Mapping(target = "status", source = "categoryStatus")
-    CategoryResponse mapCategoryToResponse(Category category);
-
-    default CategoryPagedResponse<CategoryResponse> mapCategoryToPagedResponse(Page<Category> page) {
-        return new CategoryPagedResponse<>(
-                page.getContent().stream().map(this::mapCategoryToResponse).toList(),
-                page.getNumber(),
-                page.getSize(),
-                page.getTotalElements(),
-                page.getTotalPages());
-    }
-
-    default String map(CategoryStatus status) {
-        return status != null ? status.name() : null;
-    }
-
-}
-
 enum CategoryStatus {
 
     ACTIVE("ACTIVE"),
@@ -819,12 +709,99 @@ record CategoryDtoWithSubs (
         String name,
         String slug,
         String description,
-        String category_status,
+        String status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         UUID catalogId,
         List<CategoryDtoWithSubs> subCategories
 ) {}
+
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+interface CategoryMapper {
+
+    @Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "version", ignore = true)
+    @Mapping(target = "categoryStatus", constant = "INACTIVE")
+    @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
+    @Mapping(target = "updatedAt", ignore = true)
+    Category mapAddParentToCategory(AddParentRequest request);
+
+    @Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "categoryStatus", constant = "INACTIVE")
+    Category mapAddChildToCategory(AddChildRequest request);
+
+    default Category mapUpdateToCategory(UpdateParentRequest request, Category category) {
+        return new Category(
+                category.id(),
+                category.version(),
+                request.name() != null ? request.name() :category.name(),
+                request.description() != null ? request.description() :category.description(),
+                category.createdAt(),
+                LocalDateTime.now(),
+                CategoryStatus.INACTIVE,
+                request.slug() != null ? request.slug() :category.slug(),
+                category.catalogId());
+    }
+
+    @Mapping(target = "id", source = "id")
+    @Mapping(target = "name", source = "name")
+    @Mapping(target = "description", source = "description")
+    @Mapping(target = "status", source = "categoryStatus")
+    @Mapping(target = "slug", source = "slug")
+    @Mapping(target = "createdAt", source = "createdAt")
+    @Mapping(target = "updatedAt", source = "updatedAt")
+    RootCategoryResponse toRootCategoryResponse(Category category);
+
+    List<RootCategoryResponse> toRootCategoryResponseList(List<Category> list);
+
+    @Mapping(target = "id", source = "id")
+    @Mapping(target = "name", source = "name")
+    @Mapping(target = "slug", source = "slug")
+    @Mapping(target = "description", source = "description")
+    @Mapping(target = "status", source = "categoryStatus")
+    @Mapping(target = "createdAt", source = "createdAt")
+    @Mapping(target = "updatedAt", source = "updatedAt")
+    @Mapping(target = "catalogId", source = "catalogId")
+    @Mapping(target = "subCategories", ignore = true)
+    CategoryDtoWithSubs toCategoryDtoWithSubs(Category category);
+
+    CategoryDtoWithSubs toCategoryDtoWithSubs(Category category, List<CategoryDtoWithSubs> subCategories);
+
+    @Named("toDeactivate")
+    @Mapping(target = "categoryStatus", constant = "INACTIVE")
+    @Mapping(target = "updatedAt", expression = "java(java.time.LocalDateTime.now())")
+    Category toDeactivate(Category category);
+
+    @IterableMapping(qualifiedByName = "toDeactivate")
+    List<Category> toDeactivateList(List<Category> category);
+
+    @Named("toActivate")
+    @Mapping(target = "categoryStatus", constant = "ACTIVE")
+    @Mapping(target = "updatedAt", expression = "java(java.time.LocalDateTime.now())")
+    Category toActivate(Category category);
+
+    @IterableMapping(qualifiedByName = "toActivate")
+    List<Category> toActivateList(List<Category> category);
+
+    @Mapping(target = "status", source = "categoryStatus")
+    CategoryResponse mapCategoryToResponse(Category category);
+
+    default CategoryPagedResponse<CategoryResponse> mapCategoryToPagedResponse(Page<Category> page) {
+        return new CategoryPagedResponse<>(
+                page.getContent().stream().map(this::mapCategoryToResponse).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
+    }
+
+    default String map(CategoryStatus status) {
+        return status != null ? status.name() : null;
+    }
+
+}
 
 // controller // service // repository // model // mapper // enum // dto  // exception
 

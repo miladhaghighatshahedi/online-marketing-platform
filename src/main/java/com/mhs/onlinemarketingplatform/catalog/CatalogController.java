@@ -230,7 +230,6 @@ class CatalogService {
 							LocaleContextHolder.getLocale()),
 					CatalogErrorCode.CATALOG_NOT_FOUND);}
 
-
 		CatalogWithRootCategory catalog = rows.get(0);
 		List<CategoryDto> categories = rows.stream()
 				.filter(row -> row.category_id() != null)
