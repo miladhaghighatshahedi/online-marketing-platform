@@ -73,14 +73,6 @@ Content-Type: application/json
 GET http://localhost:8080/api/categories/descendants/79e784ec-b22d-456c-807f-300a21bffc2f
 Content-Type: application/json
 
-### activate or deactivate without versioning (ACTIVE || INACTIVE)
-PUT http://localhost:8080/api/categories/3ec82e85-da8c-4126-be36-aa4b1b157258
-Content-Type: application/json
-
-{
-  "categoryStatus" : "ACTIVE"
-}
-
 ### activate or deactivate with versioning (ACTIVE || INACTIVE)
 PUT http://localhost:8080/api/categories/3ec82e85-da8c-4126-be36-aa4b1b157258/versioned
 Content-Type: application/json

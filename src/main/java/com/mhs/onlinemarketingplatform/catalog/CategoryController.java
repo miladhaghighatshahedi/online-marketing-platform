@@ -18,6 +18,7 @@ package com.mhs.onlinemarketingplatform.catalog;
 import com.mhs.onlinemarketingplatform.catalog.error.*;
 import com.mhs.onlinemarketingplatform.catalog.event.AddCategoryEvent;
 import com.mhs.onlinemarketingplatform.catalog.event.UpdateCategoryEvent;
+import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.mapstruct.*;
@@ -124,7 +125,6 @@ class CategoryController {
         return this.categoryService.findDescendants(id);
     }
 
-
     @PutMapping("/api/categories/{id}/activate")
     ResponseEntity<CategoryResponse> activate(@PathVariable("id") UUID id) {
         return ResponseEntity.ok(this.categoryService.activate(id));
@@ -133,14 +133,6 @@ class CategoryController {
     @PutMapping("/api/categories/{id}/deactivate")
     ResponseEntity<CategoryResponse> deactivate(@PathVariable("id") UUID id) {
         return ResponseEntity.ok(this.categoryService.deactivate(id));
-    }
-
-    @PutMapping("/api/categories/{id}")
-    ResponseEntity<?> activateOrDeactivateParentAndChildrenWithoutVersioning(
-            @PathVariable("id") UUID id,
-            @RequestBody UpdateCategoryStatusRequest request) {
-        this.categoryService.activateOrDeactivateParentAndChildrenWithoutVersioning(id,request.categoryStatus());
-        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/api/categories/{id}/versioned")
@@ -163,7 +155,8 @@ class CategoryController {
 @Transactional
 class CategoryService implements CategoryApi {
 
-    private static final Logger log = LoggerFactory.getLogger(CategoryService.class);
+    private static final Logger logger = LoggerFactory.getLogger(CategoryService.class);
+    private final AuditLogger auditLogger;
 
     private final CategoryRepository categoryRepository;
     private final CategoryClosureRepository categoryClosureRepository;
@@ -173,12 +166,14 @@ class CategoryService implements CategoryApi {
     private final MessageSource messageSource;
 
     public CategoryService(
+            AuditLogger auditLogger,
             CategoryRepository categoryRepository,
             CategoryClosureRepository categoryClosureRepository,
             CatalogService catalogService,
             CategoryMapper categoryMapper,
             ApplicationEventPublisher publisher,
             MessageSource messageSource) {
+        this.auditLogger = auditLogger;
         this.categoryRepository = categoryRepository;
         this.categoryClosureRepository = categoryClosureRepository;
         this.catalogService = catalogService;
@@ -189,6 +184,7 @@ class CategoryService implements CategoryApi {
 
     @CacheEvict(value = "catalogs", allEntries = true)
     public CategoryResponse addAncestor(AddParentRequest addParentRequest) {
+        logger.info("Creating new parent category with name: {}",addParentRequest.name());
         UUID catalogId = UUID.fromString(addParentRequest.catalogId());
 
         if(!this.catalogService.existsById(catalogId)) {
@@ -204,6 +200,7 @@ class CategoryService implements CategoryApi {
 
         Category storedCategory = this.categoryRepository.save(mappedCategory);
         this.categoryClosureRepository.insertSelf(storedCategory.id());
+        this.auditLogger.log("PARENT_CTEGORY_CREATED", "CATEGORY", "Category NAME: " + storedCategory.name());
 
         this.publisher.publishEvent(new AddCategoryEvent(storedCategory.id()));
         return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
@@ -211,6 +208,7 @@ class CategoryService implements CategoryApi {
 
     @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public CategoryResponse addDescendant(AddChildRequest addChildRequest) {
+        logger.info("Creating new child category with name: {}",addChildRequest.name());
         UUID catalogId = UUID.fromString(addChildRequest.catalogId());
         UUID categoryId = UUID.fromString(addChildRequest.categoryId());
 
@@ -242,6 +240,7 @@ class CategoryService implements CategoryApi {
         Category storedChildCategory = this.categoryRepository.save(mappedCategory);
         this.categoryClosureRepository.insertSelf(storedChildCategory.id());
         this.categoryClosureRepository.insertClosure(categoryId,storedChildCategory.id());
+        this.auditLogger.log("CHILD_CATEGORY_CREATED", "CATEGORY", "Category NAME: " + storedChildCategory.name());
 
         this.publisher.publishEvent(new AddCategoryEvent(storedChildCategory.id()));
         return this.categoryMapper.mapCategoryToResponse(storedChildCategory);
@@ -249,6 +248,7 @@ class CategoryService implements CategoryApi {
 
     @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public CategoryResponse update(UpdateParentRequest updateParentRequest) {
+        logger.info("Updating exisiting category with name: {}",updateParentRequest.name());
         UUID catalogId = UUID.fromString(updateParentRequest.catalogId());
         UUID id = UUID.fromString(updateParentRequest.id());
 
@@ -287,23 +287,33 @@ class CategoryService implements CategoryApi {
 
         Category mappedCategory = this.categoryMapper.mapUpdateToCategory(updateParentRequest,existingCategory);
         Category storedCategory = this.categoryRepository.save(mappedCategory);
+        this.auditLogger.log("CATALOG_UPDATED", "CATALOG", "Catalog NAME: " + storedCategory.name());
+
         this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
         return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
     }
 
     @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public void delete(UUID id) {
-        findById(id);
+        Category category = this.categoryRepository.findById(id)
+                .orElseThrow(() ->  new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{id},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+        logger.info("Deleting exisiting category with id: {} and name: {}",category.id(),category.name());
+
         List<Category> descendants = findDescendants(id);
         if(!descendants.isEmpty()){
-            log.info("Category.jsx {} has descendants ", id);
+            logger.info("Category {} has descendants",category.name());
             return;
         }
         this.categoryRepository.delete(id);
-        this.categoryRepository.deleteById(id);
+        logger.info("Deleting exisiting category with name: {}",category.name());
     }
 
     CategoryResponse findById(UUID categoryId) {
+        logger.info("Looking up category by ID: {}",categoryId);
         Category category = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
@@ -314,6 +324,7 @@ class CategoryService implements CategoryApi {
     }
 
     CategoryResponse findByName(String name) {
+        logger.info("Looking up category by NAME: {}",name);
         Category category = this.categoryRepository.findByName(name)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.name.not.found",
@@ -324,6 +335,7 @@ class CategoryService implements CategoryApi {
     }
 
     CategoryResponse findBySlug(String slug) {
+        logger.info("Looking up category by SLUG: {}",slug);
         Category category = this.categoryRepository.findBySlug(slug)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.slug.not.found",
@@ -335,6 +347,7 @@ class CategoryService implements CategoryApi {
 
     @Cacheable(key = "#id" , value = "categories")
     public CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID id) {
+        logger.info("Retriving a category and its children by ID: {}",id);
         Category ancestor = this.categoryRepository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
@@ -348,10 +361,12 @@ class CategoryService implements CategoryApi {
                 .map(categoryMapper::toCategoryDtoWithSubs)
                 .toList();
 
+        this.auditLogger.log("CATEGORY_RETRIEVED", "CATEGORY", "Category NAME: "+ancestor.name());
         return this.categoryMapper.toCategoryDtoWithSubs(ancestor, descendantDto);
     }
 
     Page<RootCategoryResponse> findAllRootCategories(int page, int size) {
+        logger.info("Retriving all root categories");
         int offset = page * size;
 
         List<Category> categories = this.categoryRepository.findAllRootCategories(size, offset);
@@ -364,6 +379,7 @@ class CategoryService implements CategoryApi {
 
         List<RootCategoryResponse> rootCategoryResponseList = this.categoryMapper.toRootCategoryResponseList(categories);
 
+        this.auditLogger.log("ROOT_CATEGORIES_RETRIEVED_ALL", "CATEGORY", "Category TOTAL: "+total);
         return new PageImpl<>(
                 rootCategoryResponseList,
                 PageRequest.of(page,size),
@@ -372,6 +388,7 @@ class CategoryService implements CategoryApi {
     }
 
     CategoryResponse activate(UUID categoryId) {
+        logger.info("Activate a category by ID: {}",categoryId);
         Category exsitingCategory = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
@@ -382,6 +399,8 @@ class CategoryService implements CategoryApi {
         if(exsitingCategory.categoryStatus() == CategoryStatus.INACTIVE) {
             Category updatedCategory = Category.withCategoryStatusActivated(exsitingCategory);
             Category storedCategory = this.categoryRepository.save(updatedCategory);
+            this.auditLogger.log("CATEGORY_ACTIVATED", "CATEGORY", "Category NAME: "+exsitingCategory.name());
+
             this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
             return this.categoryMapper.mapCategoryToResponse(storedCategory);
         }
@@ -394,6 +413,7 @@ class CategoryService implements CategoryApi {
     }
 
     CategoryResponse deactivate(UUID categoryId) {
+        logger.info("Deactivate a category by ID: {}",categoryId);
         Category exsitingCategory = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
@@ -404,9 +424,11 @@ class CategoryService implements CategoryApi {
         if(exsitingCategory.categoryStatus() == CategoryStatus.ACTIVE) {
             Category updatedCategory = Category.withCategoryStatusDeactivated(exsitingCategory);
             Category storedCategory = this.categoryRepository.save(updatedCategory);
+            this.auditLogger.log("CATEGORY_DEACTIVATED", "CATEGORY", "Category NAME: "+exsitingCategory.name());
             this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
             return this.categoryMapper.mapCategoryToResponse(storedCategory);
         }
+
         throw new CategoryAlreadyDeactivatedException(
                 messageSource.getMessage("error.category.category.already.deactivated",
                         new Object[]{categoryId},
@@ -418,7 +440,7 @@ class CategoryService implements CategoryApi {
         findById(id);
         List<Category> descendants = this.categoryRepository.findDescendants(id);
         if(descendants.isEmpty()){
-            log.info("Category.jsx {} has no descendants", id);
+            logger.info("Category {} has no descendants", id);
         }
         return descendants;
     }
@@ -427,18 +449,20 @@ class CategoryService implements CategoryApi {
         findById(id);
         List<Category> ancestors = this.categoryRepository.findAncestors(id);
         if(ancestors.isEmpty()){
-            log.info("Category.jsx {} has no ancestors", id);
+            logger.info("Category {} has no ancestors", id);
         }
         return ancestors;
     }
 
-    void activateOrDeactivateParentAndChildrenWithoutVersioning(UUID categoryId, CategoryStatus categoryStatus) {
-       existsById(categoryId);
-       this.categoryRepository.findDescendantsForActivationOrDeactivationWithoutVersioning(categoryId,categoryStatus);
-    }
-
     void activateOrDeactivateParentAndChildrenWithVersioning(UUID id, CategoryStatus status) {
-        existsById(id);
+        Category category = this.categoryRepository.findById(id)
+                .orElseThrow(() ->  new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{id},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+        logger.info("Activate or Deactivate category {} and its children by its ID: {}",category.name(),id);
+
         if(status == CategoryStatus.ACTIVE)
         {
             activateParentAndChildrenWithVersioning(id);
@@ -458,12 +482,13 @@ class CategoryService implements CategoryApi {
         List<Category> children = this.categoryRepository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
 
         if (children.isEmpty()) {
-            log.info("Category.jsx {} has no descendants to deactivate", categoryId);
+            logger.info("Category {} has no descendants to deactivate", categoryId);
             return;
         }
 
         List<Category> deactivatedChildren = this.categoryMapper.toDeactivateList(children);
         this.categoryRepository.saveAll(deactivatedChildren);
+        this.auditLogger.log("CHILDREN_CATEGORY_DEACTIVATED", "CATEGORY", "Category ID: "+categoryId);
     }
 
     void activateParentAndChildrenWithVersioning(UUID categoryId){
@@ -471,11 +496,12 @@ class CategoryService implements CategoryApi {
         List<Category> children = this.categoryRepository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
 
         if (children.isEmpty()) {
-            log.info("Category.jsx {} has no descendants to deactivate", categoryId);
+            logger.info("Category {} has no descendants to deactivate", categoryId);
             return;
         }
         List<Category> deactivatedChildren = this.categoryMapper.toActivateList(children);
         this.categoryRepository.saveAll(deactivatedChildren);
+        this.auditLogger.log("CHILDREN_CATEGORY_ACTIVATED", "CATEGORY", "Category ID: "+categoryId);
     }
 
     public boolean existsById(UUID categoryId){
@@ -546,15 +572,6 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
                 ORDER BY cc.depth
     """)
     List<Category> findAncestors(@Param("childId") UUID id);
-
-    @Modifying
-    @Query("""
-        UPDATE categories SET category_status = :categoryStatus
-        WHERE id IN (
-            SELECT cc.child_id FROM category_closure cc WHERE cc.parent_id= :id
-        )
-    """)
-    void findDescendantsForActivationOrDeactivationWithoutVersioning(@Param("id") UUID id, @Param("categoryStatus") CategoryStatus categoryStatus);
 
     @Query("SELECT c.* FROM categories c WHERE c.id IN (SELECT cc.child_id FROM category_closure cc WHERE cc.parent_id = :id)")
     List<Category> findDescendantsForActivationOrDeactivationWithVersioning(@Param("id") UUID id);

@@ -20,10 +20,13 @@ import com.mhs.onlinemarketingplatform.catalog.error.CatalogErrorCode;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogNotFoundException;
 import com.mhs.onlinemarketingplatform.catalog.event.AddCatalogEvent;
 import com.mhs.onlinemarketingplatform.catalog.event.UpdateCatalogEvent;
+import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import jakarta.validation.constraints.NotNull;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -108,15 +111,21 @@ class CatalogController {
 @Transactional
 class CatalogService {
 
+	private static final Logger logger = LoggerFactory.getLogger(CatalogService.class);
+	private final AuditLogger auditLogger;
+
 	private final CatalogRepository catalogRepository;
 	private final CatalogMapper catalogMapper;
 	private final ApplicationEventPublisher publisher;
 	private final MessageSource messageSource;
 
-	public CatalogService(CatalogRepository catalogRepository,
-	                      CatalogMapper catalogMapper,
-	                      ApplicationEventPublisher publisher,
-	                      MessageSource messageSource) {
+	public CatalogService(
+			AuditLogger auditLogger,
+			CatalogRepository catalogRepository,
+			CatalogMapper catalogMapper,
+			ApplicationEventPublisher publisher,
+			MessageSource messageSource) {
+		this.auditLogger = auditLogger;
 		this.catalogRepository = catalogRepository;
 		this.catalogMapper = catalogMapper;
 		this.publisher = publisher;
@@ -125,6 +134,8 @@ class CatalogService {
 
 	@CacheEvict(value = "catalogsPage", allEntries = true)
 	public CatalogResponse add(AddCatalogRequest addCatalogRequest) {
+		logger.info("Creating new catalog with name: {}",addCatalogRequest.name());
+
 		boolean existsByName = this.catalogRepository.existsByName(addCatalogRequest.name());
 		boolean existsBySlug = this.catalogRepository.existsBySlug(addCatalogRequest.slug());
 
@@ -138,12 +149,14 @@ class CatalogService {
 
 		Catalog mappedCatalog = this.catalogMapper.mapAddRequestToCatalog(addCatalogRequest);
 		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
+		this.auditLogger.log("CATALOG_CREATED", "CATALOG", "Catalog ID: " + storedCatalog.id());
 		this.publisher.publishEvent(new AddCatalogEvent(storedCatalog.id()));
 		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
 	}
 
 	@CacheEvict(value = "catalogsPage", allEntries = true)
 	public CatalogResponse update(UpdateCatalogRequest updateCatalogRequest) {
+		logger.info("Updating exisiting catalog with name: {}",updateCatalogRequest.name());
 		UUID id = UUID.fromString(updateCatalogRequest.id());
 
 		Catalog exisitngCatalog = this.catalogRepository.findById(id)
@@ -167,6 +180,8 @@ class CatalogService {
 
 		Catalog mappedCatalog = this.catalogMapper.mapUpdateRequestToCatalog(updateCatalogRequest,exisitngCatalog);
 		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
+		this.auditLogger.log("CATEGORY_UPDATED", "CATEGORY", "Category NAME: " + storedCatalog.name());
+
 		this.publisher.publishEvent(new UpdateCatalogEvent(storedCatalog.id()));
 		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
 	}
@@ -179,12 +194,15 @@ class CatalogService {
 								new Object[]{id},
 								LocaleContextHolder.getLocale()),
 						CatalogErrorCode.CATALOG_NOT_FOUND));
+		logger.info("Deleting exisiting catalog with id: {} and name: {}",catalog.id(),catalog.name());
 
 		this.catalogRepository.delete(catalog);
+		this.auditLogger.log("CATALOG_DELETED", "CATALOG", "Catalog NAME: " + catalog.name());
 	}
 
 	@Cacheable(key = "#id" , value = "catalog")
 	public CatalogResponse findById(UUID id) {
+		logger.info("Looking up catalog by ID: {}",id);
 		Catalog catalog = this.catalogRepository.findById(id)
 				.orElseThrow(() -> new CatalogNotFoundException(
 						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
@@ -197,6 +215,7 @@ class CatalogService {
 
 	@Cacheable(key = "#name" , value = "catalog-name")
 	public CatalogResponse findByName(String name) {
+		logger.info("Looking up catalog by NAME: {}",name);
 		Catalog catalog = this.catalogRepository.findByName(name)
 				.orElseThrow(() -> new CatalogNotFoundException(
 						messageSource.getMessage("error.catalog.catalog.with.name.not.found",
@@ -209,6 +228,7 @@ class CatalogService {
 
 	@Cacheable(key = "#slug" , value = "catalog-slug")
 	public CatalogResponse findBySlug(String slug) {
+		logger.info("Looking up catalog by SLUG: {}",slug);
 		Catalog catalog = this.catalogRepository.findBySlug(slug)
 				.orElseThrow(() -> new CatalogNotFoundException(
 						messageSource.getMessage("error.catalog.catalog.with.slug.not.found",
@@ -221,6 +241,7 @@ class CatalogService {
 
 	@Cacheable(key = "#id",value = "catalogs")
 	public CatalogDto findACatalogWithRootCategoriesById(UUID id) {
+		logger.info("Retriving a catalog and its children by ID: {}",id);
 		List<CatalogWithRootCategory> rows = this.catalogRepository.findACatalogWithRootCategoriesById(id);
 
 		if(rows == null || rows.isEmpty()) {
@@ -237,12 +258,15 @@ class CatalogService {
 				.distinct()
 				.toList();
 
+		this.auditLogger.log("CATALOG_RETRIEVED", "CATALOG", "Catalog NAME: "+catalog.catalog_name());
 		return this.catalogMapper.mapToCatalogDto(catalog,categories);
 	}
 
 	@Cacheable(key = "#pageable.pageNumber + '-' + #pageable.pageSize",value = "catalogsPage")
 	public CatalogPagedResponse<CatalogResponse> findAllOrderByCreatedAt(Pageable pageable) {
+		logger.info("Retriving all catalogs");
 		Page<Catalog> catalogs = this.catalogRepository.findAllByOrderByCreatedAt(pageable);
+		this.auditLogger.log("CATALOGS_RETRIEVED_ALL", "CATALOG", "Catalog TOTAL: "+catalogs.getTotalElements());
 		return this.catalogMapper.mapCatalogToPagedResponse(catalogs);
 	}
 

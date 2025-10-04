@@ -15,7 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.catalog.error;
 
-
+import com.mhs.onlinemarketingplatform.common.ErrorLogger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -32,6 +32,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class CatalogExceptionHandler {
 
+	private final ErrorLogger errorLogger;
+
+	public CatalogExceptionHandler(ErrorLogger errorLogger) {
+		this.errorLogger = errorLogger;
+	}
+
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	public Map<String, Object> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
@@ -46,7 +52,19 @@ public class CatalogExceptionHandler {
 				ex.getMessage(),
 				"CATALOG_NOT_FOUND"
 		);
+		errorLogger.logError("CATALOG", "CATALOG_NOT_FOUND", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+	@ExceptionHandler(CatalogAlreadyExistsException.class)
+	public ResponseEntity<ApiErrorMessage> handleCatalogAlreadyExists(CatalogAlreadyExistsException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"CATALOG_ALREADY_EXISTS"
+		);
+		errorLogger.logError("CATALOG", "CATALOG_ALREADY_EXISTS", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
 }

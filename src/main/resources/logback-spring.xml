@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <property name="LOG_PATH" value="./logs"/>
+    <springProperty scope="context" name="application.name" source="spring.application.name"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <Pattern>%yellow(%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] ) %highlight(%-5level) %c{1} - %msg%n</Pattern>
+        </encoder>
+    </appender>
+
+    <appender name="APPLICATION-MAIN"    class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${application.name}_main.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %c{1} - %msg%n</Pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/${application.name}-main-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="APPLICATION-AUDIT"   class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${application.name}_audit.log</file>
+        <encoder>
+            <Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %c{1} - %msg%n</Pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/${application.name}-audit-main-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="APPLICATION-ERROR"   class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${application.name}_error.log</file>
+        <encoder>
+            <Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level  %c{1} - %msg%n</Pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/${application.name}-error-main-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+
+
+    <springProfile name="dev">
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <logger name="org.springframework.jdbc.core.JdbcTemplate"  level="DEBUG"/>
+
+        <logger name="com.mhs.onlinemarketingplatform.catalog" level="INFO" additivity="false">
+            <appender-ref ref="APPLICATION-MAIN"/>
+        </logger>
+        <logger name="com.mhs.onlinemarketingplatform.product" level="INFO" additivity="false">
+            <appender-ref ref="APPLICATION-MAIN"/>
+        </logger>
+        <logger name="com.mhs.onlinemarketingplatform.profile" level="INFO" additivity="false">
+            <appender-ref ref="APPLICATION-MAIN"/>
+        </logger>
+
+        <logger name="AUDIT_LOGGER" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="APPLICATION-AUDIT"/>
+        </logger>
+
+        <logger name="ERROR-LOGGER" level="ERROR" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="APPLICATION-ERROR"/>
+        </logger>
+
+    </springProfile>
+
+
+
+    <springProfile name="prod">
+
+        <logger name="AUDIT_LOGGER" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="APPLICATION-AUDIT"/>
+        </logger>
+
+        <logger name="ERROR-LOGGER" level="ERROR" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="APPLICATION-ERROR"/>
+        </logger>
+
+    </springProfile>
+
+</configuration>

@@ -11,7 +11,9 @@ import org.springframework.data.web.config.EnableSpringDataWebSupport;
 public class OnlineMarketingPlatformApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(OnlineMarketingPlatformApplication.class, args);
+		SpringApplication springApplication = new SpringApplication(OnlineMarketingPlatformApplication.class);
+		springApplication.setAdditionalProfiles("dev");
+		springApplication.run(args);
 	}
 
 }
