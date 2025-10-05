@@ -47,9 +47,17 @@ import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.List;
+
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
  * @author Milad Haghighat Shahedi
@@ -270,6 +278,44 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToPagedResponse(catalogs);
 	}
 
+	public String uploadImage(UUID catalogId, MultipartFile file) {
+		logger.info("Uploading new photo by for a catalog");
+		Catalog catalog = this.catalogRepository.findById(catalogId)
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+								new Object[]{catalogId},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_NOT_FOUND));
+
+		String imageUrl = prepareImageUpload(catalogId,file);
+		Catalog updatedCatalogWithImage = this.catalogMapper.mapCatalogWithImage(imageUrl,catalog);
+		this.catalogRepository.save(updatedCatalogWithImage);
+		return imageUrl;
+	}
+
+	private String prepareImageUpload(UUID id, MultipartFile image) {
+		String imageName =  id + imageExtension(image.getOriginalFilename());
+		try {
+			Path storageLocation = Paths.get("").toAbsolutePath().normalize();
+			if(!Files.exists(storageLocation)) {
+				Files.createDirectories(storageLocation);
+			}
+			Files.copy(image.getInputStream(),storageLocation.resolve(id + imageExtension(image.getOriginalFilename())),REPLACE_EXISTING);
+			return ServletUriComponentsBuilder
+					.fromCurrentContextPath()
+					.path("/catalogs/image/" + imageName).toString();
+		} catch (Exception e) {
+			throw new RuntimeException("");
+		}
+	}
+
+	private String imageExtension(String imageName) {
+		return Optional.of(imageName)
+				.filter(name -> name.contains("."))
+				.map(name -> "." + name.substring(imageName.lastIndexOf(".") + 1))
+				.orElse(".png");
+	}
+
 	boolean existsById(UUID id) {
 		return this.catalogRepository.existsById(id);
 	}
@@ -329,10 +375,11 @@ record Catalog(
 		@Id UUID id,
 		@Version Integer version,
 		String name,
-		String description,
 		String slug,
+		String description,
 		LocalDateTime createdAt,
-		LocalDateTime updatedAt
+		LocalDateTime updatedAt,
+		String imageUrl
 ) {}
 
 record AddCatalogRequest(
@@ -345,6 +392,10 @@ record UpdateCatalogRequest(
 		@NotNull String name,
 		@NotNull String description,
 		@NotNull String slug) {}
+
+record uploadCatalogImageRequest(
+		@NotNull String id,
+		@NotNull String imageUrl) {}
 
 record CatalogResponse(
 		String id,
@@ -368,6 +419,7 @@ record CatalogDto(
 		String description,
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt,
+		String imageUrl,
 		List<CategoryDto> rootCategories
 ) {}
 
@@ -388,6 +440,7 @@ record CatalogWithRootCategory(
 		String catalog_description,
 		LocalDateTime catalog_created_at,
 		LocalDateTime catalog_updated_at,
+		String catalog_image_url,
 		UUID category_id,
 		String category_name,
 		String category_slug,
@@ -413,7 +466,22 @@ interface CatalogMapper {
 				request.description() != null ? request.description() :catalog.description(),
 				request.slug() != null ? request.slug() :catalog.slug(),
 				catalog.createdAt(),
-				LocalDateTime.now());
+				LocalDateTime.now(),
+				catalog.imageUrl()
+				);
+	}
+
+	default Catalog mapCatalogWithImage(String imageUrl,Catalog catalog) {
+		return new Catalog(
+				catalog.id(),
+				catalog.version(),
+				catalog.name(),
+				catalog.slug(),
+				catalog.description(),
+				catalog.createdAt(),
+				LocalDateTime.now(),
+				imageUrl
+		);
 	}
 
 	CatalogResponse mapCatalogToResponse(Catalog catalog);
@@ -433,6 +501,7 @@ interface CatalogMapper {
 	@Mapping(target = "description", source = "firstRow.catalog_description")
 	@Mapping(target = "createdAt", source = "firstRow.catalog_created_at")
 	@Mapping(target = "updatedAt", source = "firstRow.catalog_updated_at")
+	@Mapping(target = "imageUrl", source = "firstRow.catalog_image_url")
 	@Mapping(target = "rootCategories", source = "categories")
 	CatalogDto mapToCatalogDto(CatalogWithRootCategory firstRow,List<CategoryDto> categories);
 
