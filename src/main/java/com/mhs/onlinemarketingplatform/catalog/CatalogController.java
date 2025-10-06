@@ -15,6 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.catalog;
 
+import com.mhs.onlinemarketingplatform.catalog.config.ApiProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogErrorCode;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogNotFoundException;
@@ -58,6 +59,7 @@ import java.util.*;
 import java.util.List;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 
 /**
  * @author Milad Haghighat Shahedi
@@ -113,6 +115,16 @@ class CatalogController {
 		return this.catalogService.findAllOrderByCreatedAt(pageable);
 	}
 
+	@PutMapping("/api/catalogs/image")
+	ResponseEntity<String> uploadImage(@RequestParam("id") UUID id,@RequestParam("image") MultipartFile image) {
+		return ResponseEntity.ok(this.catalogService.uploadImage(id,image));
+	}
+
+	@GetMapping(value = "/api/catalogs/image/{imageName}",produces = IMAGE_PNG_VALUE)
+	byte[] getImage(@PathVariable("imageName") String imageName) throws Exception{
+		return Files.readAllBytes(Paths.get("src/main/resources/image/"+this.catalogService.removeExtension(imageName)+"/"+imageName));
+	}
+
 }
 
 @Service("catalogService")
@@ -126,18 +138,21 @@ class CatalogService {
 	private final CatalogMapper catalogMapper;
 	private final ApplicationEventPublisher publisher;
 	private final MessageSource messageSource;
+	private final ApiProperties properties;
 
 	public CatalogService(
 			AuditLogger auditLogger,
 			CatalogRepository catalogRepository,
 			CatalogMapper catalogMapper,
 			ApplicationEventPublisher publisher,
-			MessageSource messageSource) {
+			MessageSource messageSource,
+			ApiProperties properties) {
 		this.auditLogger = auditLogger;
 		this.catalogRepository = catalogRepository;
 		this.catalogMapper = catalogMapper;
 		this.publisher = publisher;
 		this.messageSource = messageSource;
+		this.properties = properties;
 	}
 
 	@CacheEvict(value = "catalogsPage", allEntries = true)
@@ -279,7 +294,7 @@ class CatalogService {
 	}
 
 	public String uploadImage(UUID catalogId, MultipartFile file) {
-		logger.info("Uploading new photo by for a catalog");
+		logger.info("Uploading new photo for a catalog");
 		Catalog catalog = this.catalogRepository.findById(catalogId)
 				.orElseThrow(() -> new CatalogNotFoundException(
 						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
@@ -290,20 +305,25 @@ class CatalogService {
 		String imageUrl = prepareImageUpload(catalogId,file);
 		Catalog updatedCatalogWithImage = this.catalogMapper.mapCatalogWithImage(imageUrl,catalog);
 		this.catalogRepository.save(updatedCatalogWithImage);
+		this.auditLogger.log("CATALOG_IMAGE_UPDATED", "CATALOG", "Catalog NAME: "+catalog.name());
 		return imageUrl;
 	}
 
 	private String prepareImageUpload(UUID id, MultipartFile image) {
 		String imageName =  id + imageExtension(image.getOriginalFilename());
 		try {
-			Path storageLocation = Paths.get("").toAbsolutePath().normalize();
-			if(!Files.exists(storageLocation)) {
-				Files.createDirectories(storageLocation);
+
+			Path catalogFolder = Paths.get(properties.getCatalogImagePath(),id.toString()).toAbsolutePath().normalize();
+			if(!Files.exists(catalogFolder)) {
+				Files.createDirectories(catalogFolder);
 			}
-			Files.copy(image.getInputStream(),storageLocation.resolve(id + imageExtension(image.getOriginalFilename())),REPLACE_EXISTING);
+
+
+			Path imagePath = catalogFolder.resolve(imageName);
+			Files.copy(image.getInputStream(),imagePath,REPLACE_EXISTING);
 			return ServletUriComponentsBuilder
 					.fromCurrentContextPath()
-					.path("/catalogs/image/" + imageName).toString();
+					.path("/api/catalogs/image/" + imageName).toUriString();
 		} catch (Exception e) {
 			throw new RuntimeException("");
 		}
@@ -314,6 +334,19 @@ class CatalogService {
 				.filter(name -> name.contains("."))
 				.map(name -> "." + name.substring(imageName.lastIndexOf(".") + 1))
 				.orElse(".png");
+	}
+
+	String removeExtension(String filename) {
+		if (filename == null || filename.isEmpty()) {
+			return filename;
+		}
+
+		int lastDotIndex = filename.lastIndexOf(".");
+		if (lastDotIndex > 0) {
+			return filename.substring(0, lastDotIndex);
+		}
+
+		return filename;
 	}
 
 	boolean existsById(UUID id) {
@@ -351,6 +384,7 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
 	        cat.description AS catalog_description,
 	        cat.created_at AS catalog_created_at,
 	        cat.updated_at AS catalog_updated_at,
+	        cat.image_url AS catalog_image_url,
 	        c.id     AS category_id,
 	        c.name   AS category_name,
 	        c.slug   AS category_slug,
@@ -393,17 +427,14 @@ record UpdateCatalogRequest(
 		@NotNull String description,
 		@NotNull String slug) {}
 
-record uploadCatalogImageRequest(
-		@NotNull String id,
-		@NotNull String imageUrl) {}
-
 record CatalogResponse(
 		String id,
 		String name,
 		String description,
 		String slug,
 		LocalDateTime createdAt,
-		LocalDateTime updatedAt) {}
+		LocalDateTime updatedAt,
+		String imageUrl) {}
 
 record CatalogPagedResponse<T>(
 		List<T> content,
@@ -471,18 +502,8 @@ interface CatalogMapper {
 				);
 	}
 
-	default Catalog mapCatalogWithImage(String imageUrl,Catalog catalog) {
-		return new Catalog(
-				catalog.id(),
-				catalog.version(),
-				catalog.name(),
-				catalog.slug(),
-				catalog.description(),
-				catalog.createdAt(),
-				LocalDateTime.now(),
-				imageUrl
-		);
-	}
+	@Mapping(target = "imageUrl", source = "newImageUrl")
+	Catalog mapCatalogWithImage(String newImageUrl,Catalog catalog);
 
 	CatalogResponse mapCatalogToResponse(Catalog catalog);
 

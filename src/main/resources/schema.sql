@@ -40,7 +40,8 @@ create table if not exists catalogs
     description text,
     slug        varchar(160) unique not null,
     created_at  timestamp           not null,
-    updated_at  timestamp
+    updated_at  timestamp,
+    image_url   varchar(150)
 );
 
 create table if not exists categories
