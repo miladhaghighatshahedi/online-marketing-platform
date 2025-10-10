@@ -23,6 +23,7 @@ import com.mhs.onlinemarketingplatform.catalog.event.AddCatalogEvent;
 import com.mhs.onlinemarketingplatform.catalog.event.UpdateCatalogEvent;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import jakarta.validation.constraints.NotNull;
+import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -120,9 +121,9 @@ class CatalogController {
 		return ResponseEntity.ok(this.catalogService.uploadImage(id,image));
 	}
 
-	@GetMapping(value = "/api/catalogs/image/{imageName}",produces = IMAGE_PNG_VALUE)
+	@GetMapping(value = "/api/catalogs/image/catalog/{imageName}",produces = IMAGE_PNG_VALUE)
 	byte[] getImage(@PathVariable("imageName") String imageName) throws Exception{
-		return Files.readAllBytes(Paths.get("src/main/resources/image/"+this.catalogService.removeExtension(imageName)+"/"+imageName));
+		return Files.readAllBytes(Paths.get("src/main/resources/image/catalog/"+this.catalogService.removeExtension(imageName)+"/"+imageName));
 	}
 
 }
@@ -218,8 +219,8 @@ class CatalogService {
 								LocaleContextHolder.getLocale()),
 						CatalogErrorCode.CATALOG_NOT_FOUND));
 		logger.info("Deleting exisiting catalog with id: {} and name: {}",catalog.id(),catalog.name());
-
 		this.catalogRepository.delete(catalog);
+		this.deleteImage(catalog.id());
 		this.auditLogger.log("CATALOG_DELETED", "CATALOG", "Catalog NAME: " + catalog.name());
 	}
 
@@ -309,6 +310,21 @@ class CatalogService {
 		return imageUrl;
 	}
 
+	public void deleteImage(UUID id) {
+		logger.info("Deleting exisiting directory with id: {} ",id);
+		try {
+			Path catalogFolder = Paths.get(properties.getCatalogImagePath(),id.toString()).toAbsolutePath().normalize();
+
+			if(Files.exists(catalogFolder)) {
+				FileUtils.deleteDirectory(catalogFolder.toFile());
+			}
+
+			this.auditLogger.log("CATALOG_DIRECTORY_DELETED", "CATALOG", "Catalog directory: " + id);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	private String prepareImageUpload(UUID id, MultipartFile image) {
 		String imageName =  id + imageExtension(image.getOriginalFilename());
 		try {
@@ -318,12 +334,11 @@ class CatalogService {
 				Files.createDirectories(catalogFolder);
 			}
 
-
 			Path imagePath = catalogFolder.resolve(imageName);
 			Files.copy(image.getInputStream(),imagePath,REPLACE_EXISTING);
 			return ServletUriComponentsBuilder
 					.fromCurrentContextPath()
-					.path("/api/catalogs/image/" + imageName).toUriString();
+					.path("/api/catalogs/image/catalog/" + imageName).toUriString();
 		} catch (Exception e) {
 			throw new RuntimeException("");
 		}
@@ -390,7 +405,8 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
 	        c.slug   AS category_slug,
 	        c.description AS category_description,
 	        c.category_status AS category_status,
-	        c.created_at as category_created_at
+	        c.created_at as category_created_at,
+	        c.image_url as category_image_url
 	        FROM catalogs cat
 	        LEFT JOIN categories c ON cat.id = c.catalog_id
 	        LEFT JOIN category_closure cc ON cc.child_id = c.id AND cc.depth = 1
@@ -461,6 +477,7 @@ record CategoryDto(
 		String description,
 		String status,
 		LocalDateTime createdAt,
+		String imageUrl,
 		UUID catalogId
 ) {}
 
@@ -477,7 +494,8 @@ record CatalogWithRootCategory(
 		String category_slug,
 		String category_description,
 		String category_status,
-		LocalDateTime category_created_at
+		LocalDateTime category_created_at,
+		String category_image_url
 ) {}
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
@@ -532,6 +550,7 @@ interface CatalogMapper {
 	@Mapping(target = "description", source = "category_description")
 	@Mapping(target = "status", source = "category_status")
 	@Mapping(target = "createdAt", source = "category_created_at")
+	@Mapping(target = "imageUrl", source = "category_image_url")
 	@Mapping(target = "catalogId", source = "catalog_id")
 	CategoryDto mapToCategoryDto(CatalogWithRootCategory row);
 }

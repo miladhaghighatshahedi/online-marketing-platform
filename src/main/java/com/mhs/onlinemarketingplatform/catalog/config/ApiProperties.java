@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
 public class ApiProperties {
 
 	private String catalogImagePath;
+	private String categoryImagePath;
 
 	public String getCatalogImagePath() {
 		return catalogImagePath;
@@ -35,4 +36,13 @@ public class ApiProperties {
 	public void setCatalogImagePath(String catalogImagePath) {
 		this.catalogImagePath = catalogImagePath;
 	}
+
+	public String getCategoryImagePath() {
+		return categoryImagePath;
+	}
+
+	public void setCategoryImagePath(String categoryImagePath) {
+		this.categoryImagePath = categoryImagePath;
+	}
+
 }
