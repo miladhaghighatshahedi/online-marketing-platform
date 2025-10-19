@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.product.event;
-
-import com.mhs.onlinemarketingplatform.product.config.RabbitMqProductsIntegrationConfig;
-import org.springframework.modulith.events.Externalized;
-
-import java.util.UUID;
+package com.mhs.onlinemarketingplatform.advertisement.error;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-@Externalized(target = RabbitMqProductsIntegrationConfig.PRODUCT_Q)
-public record UpdateProductEvent(UUID productId) {}
+
+public enum AdvertisementErrorCode {
+
+		ADVERTISEMENT_NOT_FOUND,
+		ADVERTISEMENT_ALREADY_EXISTS,
+
+}

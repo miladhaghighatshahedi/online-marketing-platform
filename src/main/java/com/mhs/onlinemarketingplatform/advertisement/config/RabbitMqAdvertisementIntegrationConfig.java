@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.product.config;
+package com.mhs.onlinemarketingplatform.advertisement.config;
 
 import org.springframework.amqp.core.*;
 import org.springframework.context.annotation.Bean;
@@ -23,23 +23,23 @@ import org.springframework.context.annotation.Configuration;
  * @author Milad Haghighat Shahedi
  */
 @Configuration
-public class RabbitMqProductsIntegrationConfig {
+public class RabbitMqAdvertisementIntegrationConfig {
 
-	public static final String PRODUCT_Q = "products";
+	public static final String ADVERTISEMENT_Q = "advertisements";
 
 	@Bean
-	Binding productBinding(Queue productQueue, Exchange productExchange) {
-		return BindingBuilder.bind(productQueue).to(productExchange).with(PRODUCT_Q).noargs();
+	Binding advertisementBinding(Queue advertisementQueue, Exchange advertisementExchange) {
+		return BindingBuilder.bind(advertisementQueue).to(advertisementExchange).with(ADVERTISEMENT_Q).noargs();
 	}
 
 	@Bean
-	Exchange productExchange() {
-		return ExchangeBuilder.directExchange(PRODUCT_Q).build();
+	Exchange advertisementExchange() {
+		return ExchangeBuilder.directExchange(ADVERTISEMENT_Q).build();
 	}
 
 	@Bean
-	Queue productQueue() {
-		return QueueBuilder.durable(PRODUCT_Q).build();
+	Queue advertisementQueue() {
+		return QueueBuilder.durable(ADVERTISEMENT_Q).build();
 	}
 
 }

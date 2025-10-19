@@ -49,8 +49,6 @@
         </filter>
     </appender>
 
-
-
     <springProfile name="dev">
 
         <root level="INFO">
@@ -62,7 +60,7 @@
         <logger name="com.mhs.onlinemarketingplatform.catalog" level="INFO" additivity="false">
             <appender-ref ref="APPLICATION-MAIN"/>
         </logger>
-        <logger name="com.mhs.onlinemarketingplatform.product" level="INFO" additivity="false">
+        <logger name="com.mhs.onlinemarketingplatform.advertisement" level="INFO" additivity="false">
             <appender-ref ref="APPLICATION-MAIN"/>
         </logger>
         <logger name="com.mhs.onlinemarketingplatform.profile" level="INFO" additivity="false">
@@ -80,8 +78,6 @@
         </logger>
 
     </springProfile>
-
-
 
     <springProfile name="prod">
 

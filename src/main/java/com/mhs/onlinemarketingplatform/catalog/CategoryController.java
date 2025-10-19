@@ -15,12 +15,14 @@
  */
 package com.mhs.onlinemarketingplatform.catalog;
 
+import com.mhs.onlinemarketingplatform.catalog.config.ApiProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.*;
 import com.mhs.onlinemarketingplatform.catalog.event.AddCategoryEvent;
 import com.mhs.onlinemarketingplatform.catalog.event.UpdateCategoryEvent;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.mapstruct.*;
 import org.mapstruct.Mapping;
 import org.slf4j.Logger;
@@ -47,7 +49,12 @@ import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -55,7 +62,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
-
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 
 /**
  * @author Milad Haghighat Shahedi
@@ -146,6 +154,16 @@ class CategoryController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/api/categories/image")
+    ResponseEntity<String> uploadImage(@RequestParam("id") UUID id,@RequestParam("image") MultipartFile image) {
+        return ResponseEntity.ok(this.categoryService.uploadImage(id,image));
+    }
+
+    @GetMapping(value = {"/api/categories/image/category/{imageName}"},produces = IMAGE_PNG_VALUE)
+    byte[] getImage(@PathVariable("imageName") String imageName) throws Exception{
+        return Files.readAllBytes(Paths.get("src/main/resources/image/category/"+this.categoryService.removeExtension(imageName)+"/"+imageName));
+    }
+
     @GetMapping("/api/categories/root/count")
     long countRootCategories() {
         return this.categoryService.countRootCategories();
@@ -166,6 +184,7 @@ class CategoryService implements CategoryApi {
     private final CategoryMapper categoryMapper;
     private final ApplicationEventPublisher publisher;
     private final MessageSource messageSource;
+    private final ApiProperties properties;
 
     public CategoryService(
             AuditLogger auditLogger,
@@ -174,7 +193,8 @@ class CategoryService implements CategoryApi {
             CatalogService catalogService,
             CategoryMapper categoryMapper,
             ApplicationEventPublisher publisher,
-            MessageSource messageSource) {
+            MessageSource messageSource,
+            ApiProperties properties) {
         this.auditLogger = auditLogger;
         this.categoryRepository = categoryRepository;
         this.categoryClosureRepository = categoryClosureRepository;
@@ -182,6 +202,7 @@ class CategoryService implements CategoryApi {
         this.categoryMapper = categoryMapper;
         this.publisher = publisher;
         this.messageSource = messageSource;
+        this.properties = properties;
     }
 
     @CacheEvict(value = "catalogs", allEntries = true)
@@ -311,6 +332,8 @@ class CategoryService implements CategoryApi {
             return;
         }
         this.categoryRepository.delete(id);
+        this.categoryRepository.deleteById(id);
+        this.deleteImage(id);
         logger.info("Deleting exisiting category with name: {}",category.name());
     }
 
@@ -506,8 +529,72 @@ class CategoryService implements CategoryApi {
         this.auditLogger.log("CHILDREN_CATEGORY_ACTIVATED", "CATEGORY", "Category ID: "+categoryId);
     }
 
-    public boolean existsById(UUID categoryId){
-        return this.categoryRepository.existsById(categoryId);
+    public String uploadImage(UUID categoryId, MultipartFile file) {
+        logger.info("Uploading new photo for a category");
+        Category category = this.categoryRepository.findById(categoryId)
+                .orElseThrow(() ->  new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{categoryId},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        String imageUrl = prepareImageUpload(categoryId,file);
+        Category updatedCatalogWithImage = this.categoryMapper.mapCategoryWithImage(imageUrl,category);
+        this.categoryRepository.save(updatedCatalogWithImage);
+        this.auditLogger.log("CATEGORY_IMAGE_UPDATED", "CATEGORY", "Category NAME: "+category.name());
+        return imageUrl;
+    }
+
+    public void deleteImage(UUID id) {
+        logger.info("Deleting exisiting directory with id: {} ",id);
+        try {
+            Path categoryFolder = Paths.get(properties.getCategoryImagePath(),id.toString()).toAbsolutePath().normalize();
+            if(Files.exists(categoryFolder)) {
+                FileUtils.deleteDirectory(categoryFolder.toFile());
+            }
+            this.auditLogger.log("CATEGORY_DIRECTORY_DELETED", "CATEGORY", "Category sub directory: " + id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String prepareImageUpload(UUID id, MultipartFile image) {
+        String imageName =  id + imageExtension(image.getOriginalFilename());
+        try {
+
+            Path categoryFolder = Paths.get(properties.getCategoryImagePath(),id.toString()).toAbsolutePath().normalize();
+            if(!Files.exists(categoryFolder)) {
+                Files.createDirectories(categoryFolder);
+            }
+
+            Path imagePath = categoryFolder.resolve(imageName);
+            Files.copy(image.getInputStream(),imagePath,REPLACE_EXISTING);
+            return ServletUriComponentsBuilder
+                    .fromCurrentContextPath()
+                    .path("/api/categories/image/category/" + imageName).toUriString();
+        } catch (Exception e) {
+            throw new RuntimeException("");
+        }
+    }
+
+    private String imageExtension(String imageName) {
+        return Optional.of(imageName)
+                .filter(name -> name.contains("."))
+                .map(name -> "." + name.substring(imageName.lastIndexOf(".") + 1))
+                .orElse(".png");
+    }
+
+    String removeExtension(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return filename;
+        }
+
+        int lastDotIndex = filename.lastIndexOf(".");
+        if (lastDotIndex > 0) {
+            return filename.substring(0, lastDotIndex);
+        }
+
+        return filename;
     }
 
     <T> void validateDuplicatesByNameAndSlug(T request,Function<T,String> nameParam,Function<T,String> slugParam){
@@ -529,6 +616,10 @@ class CategoryService implements CategoryApi {
         return this.categoryRepository.countRootCategories();
     }
 
+    public boolean existsById(UUID categoryId){
+        return this.categoryRepository.existsById(categoryId);
+    }
+
 }
 
 @Repository("categoryRepository")
@@ -548,7 +639,8 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
         c.description,
         c.category_status,
         c.created_at,
-        c.updated_at
+        c.updated_at,
+        c.image_url
         FROM categories c
         WHERE NOT EXISTS (
         SELECT 1
@@ -626,6 +718,7 @@ record Category(
         LocalDateTime updatedAt,
         CategoryStatus categoryStatus,
         String slug,
+        String imageUrl,
         UUID catalogId) {
 
     static Category withCategoryStatusActivated(Category category) {
@@ -638,6 +731,7 @@ record Category(
                 LocalDateTime.now(),
                 CategoryStatus.ACTIVE,
                 category.slug,
+                category.imageUrl,
                 category.catalogId);
     }
 
@@ -651,6 +745,7 @@ record Category(
                 LocalDateTime.now(),
                 CategoryStatus.INACTIVE,
                 category.slug,
+                category.imageUrl,
                 category.catalogId);
     }
 }
@@ -677,6 +772,7 @@ record AddParentRequest(
         @NotNull String name,
         @NotBlank String description,
         @NotNull String slug,
+        @NotNull String imageUrl,
         @NotNull String catalogId) {}
 
 record UpdateParentRequest(
@@ -684,17 +780,18 @@ record UpdateParentRequest(
         @NotNull String name,
         @NotBlank String description,
         @NotNull String slug,
+        @NotNull String imageUrl,
         @NotNull String catalogId) {}
 
 record AddChildRequest(
         @NotNull String name,
         @NotBlank String description,
         @NotNull String slug,
+        @NotNull String imageUrl,
         @NotNull String categoryId,
         @NotNull String catalogId) {}
 
-record UpdateCategoryStatusRequest(
-        CategoryStatus categoryStatus) {}
+record UpdateCategoryStatusRequest(CategoryStatus categoryStatus) {}
 
 record CategoryResponse(
         String id,
@@ -704,6 +801,7 @@ record CategoryResponse(
         String updatedAt,
         String status,
         String slug,
+        String imageUrl,
         String categoryId,
         String catalogId) {}
 
@@ -721,6 +819,7 @@ record RootCategoryResponse(
         String createdAt,
         String updatedAt,
         String status,
+        String imageUrl,
         String slug) {}
 
 record CategoryDtoWithSubs (
@@ -731,6 +830,7 @@ record CategoryDtoWithSubs (
         String status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
+        String imageUrl,
         UUID catalogId,
         List<CategoryDtoWithSubs> subCategories
 ) {}
@@ -761,14 +861,19 @@ interface CategoryMapper {
                 LocalDateTime.now(),
                 CategoryStatus.INACTIVE,
                 request.slug() != null ? request.slug() :category.slug(),
+                category.imageUrl(),
                 category.catalogId());
     }
+
+    @Mapping(target = "imageUrl", source = "newImageUrl")
+    Category mapCategoryWithImage(String newImageUrl,Category category);
 
     @Mapping(target = "id", source = "id")
     @Mapping(target = "name", source = "name")
     @Mapping(target = "description", source = "description")
     @Mapping(target = "status", source = "categoryStatus")
     @Mapping(target = "slug", source = "slug")
+    @Mapping(target = "imageUrl", source = "imageUrl")
     @Mapping(target = "createdAt", source = "createdAt")
     @Mapping(target = "updatedAt", source = "updatedAt")
     RootCategoryResponse toRootCategoryResponse(Category category);
@@ -780,6 +885,7 @@ interface CategoryMapper {
     @Mapping(target = "slug", source = "slug")
     @Mapping(target = "description", source = "description")
     @Mapping(target = "status", source = "categoryStatus")
+    @Mapping(target = "imageUrl", source = "imageUrl")
     @Mapping(target = "createdAt", source = "createdAt")
     @Mapping(target = "updatedAt", source = "updatedAt")
     @Mapping(target = "catalogId", source = "catalogId")
