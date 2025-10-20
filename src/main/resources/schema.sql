@@ -53,6 +53,24 @@ create table if not exists category_closure
     primary key (parent_id,child_id)
 );
 
+create table if not exists locations
+(
+    id       uuid primary key not null,
+    version  integer          not null,
+    province text             not null,
+    city     text             not null
+);
+
+create table if not exists advertisement_images
+(
+    id               uuid primary key not null,
+    version          integer          not null,
+    url              varchar(100)     not null,
+    is_main          boolean          not null,
+    inserted_at      timestamp        not null,
+    advertisement_id uuid             not null REFERENCES advertisements (id)
+);
+
 create table if not exists advertisements
 (
     id                   uuid primary key not null,
@@ -70,28 +88,29 @@ create table if not exists advertisements
     owner_id             uuid             not null REFERENCES credentials (id)
 );
 
-create table if not exists locations
-(
-    id       uuid primary key not null,
-    version  integer          not null,
-    province text             not null,
-    city     text             not null
-);
 
 
-create index if not exists index_catalog_name on catalogs(name);
-create index if not exists index_catalog_slug on catalogs(slug);
+create index if not exists index_catalog_name on catalogs (name);
+create index if not exists index_catalog_slug on catalogs (slug);
 
-create index if not exists index_category_name on categories(name);
-create index if not exists index_category_slug on categories(slug);
-create index if not exists index_category_status on categories(category_status);
+create index if not exists index_category_name on categories (name);
+create index if not exists index_category_slug on categories (slug);
+create index if not exists index_category_status on categories (category_status);
 
-create index if not exists index_category_closure_parent_child on category_closure(parent_id, child_id);
-create index if not exists index_category_closure_descendant_depth on category_closure(child_id, depth);
-create index if not exists index_category_closure_descendant_depth1 on category_closure(child_id) where depth = 1;
+create index if not exists index_category_closure_parent_child on category_closure (parent_id, child_id);
+create index if not exists index_category_closure_descendant_depth on category_closure (child_id, depth);
+create index if not exists index_category_closure_descendant_depth1 on category_closure (child_id) where depth = 1;
 
-create index if not exists index_advertisement_title on advertisements(title);
-create index if not exists index_advertisement_price on advertisements(price);
+create index if not exists index_location_province on locations (province);
+create index if not exists index_location_city on locations (city);
+
+create index if not exists index_image_advertisement_id on advertisement_images (advertisement_id);
+
+create index if not exists index_advertisement_title on advertisements (title);
+create index if not exists index_advertisement_price on advertisements (price);
+create index if not exists index_advertisement_type on advertisements (advertisement_type);
+create index if not exists index_advertisement_status on advertisements (advertisement_status);
 create index if not exists index_advertisement_attributes on advertisements USING gin (attributes jsonb_path_ops);
-
-
+create index if not exists index_advertisement_location_id on advertisements (location_id);
+create index if not exists index_advertisement_category_id on advertisements (category_id);
+create index if not exists index_advertisement_owner_id on advertisements (owner_id);

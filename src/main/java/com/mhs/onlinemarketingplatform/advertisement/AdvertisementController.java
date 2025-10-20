@@ -15,6 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.advertisement;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.advertisement.error.AdvertisementAlreadyDisabledException;
 import com.mhs.onlinemarketingplatform.advertisement.error.AdvertisementAlreadyEnabledException;
 import com.mhs.onlinemarketingplatform.advertisement.error.AdvertisementNotFoundException;
@@ -223,7 +224,7 @@ record Advertisement(
 		AdvertisementType advertisementType,
 		AdvertisementStatus advertisementStatus,
 		Map<String,Object> attributes,
-		Set<Image> images,
+		Set<AdvertisementImage> advertisementImages,
 		LocalDateTime insertedAt,
 		LocalDateTime updatedAt,
 		UUID locationId,
@@ -240,7 +241,7 @@ record Advertisement(
 				advertisement.advertisementType,
 				AdvertisementStatus.ACTIVE,
 				advertisement.attributes,
-				advertisement.images,
+				advertisement.advertisementImages,
 				advertisement.insertedAt,
 				LocalDateTime.now(),
 				advertisement.locationId,
@@ -259,7 +260,7 @@ record Advertisement(
 				advertisement.advertisementType,
 				AdvertisementStatus.INACTIVE,
 				advertisement.attributes,
-				advertisement.images,
+				advertisement.advertisementImages,
 				advertisement.insertedAt,
 				LocalDateTime.now(),
 				advertisement.locationId,
@@ -312,7 +313,7 @@ record UpdateAdvertisementRequest(
 		@NotBlank String description,
 		@NotNull String price,
 		@NotNull Map<String,Object> attributes,
-		@NotNull Set<Image> images,
+		@NotNull Set<AdvertisementImage> advertisementImages,
 		@NotNull UUID owner) {}
 
 record AdvertisementResponse(
@@ -333,13 +334,13 @@ record AdvertisementPagedResponse<T>(
 		long totalElements,
 		int totalPages) {}
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
 interface AdvertisementMapper {
 
-	@Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
+	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
 	@Mapping(target = "version", ignore = true)
 	@Mapping(target = "advertisementStatus", constant = "INACTIVE")
-	@Mapping(target = "insertedAt", expression = "java(java.time.LocalDateTime.now())")
+	@Mapping(target = "insertedAt", expression = "java(LocalDateTime.now())")
 	@Mapping(target = "updatedAt", ignore = true)
 	Advertisement mapAddRequestToAdvertisement(AddAdvertisementRequest addAdvertisementRequest);
 
@@ -353,7 +354,7 @@ interface AdvertisementMapper {
 				advertisement.advertisementType(),
 		        AdvertisementStatus.INACTIVE,
 				updateAdvertisementRequest.attributes(),
-				updateAdvertisementRequest.images(),
+				updateAdvertisementRequest.advertisementImages(),
 				advertisement.insertedAt(),
 				LocalDateTime.now(),
 				advertisement.locationId(),

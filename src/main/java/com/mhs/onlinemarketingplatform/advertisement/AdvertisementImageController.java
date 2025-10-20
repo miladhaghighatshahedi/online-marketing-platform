@@ -22,6 +22,6 @@ import java.util.UUID;
  * @author Milad Haghighat Shahedi
  */
 
-public class ImageController {}
+public class AdvertisementImageController {}
 
-record Image(UUID id, String url, Boolean isMain, LocalDateTime insertedAt,UUID advertisementId) {}
+record AdvertisementImage(UUID id, String url, Boolean isMain, LocalDateTime insertedAt, UUID advertisementId) {}

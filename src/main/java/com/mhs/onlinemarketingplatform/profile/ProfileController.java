@@ -15,6 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.profile;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.mapstruct.BeanMapping;
@@ -305,13 +306,13 @@ enum ProfileStatus {
 	}
 }
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
 interface ProfileMapper {
 
-	@org.mapstruct.Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
+	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
 	@org.mapstruct.Mapping(target = "version", ignore = true)
 	@org.mapstruct.Mapping(target = "profileStatus", constant = "ACTIVE")
-	@org.mapstruct.Mapping(target = "activationDate", expression = "java(java.time.LocalDateTime.now())")
+	@org.mapstruct.Mapping(target = "activationDate", expression = "java(LocalDateTime.now())")
 	Profile mapAddRequestToProfile(AddProfileRequest addProfileRequest);
 
 	@BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

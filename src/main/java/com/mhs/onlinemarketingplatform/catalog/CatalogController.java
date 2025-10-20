@@ -15,6 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.catalog;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.catalog.config.ApiProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogErrorCode;
@@ -498,12 +499,12 @@ record CatalogWithRootCategory(
 		String category_image_url
 ) {}
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
 interface CatalogMapper {
 
-	@Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
+	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
 	@Mapping(target = "version", ignore = true)
-	@Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
+	@Mapping(target = "createdAt", expression = "java(LocalDateTime.now())")
 	@Mapping(target = "updatedAt", ignore = true)
 	Catalog mapAddRequestToCatalog(AddCatalogRequest addCatalogRequest);
 
