@@ -53,16 +53,12 @@ Content-Type: application/json
 GET http://localhost:8080/api/categories/79e784ec-b22d-456c-807f-300a21bffc2f/with-sub-categories
 Content-Type: application/json
 
-
-
-
-
 ### activate a category
-PUT http://localhost:8080/api/categories/3ec82e85-da8c-4126-be36-aa4b1b157258/activate
+PUT http://localhost:8080/api/categories/cc4f6e4f-ebda-42d0-ad62-c12dcddcf0d2/activate
 Content-Type: application/json
 
 ### deactivate a category
-PUT http://localhost:8080/api/categories/3ec82e85-da8c-4126-be36-aa4b1b157258/deactivate
+PUT http://localhost:8080/api/categories/cc4f6e4f-ebda-42d0-ad62-c12dcddcf0d2/deactivate
 Content-Type: application/json
 
 ### get all ancestors categories

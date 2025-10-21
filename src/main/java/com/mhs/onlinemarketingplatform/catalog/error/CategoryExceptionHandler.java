@@ -56,4 +56,26 @@ public class CategoryExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
+	@ExceptionHandler(CategoryAlreadyActivatedException.class)
+	public ResponseEntity<ApiErrorMessage> handleCategoryAlreadyActivatedException(CategoryAlreadyActivatedException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"CATEGORY_ALREADY_ACTIVATED"
+		);
+		errorLogger.logError("CATEGORY", "CATEGORY_ALREADY_ACTIVATED", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(CategoryAlreadyDeactivatedException.class)
+	public ResponseEntity<ApiErrorMessage> handleCategoryAlreadyDeactivatedException(CategoryAlreadyDeactivatedException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"CATEGORY_ALREADY_DEACTIVATED"
+		);
+		errorLogger.logError("CATEGORY", "CATEGORY_ALREADY_DEACTIVATED", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
 }

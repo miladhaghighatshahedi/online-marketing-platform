@@ -414,17 +414,17 @@ class CategoryService implements CategoryApi {
     }
 
     CategoryResponse activate(UUID categoryId) {
-        logger.info("Activate a category by ID: {}",categoryId);
         Category exsitingCategory = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
                                 new Object[]{categoryId},
                                 LocaleContextHolder.getLocale()),
                                 CategoryErrorCode.CATEGORY_NOT_FOUND));
+        logger.info("Activate a category by ID: {} and Name: {}",categoryId,exsitingCategory.name());
 
         if(exsitingCategory.categoryStatus() == CategoryStatus.INACTIVE) {
-            Category updatedCategory = Category.withCategoryStatusActivated(exsitingCategory);
-            Category storedCategory = this.categoryRepository.save(updatedCategory);
+            Category activatedCategory = this.categoryMapper.toActivate(exsitingCategory);
+            Category storedCategory = this.categoryRepository.save(activatedCategory);
             this.auditLogger.log("CATEGORY_ACTIVATED", "CATEGORY", "Category NAME: "+exsitingCategory.name());
 
             this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
@@ -433,7 +433,7 @@ class CategoryService implements CategoryApi {
 
         throw new CategoryAlreadyActivatedException(
                 messageSource.getMessage("error.category.category.already.activated",
-                        new Object[]{categoryId},
+                        new Object[]{categoryId,exsitingCategory.name()},
                         LocaleContextHolder.getLocale()),
                         CategoryErrorCode.CATEGORY_ALREADY_ACTIVATED);
     }
@@ -446,10 +446,11 @@ class CategoryService implements CategoryApi {
                         new Object[]{categoryId},
                         LocaleContextHolder.getLocale()),
                         CategoryErrorCode.CATEGORY_NOT_FOUND));
+        logger.info("Deactivate a category by ID: {} and NAME: {}",categoryId,exsitingCategory.name());
 
         if(exsitingCategory.categoryStatus() == CategoryStatus.ACTIVE) {
-            Category updatedCategory = Category.withCategoryStatusDeactivated(exsitingCategory);
-            Category storedCategory = this.categoryRepository.save(updatedCategory);
+            Category deactivatedCategory = this.categoryMapper.toDeactivate(exsitingCategory);
+            Category storedCategory = this.categoryRepository.save(deactivatedCategory);
             this.auditLogger.log("CATEGORY_DEACTIVATED", "CATEGORY", "Category NAME: "+exsitingCategory.name());
             this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
             return this.categoryMapper.mapCategoryToResponse(storedCategory);
@@ -457,7 +458,7 @@ class CategoryService implements CategoryApi {
 
         throw new CategoryAlreadyDeactivatedException(
                 messageSource.getMessage("error.category.category.already.deactivated",
-                        new Object[]{categoryId},
+                        new Object[]{categoryId,exsitingCategory.name()},
                         LocaleContextHolder.getLocale()),
                         CategoryErrorCode.CATEGORY_ALREADY_DEACTIVATED);
     }
@@ -720,36 +721,7 @@ record Category(
         CategoryStatus categoryStatus,
         String slug,
         String imageUrl,
-        UUID catalogId) {
-
-    static Category withCategoryStatusActivated(Category category) {
-        return new Category(
-                category.id,
-                category.version,
-                category.name,
-                category.description,
-                category.createdAt,
-                LocalDateTime.now(),
-                CategoryStatus.ACTIVE,
-                category.slug,
-                category.imageUrl,
-                category.catalogId);
-    }
-
-    static Category withCategoryStatusDeactivated(Category category) {
-        return new Category(
-                category.id,
-                category.version,
-                category.name,
-                category.description,
-                category.updatedAt,
-                LocalDateTime.now(),
-                CategoryStatus.INACTIVE,
-                category.slug,
-                category.imageUrl,
-                category.catalogId);
-    }
-}
+        UUID catalogId) {}
 
 @Table("category_closure")
 record CategoryClosure (
