@@ -25,9 +25,8 @@ import com.mhs.onlinemarketingplatform.catalog.event.UpdateCatalogEvent;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import jakarta.validation.constraints.NotNull;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
-import org.mapstruct.Mapper;
+import org.mapstruct.*;
 import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -508,18 +507,15 @@ interface CatalogMapper {
 	@Mapping(target = "updatedAt", ignore = true)
 	Catalog mapAddRequestToCatalog(AddCatalogRequest addCatalogRequest);
 
-	default Catalog mapUpdateRequestToCatalog(UpdateCatalogRequest request, Catalog  catalog) {
-		return new Catalog(
-				catalog.id(),
-				catalog.version(),
-				request.name() != null ? request.name() :catalog.name(),
-				request.description() != null ? request.description() :catalog.description(),
-				request.slug() != null ? request.slug() :catalog.slug(),
-				catalog.createdAt(),
-				LocalDateTime.now(),
-				catalog.imageUrl()
-				);
-	}
+	@Mapping(target = "id", source = "catalog.id")
+	@Mapping(target = "version", source = "catalog.version")
+	@Mapping(target = "name", expression = "java(request.name() != null ? request.name() : catalog.name())")
+	@Mapping(target = "slug", expression = "java(request.slug() != null ? request.slug() : catalog.slug())")
+	@Mapping(target = "description", expression = "java(request.description() != null ? request.description() : catalog.description())")
+	@Mapping(target = "createdAt", source = "catalog.createdAt")
+	@Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
+	@Mapping(target = "imageUrl", ignore = true)
+	Catalog mapUpdateRequestToCatalog(UpdateCatalogRequest request, Catalog  catalog);
 
 	@Mapping(target = "imageUrl", source = "newImageUrl")
 	Catalog mapCatalogWithImage(String newImageUrl,Catalog catalog);
@@ -554,6 +550,7 @@ interface CatalogMapper {
 	@Mapping(target = "imageUrl", source = "category_image_url")
 	@Mapping(target = "catalogId", source = "catalog_id")
 	CategoryDto mapToCategoryDto(CatalogWithRootCategory row);
+
 }
 
 

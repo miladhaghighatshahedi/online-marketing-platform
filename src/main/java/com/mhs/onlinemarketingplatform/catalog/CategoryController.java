@@ -824,19 +824,17 @@ interface CategoryMapper {
     @Mapping(target = "categoryStatus", constant = "INACTIVE")
     Category mapAddChildToCategory(AddChildRequest request);
 
-    default Category mapUpdateToCategory(UpdateParentRequest request, Category category) {
-        return new Category(
-                category.id(),
-                category.version(),
-                request.name() != null ? request.name() :category.name(),
-                request.description() != null ? request.description() :category.description(),
-                category.createdAt(),
-                LocalDateTime.now(),
-                CategoryStatus.INACTIVE,
-                request.slug() != null ? request.slug() :category.slug(),
-                category.imageUrl(),
-                category.catalogId());
-    }
+    @Mapping(target = "id", source = "category.id")
+    @Mapping(target = "version", source = "category.version")
+    @Mapping(target = "name", expression = "java(request.name() != null ? request.name() : category.name())")
+    @Mapping(target = "description", expression = "java(request.description() != null ? request.description() : category.description())")
+    @Mapping(target = "createdAt", source = "category.createdAt")
+    @Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
+    @Mapping(target = "categoryStatus", constant = "INACTIVE")
+    @Mapping(target = "slug", expression = "java(request.slug() != null ? request.slug() : category.slug())")
+    @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "catalogId", source = "category.catalogId")
+    Category mapUpdateToCategory(UpdateParentRequest request, Category category);
 
     @Mapping(target = "imageUrl", source = "newImageUrl")
     Category mapCategoryWithImage(String newImageUrl,Category category);
