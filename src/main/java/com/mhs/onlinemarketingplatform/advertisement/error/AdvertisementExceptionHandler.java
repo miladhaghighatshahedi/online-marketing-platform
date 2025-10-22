@@ -15,6 +15,11 @@
  */
 package com.mhs.onlinemarketingplatform.advertisement.error;
 
+import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.AdvertisementAlreadyActivatedException;
+import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.AdvertisementAlreadyDeactivatedException;
+import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.AdvertisementAlreadyExistsException;
+import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.AdvertisementNotFoundException;
+import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryNotFoundException;
 import com.mhs.onlinemarketingplatform.common.ErrorLogger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +33,6 @@ import java.util.Map;
 /**
  * @author Milad Haghighat Shahedi
  */
-
 @RestControllerAdvice
 public class AdvertisementExceptionHandler {
 
@@ -46,13 +50,13 @@ public class AdvertisementExceptionHandler {
 	}
 
 	@ExceptionHandler(AdvertisementNotFoundException.class)
-	public ResponseEntity<ApiErrorMessage> handleCAdvertisementNotFound(AdvertisementNotFoundException ex) {
+	public ResponseEntity<ApiErrorMessage> handleAdvertisementNotFound(AdvertisementNotFoundException ex) {
 		ApiErrorMessage error = new ApiErrorMessage(
 				HttpStatus.NOT_FOUND.value(),
 				ex.getMessage(),
 				"ADVERTISEMENT_NOT_FOUND"
 		);
-		errorLogger.logError("ADVERTISEMENT", "ADVERTISEMENT_NOT_FOUND", "Error: " + ex.getMessage());
+		errorLogger.logError("ADVERTISEMENT","ADVERTISEMENT_NOT_FOUND","Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
 	}
 
@@ -63,8 +67,41 @@ public class AdvertisementExceptionHandler {
 				ex.getMessage(),
 				"ADVERTISEMENT_ALREADY_EXISTS"
 		);
-		errorLogger.logError("ADVERTISEMENT", "ADVERTISEMENT_ALREADY_EXISTS", "Error: " + ex.getMessage());
+		errorLogger.logError("ADVERTISEMENT","ADVERTISEMENT_ALREADY_EXISTS", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(AdvertisementAlreadyActivatedException.class)
+	public ResponseEntity<ApiErrorMessage> handleAdvertisementAlreadyActivatedException(AdvertisementAlreadyActivatedException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"ADVERTISEMENT_ALREADY_ACTIVATED"
+		);
+		errorLogger.logError("ADVERTISEMENT","ADVERTISEMENT_ALREADY_ACTIVATED","Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(AdvertisementAlreadyDeactivatedException.class)
+	public ResponseEntity<ApiErrorMessage> handleAdvertisementAlreadyDeactivatedException(AdvertisementAlreadyDeactivatedException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"ADVERTISEMENT_ALREADY_DEACTIVATED"
+		);
+		errorLogger.logError("ADVERTISEMENT","ADVERTISEMENT_ALREADY_DEACTIVATED","Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(CategoryNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleCategoryNotFoundException(CategoryNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"CATEGORY_NOT_FOUND"
+		);
+		errorLogger.logError("CATEGORY_NOT_FOUND", "CATEGORY", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
 	}
 
 }

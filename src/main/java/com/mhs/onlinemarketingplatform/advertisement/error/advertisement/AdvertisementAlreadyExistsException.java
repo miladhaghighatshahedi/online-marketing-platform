@@ -13,13 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.error;
+package com.mhs.onlinemarketingplatform.advertisement.error.advertisement;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-public class AdvertisementNotFoundException extends RuntimeException {
-	public AdvertisementNotFoundException(String message) {
+public class AdvertisementAlreadyExistsException extends RuntimeException {
+
+	private final AdvertisementErrorCode code;
+
+	public AdvertisementAlreadyExistsException(String message,AdvertisementErrorCode code) {
 		super(message);
+		this.code = code;
 	}
+
+	public AdvertisementErrorCode getCode() {
+		return code;
+	}
+
 }

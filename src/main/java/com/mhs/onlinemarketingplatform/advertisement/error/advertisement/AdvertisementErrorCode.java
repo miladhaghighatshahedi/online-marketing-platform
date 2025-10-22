@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.error;
+package com.mhs.onlinemarketingplatform.advertisement.error.advertisement;
 
 /**
  * @author Milad Haghighat Shahedi
  */
 
 public enum AdvertisementErrorCode {
-
-		ADVERTISEMENT_NOT_FOUND,
-		ADVERTISEMENT_ALREADY_EXISTS,
-
+	ADVERTISEMENT_NOT_FOUND,
+	ADVERTISEMENT_ALREADY_EXISTS,
+	ADVERTISEMENT_ALREADY_ACTIVATED,
+	ADVERTISEMENT_ALREADY_DEACTIVATED
 }
