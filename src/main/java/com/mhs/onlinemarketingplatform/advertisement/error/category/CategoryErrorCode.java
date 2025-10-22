@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.error;
+package com.mhs.onlinemarketingplatform.advertisement.error.category;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-public class CategoryNotFoundException extends RuntimeException {
-	public CategoryNotFoundException(String message) {
-		super(message);
-	}
+
+public enum CategoryErrorCode {
+		CATEGORY_NOT_FOUND
 }
