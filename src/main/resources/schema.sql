@@ -53,12 +53,29 @@ create table if not exists category_closure
     primary key (parent_id,child_id)
 );
 
+create table if not exists cities
+(
+    id          uuid primary key not null,
+    version     int              not null,
+    name        varchar(100)     not null,
+    province_id uuid             not null references provinces (id)
+);
+
+create table if not exists provinces
+(
+    id      uuid primary key not null,
+    version int              not null,
+    name    varchar(100)     not null
+);
+
 create table if not exists locations
 (
-    id       uuid primary key not null,
-    version  integer          not null,
-    province text             not null,
-    city     text             not null
+    id          uuid primary key not null,
+    version     integer          not null,
+    latitude    decimal(9, 6)    not null,
+    longitude   decimal(9, 6)    not null,
+    province_id uuid             not null references provinces (id),
+    city_id     uuid             not null references cities (id)
 );
 
 create table if not exists advertisement_images
@@ -89,7 +106,6 @@ create table if not exists advertisements
 );
 
 
-
 create index if not exists index_catalog_name on catalogs (name);
 create index if not exists index_catalog_slug on catalogs (slug);
 
@@ -101,8 +117,13 @@ create index if not exists index_category_closure_parent_child on category_closu
 create index if not exists index_category_closure_descendant_depth on category_closure (child_id, depth);
 create index if not exists index_category_closure_descendant_depth1 on category_closure (child_id) where depth = 1;
 
-create index if not exists index_location_province on locations (province);
-create index if not exists index_location_city on locations (city);
+create index if not exists index_city_name on cities (province_id);
+create index if not exists index_city_province_id on cities (province_id);
+
+create index if not exists index_province_name on provinces (name);
+
+create index if not exists index_location_province_id on locations (province_id);
+create index if not exists index_location_city_id on locations (city_id);
 
 create index if not exists index_image_advertisement_id on advertisement_images (advertisement_id);
 
@@ -114,3 +135,4 @@ create index if not exists index_advertisement_attributes on advertisements USIN
 create index if not exists index_advertisement_location_id on advertisements (location_id);
 create index if not exists index_advertisement_category_id on advertisements (category_id);
 create index if not exists index_advertisement_owner_id on advertisements (owner_id);
+create index if not exists index_advertisement_owner_id_title on advertisements (owner_id,title);

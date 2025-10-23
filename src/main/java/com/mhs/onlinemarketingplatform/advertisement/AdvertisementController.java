@@ -302,7 +302,7 @@ interface advertisementRepository extends ListCrudRepository<Advertisement, UUID
 
 	@Query("""
              SELECT CASE WHEN COUNT(1) > 0 THEN TRUE ELSE FALSE END
-			 FROM advertisements WHERE owner_id= :ownerId AND title= : title
+			 FROM advertisements WHERE owner_id= :ownerId AND title= :title
 			 """)
 	boolean existsByTitleAndOwner(@Param("title") String title,@Param("ownerId") UUID ownerId);
 }
