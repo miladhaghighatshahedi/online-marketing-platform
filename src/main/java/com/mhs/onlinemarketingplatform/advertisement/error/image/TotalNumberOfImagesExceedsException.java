@@ -13,13 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.error;
+package com.mhs.onlinemarketingplatform.advertisement.error.image;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-public class AdvertisementAlreadyEnabledException extends RuntimeException {
-	public AdvertisementAlreadyEnabledException(String message) {
+public class TotalNumberOfImagesExceedsException extends RuntimeException {
+
+	private final ImageErrorCode code;
+
+	public TotalNumberOfImagesExceedsException(String message, ImageErrorCode code) {
 		super(message);
+		this.code = code;
 	}
+
+	public ImageErrorCode getCode() {
+		return code;
+	}
+
 }

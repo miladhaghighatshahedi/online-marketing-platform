@@ -20,6 +20,8 @@ import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.Adverti
 import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.AdvertisementAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.AdvertisementNotFoundException;
 import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryNotFoundException;
+import com.mhs.onlinemarketingplatform.advertisement.error.image.ImageNotFoundException;
+import com.mhs.onlinemarketingplatform.advertisement.error.image.TotalNumberOfImagesExceedsException;
 import com.mhs.onlinemarketingplatform.common.ErrorLogger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -102,6 +104,28 @@ public class AdvertisementExceptionHandler {
 		);
 		errorLogger.logError("CATEGORY_NOT_FOUND", "CATEGORY", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+	@ExceptionHandler(ImageNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleImageNotFoundException(ImageNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"IMAGE_NOT_FOUND"
+		);
+		errorLogger.logError("IMAGE_NOT_FOUND", "IMAGE", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+	@ExceptionHandler(TotalNumberOfImagesExceedsException.class)
+	public ResponseEntity<ApiErrorMessage> handleTotalNumberOfImagesExceedsException(TotalNumberOfImagesExceedsException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"NOF_IMAGES_EXCEEDED"
+		);
+		errorLogger.logError("NOF_IMAGES_EXCEEDED", "IMAGE", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
 }
