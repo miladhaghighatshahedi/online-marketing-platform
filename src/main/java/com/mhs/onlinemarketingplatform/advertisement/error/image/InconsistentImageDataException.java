@@ -18,9 +18,17 @@ package com.mhs.onlinemarketingplatform.advertisement.error.image;
 /**
  * @author Milad Haghighat Shahedi
  */
+public class InconsistentImageDataException extends RuntimeException {
 
-public enum ImageErrorCode {
-		IMAGE_NOT_FOUND,
-	    TOTAL_NUMBER_OF_IMAGES_EXCEEDS,
-	    INCONSISTENT_IMAGE_METADATA
+	private final ImageErrorCode code;
+
+	public InconsistentImageDataException(String message, ImageErrorCode code) {
+		super(message);
+		this.code = code;
+	}
+
+	public ImageErrorCode getCode() {
+		return code;
+	}
+
 }

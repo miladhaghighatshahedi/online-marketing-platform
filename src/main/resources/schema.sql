@@ -126,6 +126,7 @@ create index if not exists index_location_province_id on locations (province_id)
 create index if not exists index_location_city_id on locations (city_id);
 
 create index if not exists index_image_advertisement_id on advertisement_images (advertisement_id);
+create unique index if not exists one_main_image_per_ad  ON advertisement_images (advertisement_id) WHERE is_main = true;
 
 create index if not exists index_advertisement_title on advertisements (title);
 create index if not exists index_advertisement_price on advertisements (price);

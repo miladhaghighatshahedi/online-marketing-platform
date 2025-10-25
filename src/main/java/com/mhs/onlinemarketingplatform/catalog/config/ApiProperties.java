@@ -28,6 +28,7 @@ public class ApiProperties {
 
 	private String catalogImagePath;
 	private String categoryImagePath;
+	private String advertisementImagePath;
 
 	public String getCatalogImagePath() {
 		return catalogImagePath;
@@ -45,4 +46,9 @@ public class ApiProperties {
 		this.categoryImagePath = categoryImagePath;
 	}
 
+	public String getAdvertisementImagePath() { return advertisementImagePath; }
+
+	public void setAdvertisementImagePath(String advertisementImagePath) {
+		this.advertisementImagePath = advertisementImagePath;
+	}
 }

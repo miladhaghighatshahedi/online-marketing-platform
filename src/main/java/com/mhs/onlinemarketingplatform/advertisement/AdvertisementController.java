@@ -83,7 +83,12 @@ class AdvertisementController {
 	}
 
 	@GetMapping("/api/me/advertisements/{id}")
-	ResponseEntity<AdvertisementResponse> findByIdAndOwner(@RequestBody @PathVariable("id") String id) {
+	ResponseEntity<AdvertisementResponse> findById(@PathVariable("id") String id) {
+		return ResponseEntity.ok(this.advertisementService.findById(UUID.fromString(id)));
+	}
+
+	@GetMapping("/api/me/advertisements/{id}/owner")
+	ResponseEntity<AdvertisementResponse> findByIdAndOwner(@PathVariable("id") String id) {
 		return ResponseEntity.ok(this.advertisementService.findByIdAndOwnerId(UUID.fromString(id),UUID.fromString(OWNER)));
 	}
 
@@ -201,6 +206,17 @@ class AdvertisementService {
 		this.auditLogger.log("ADVERTISEMENT_DELETED", "ADVERTISEMENT", "Advertisement TITLE: " + advertisement.title());
 	}
 
+	AdvertisementResponse findById(UUID id) {
+		logger.info("Looking up advertisement by ID: {}",id);
+		Advertisement advertisement = this.advertisementRepository.findById(id)
+				.orElseThrow(() -> new AdvertisementNotFoundException(
+						messageSource.getMessage("error.advertisement.advertisement.with.id.not.found",
+								new Object[]{id},
+								LocaleContextHolder.getLocale()),
+						AdvertisementErrorCode.ADVERTISEMENT_NOT_FOUND));
+		return this.mapper.mapAdvertisementToResponse(advertisement);
+	}
+
 	AdvertisementResponse findByIdAndOwnerId(UUID id, UUID ownerId) {
 		logger.info("Looking up advertisement by ID: {} and OWNER: {}",id,ownerId);
 		Advertisement advertisement = this.advertisementRepository.findByIdAndOwnerId(id, ownerId)
@@ -284,10 +300,16 @@ class AdvertisementService {
 				AdvertisementErrorCode.ADVERTISEMENT_ALREADY_DEACTIVATED);
 	}
 
+	boolean existsBYId(UUID id){
+		return this.advertisementRepository.existsById(id);
+	}
+
 }
 
 @Repository
 interface advertisementRepository extends ListCrudRepository<Advertisement, UUID> {
+
+	Optional<Advertisement> findById(UUID id);
 
 	Optional<Advertisement> findByIdAndOwnerId(UUID id, UUID credential);
 
@@ -305,6 +327,9 @@ interface advertisementRepository extends ListCrudRepository<Advertisement, UUID
 			 FROM advertisements WHERE owner_id= :ownerId AND title= :title
 			 """)
 	boolean existsByTitleAndOwner(@Param("title") String title,@Param("ownerId") UUID ownerId);
+
+	@Query("SELECT CASE WHEN COUNT(1) > 0 THEN TRUE ELSE FALSE END FROM advertisements WHERE id= :id")
+	boolean existsById(@Param("id") UUID id);
 }
 
 @Table("advertisements")
@@ -317,7 +342,6 @@ record Advertisement(
 		AdvertisementType advertisementType,
 		AdvertisementStatus advertisementStatus,
 		Map<String,Object> attributes,
-		Set<AdvertisementImage> advertisementImages,
 		LocalDateTime insertedAt,
 		LocalDateTime updatedAt,
 		UUID locationId,
@@ -367,7 +391,6 @@ record UpdateAdvertisementRequest(
 		@NotBlank String description,
 		@NotNull String price,
 		@NotNull Map<String,Object> attributes,
-		@NotNull Set<AdvertisementImage> advertisementImages,
 		@NotNull UUID owner) {}
 
 record AdvertisementResponse(
@@ -406,7 +429,6 @@ interface AdvertisementMapper {
 	@Mapping(target = "advertisementType", source = "advertisement.advertisementType")
 	@Mapping(target = "advertisementStatus", constant = "INACTIVE")
 	@Mapping(target = "attributes", expression = "java(request.attributes() != null ? request.attributes() : advertisement.attributes())")
-	@Mapping(target = "advertisementImages", expression = "java(request.advertisementImages() != null ? request.advertisementImages() : advertisement.advertisementImages())")
 	@Mapping(target = "insertedAt", source = "advertisement.insertedAt")
 	@Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
 	@Mapping(target = "locationId", source = "advertisement.locationId")
