@@ -300,7 +300,7 @@ class AdvertisementService {
 				AdvertisementErrorCode.ADVERTISEMENT_ALREADY_DEACTIVATED);
 	}
 
-	boolean existsBYId(UUID id){
+	boolean existsById(UUID id){
 		return this.advertisementRepository.existsById(id);
 	}
 
