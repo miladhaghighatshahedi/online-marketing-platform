@@ -22,7 +22,7 @@ import com.mhs.onlinemarketingplatform.advertisement.error.image.ImageErrorCode;
 import com.mhs.onlinemarketingplatform.advertisement.error.image.ImageNotFoundException;
 import com.mhs.onlinemarketingplatform.advertisement.error.image.InconsistentImageDataException;
 import com.mhs.onlinemarketingplatform.advertisement.error.image.TotalNumberOfImagesExceedsException;
-import com.mhs.onlinemarketingplatform.catalog.config.ApiProperties;
+import com.mhs.onlinemarketingplatform.catalog.config.ImagePathProperties;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -31,32 +31,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
-
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static org.apache.coyote.http11.Constants.a;
 
 /**
  * @author Milad Haghighat Shahedi
  */
+@Controller("advertisementImageController")
+@ResponseBody
 class AdvertisementImageController {
 
 	private final AdvertisementImageService advertisementImageService;
@@ -65,9 +62,14 @@ class AdvertisementImageController {
 		this.advertisementImageService = advertisementImageService;
 	}
 
-	@PostMapping(value = "/api/images/",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    ResponseEntity<List<String>> uploadMultipleImages(@RequestParam("addImageRequests") List<AddImageRequest> addImageRequests,@RequestParam("images") List<MultipartFile> images) {
-		return ResponseEntity.ok(this.advertisementImageService.uploadMultipleImages(addImageRequests,images));
+	@PostMapping(value = "/api/images/upload/single", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<String> uploadSingleImage(@RequestPart("metadata") AddImageRequest metadata, @RequestPart("image") MultipartFile image) {
+		return ResponseEntity.ok(advertisementImageService.uploadSingleImage(metadata, image));
+	}
+
+	@PostMapping(value = "/api/images/upload/multiple",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ResponseEntity<List<String>> uploadMultipleImages(@RequestPart("metadataList") List<AddImageRequest> metadataList,@RequestPart("images") List<MultipartFile> images) {
+		return ResponseEntity.ok(this.advertisementImageService.uploadMultipleImages(metadataList,images));
 	}
 
 }
@@ -77,12 +79,13 @@ class AdvertisementImageService {
 
 	private static final int MAX_IMAGES_PER_ADVERTISEMENT = 5;
 
-	private static final Logger logger = LoggerFactory.getLogger(AdvertisementService.class);
+	private static final Logger logger = LoggerFactory.getLogger(AdvertisementImageService.class);
 	private final AuditLogger auditLogger;
 
 	private final AdvertisementImageRepository advertisementImageRepository;
 	private final AdvertisementService advertisementService;
-	private final ApiProperties properties;
+	private final ImageService imageService;
+	private final ImagePathProperties properties;
 	private final ImageMapper imageMapper;
 	private final MessageSource messageSource;
 
@@ -90,45 +93,50 @@ class AdvertisementImageService {
 			AuditLogger auditLogger,
 			AdvertisementImageRepository advertisementImageRepository,
 			AdvertisementService advertisementService,
-			ApiProperties properties,
+			ImageService imageService,
+			ImagePathProperties properties,
 			ImageMapper imageMapper,
 			MessageSource messageSource) {
 		this.auditLogger = auditLogger;
 		this.advertisementImageRepository = advertisementImageRepository;
+		this.imageService = imageService;
 		this.advertisementService = advertisementService;
 		this.properties = properties;
 		this.imageMapper = imageMapper;
 		this.messageSource = messageSource;
 	}
 
-	ImageResponse add(AddImageRequest addImageRequest) {
-		logger.info("Add new image to advertisement with the ID: {}",addImageRequest.advertisementId());
+	String uploadSingleImage(AddImageRequest addImageRequest,MultipartFile image) {
+		UUID advertisementId = addImageRequest.advertisementId();
+		logger.info("Add new image to advertisement with the ID: {}",advertisementId);
 
-		if(!this.advertisementService.existsById(addImageRequest.advertisementId())){
+		if(!this.advertisementService.existsById(advertisementId)){
 			throw new AdvertisementNotFoundException(
 					messageSource.getMessage("error.advertisement.advertisement.with.id.not.found",
 							new Object[]{addImageRequest.advertisementId()},
 							LocaleContextHolder.getLocale()),
-					AdvertisementErrorCode.ADVERTISEMENT_NOT_FOUND);
-		}
+					AdvertisementErrorCode.ADVERTISEMENT_NOT_FOUND);}
 
-		Set<AdvertisementImage> retreivedImages = this.advertisementImageRepository.findByAdvertisementId(addImageRequest.advertisementId());
-		if(retreivedImages.size() >= MAX_IMAGES_PER_ADVERTISEMENT) {
+		Set<AdvertisementImage> retreivedImages = this.advertisementImageRepository.findByAdvertisementId(advertisementId);
+		int noOfRetrievedImage = retreivedImages == null ? 0 : retreivedImages.size();
+		if(noOfRetrievedImage + 1 >= MAX_IMAGES_PER_ADVERTISEMENT) {
 			throw new TotalNumberOfImagesExceedsException(
 					messageSource.getMessage("error.image.total.number.of.imges.exceeded",
 							new Object[]{},
 							LocaleContextHolder.getLocale()),
-					ImageErrorCode.TOTAL_NUMBER_OF_IMAGES_EXCEEDS);
-		}
+					ImageErrorCode.TOTAL_NUMBER_OF_IMAGES_EXCEEDS);}
 
-		AdvertisementImage mappedImage = this.imageMapper.mapAddImageRequestToAdvertisementImage(addImageRequest);
+		Path imagePath = this.imageService.createMainDirectory(advertisementId,properties.getAdvertisementImagePath());
+		String imageUrl = this.imageService.prepareImageUploadWithoutDirectory(advertisementId, image, imagePath);
+
+		AdvertisementImage mappedImage = this.imageMapper.mapAddImageRequestToAdvertisementImage(addImageRequest,imageUrl);
 		AdvertisementImage storedImage = this.advertisementImageRepository.save(mappedImage);
+
 		this.auditLogger.log("ADVERTISEMENT_IMAGE_CREATED", "ADVERTISEMENT_IMAGE", "AdvertisementiMAGE ID: " + storedImage.id());
-        return this.imageMapper.mapAdvertisementImageToImageResponse(storedImage);
+        return imageUrl;
 	}
 
 	List<String> uploadMultipleImages(List<AddImageRequest> requests, List<MultipartFile> images) {
-
 		UUID advertisementId = requests.get(0).advertisementId();
 		logger.info("Uploading new images for advertisement with the ID: {} request-size: {} image-size: {}",advertisementId,requests.size(),images.size());
 
@@ -160,50 +168,41 @@ class AdvertisementImageService {
 							LocaleContextHolder.getLocale()),
 					ImageErrorCode.TOTAL_NUMBER_OF_IMAGES_EXCEEDS);}
 
-		List<AddImageRequest> normalizedAddImageRequest = normalizeListWithOneMain(requests);
-		List<AdvertisementImage> normalizedAddImageRequestWithId = normalizedAddImageRequest.stream().map(imageMapper::mapAddImageRequestToAdvertisementImage).toList();
+		List<AddImageRequest> normalizedRequestsWithOneMain = normalizeRequestWithOneMainImage(requests);
+		List<AdvertisementImage> normalizedAddImageRequestWithId = normalizedRequestsWithOneMain.stream().map(imageMapper::mapAddImageRequestToAdvertisementImage).toList();
 
+		List<String> storedImageUrls = new ArrayList<>(images.size());
+		List<AdvertisementImage> imagesToSave = new ArrayList<>(images.size());
+		List<Path> tempImagePath = new ArrayList<>(images.size());
 
-		List<Path> tempPath = new ArrayList<>(images.size());
-		List<String> finalUrls = new ArrayList<>(images.size());
+		Path imagePath = imageService.createMainDirectory(advertisementId,properties.getAdvertisementImagePath());
 
 		try {
+			for (int i = 0; i < images.size(); i++) {
+				MultipartFile imageFile = images.get(i);
+				AdvertisementImage advertisementImage = normalizedAddImageRequestWithId.get(i);
 
-			Path advertisementDirectory = createAdvertisementDirectory(advertisementId);
+				String imageUrl = this.imageService.prepareImageUploadWithoutDirectory(advertisementImage.id(), imageFile, imagePath);
+				storedImageUrls.add(imageUrl);
 
-			for (MultipartFile image : images) {
-				String imageUrl = prepareImageUpload(UuidCreator.getTimeOrderedEpoch(), image);
-				finalUrls .add(imageUrl);
-
-				Path writtenPath = resolveFilePath(advertisementId, imageUrl);
+				Path writtenPath = imageService.resolveFilePath(advertisementId, imageUrl);
 				if (writtenPath != null) {
-					tempPath.add(writtenPath);
+					tempImagePath.add(writtenPath);
 				}
-			}
 
-			List<AdvertisementImage> imagesToSave = new ArrayList<>();
-			for (String url : finalUrls ) {
-				AdvertisementImage mappedImages = this.imageMapper.mapAddImageRequestToAdvertisementImage(a, url);
-				imagesToSave.add(mappedImages);
+				AdvertisementImage mappedImage = imageMapper.mapAdvertisementImageWithUrl(advertisementImage, imageUrl);
+				imagesToSave.add(mappedImage);
 			}
 
 			this.advertisementImageRepository.saveAll(imagesToSave);
 
 			this.auditLogger.log("ADVERTISEMENT_IMAGES_ADDED", "ADVERTISEMENT", "Advertisement ID: " + advertisementId);
 
-			return finalUrls ;
+			return storedImageUrls ;
 
 		} catch (Exception e) {
 			logger.error("Failed to upload images for advertisement {}. Cleaning up written files.", advertisementId, e);
-
-			for (Path p : tempPath) {
-				try {
-					Files.deleteIfExists(p);
-				} catch (IOException ex) {
-					logger.warn("Failed to delete file during cleanup: {}", p, ex);
-				}
-			}
-
+			this.imageService.removedInconsistentImages(tempImagePath);
 			throw new RuntimeException("Failed to upload advertisement images", e);
 		}
 	}
@@ -265,7 +264,7 @@ class AdvertisementImageService {
 		this.auditLogger.log("ADVERTISEMENT_IMAGE_DELETED", "ADVERTISEMENT_IMAGE", "AdvertisementImage Id: " + retrievedImage.id());
 	}
 
-	private List<AddImageRequest> normalizeListWithOneMain(List<AddImageRequest> requests) {
+	private  List<AddImageRequest> normalizeRequestWithOneMainImage(List<AddImageRequest> requests) {
 		if (requests == null || requests.isEmpty()) return requests;
 		List<AddImageRequest> normalized = new ArrayList<>(requests.size());
 		boolean mainFound = false;
@@ -291,55 +290,6 @@ class AdvertisementImageService {
 		return normalized;
 	}
 
-	private String prepareImageUpload(UUID id, MultipartFile image) {
-		String imageName =  id + imageExtension(image.getOriginalFilename());
-		try {
-
-			Path advertisementFolder = Paths.get(properties.getAdvertisementImagePath(),id.toString()).toAbsolutePath().normalize();
-			if(!Files.exists(advertisementFolder)) {
-				Files.createDirectories(advertisementFolder);
-			}
-
-			Path imagePath = advertisementFolder.resolve(imageName);
-			Files.copy(image.getInputStream(),imagePath,REPLACE_EXISTING);
-			return ServletUriComponentsBuilder
-					.fromCurrentContextPath()
-					.path("/api/advertisements/images/" + imageName).toUriString();
-		} catch (Exception e) {
-			throw new RuntimeException("");
-		}
-	}
-
-	private Path createAdvertisementDirectory(UUID advertisementId) {
-		try {
-			Path direcetory = Paths.get(properties.getAdvertisementImagePath(), advertisementId.toString());
-			if(!Files.exists(direcetory)) {
-				Files.createDirectories(direcetory);
-			}
-			return direcetory;
-		} catch (Exception e) {
-			throw new RuntimeException("");
-		}
-	}
-
-	private String imageExtension(String imageName) {
-		return Optional.of(imageName)
-				.filter(name -> name.contains("."))
-				.map(name -> "." + name.substring(imageName.lastIndexOf(".") + 1))
-				.orElse(".png");
-	}
-
-	private Path resolveFilePath(UUID adId, String imageUrl) {
-		try {
-			String imageName = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
-			Path folder = Paths.get(properties.getAdvertisementImagePath(), adId.toString()).toAbsolutePath().normalize();
-			return folder.resolve(imageName);
-		} catch (Exception e) {
-			logger.warn("Cannot resolve file path for url: {}", imageUrl, e);
-			return null;
-		}
-	}
-
 }
 
 @Repository
@@ -356,20 +306,21 @@ interface AdvertisementImageRepository extends CrudRepository<AdvertisementImage
 }
 
 @Table("advertisement_images")
-record AdvertisementImage(
+record AdvertisementImage (
+		@Id
 		UUID id,
+		@Version
+		Integer version,
 		String url,
-		Boolean isMain,
+		boolean isMain,
 		LocalDateTime insertedAt,
 		UUID advertisementId
 ) {}
 
 record AddImageRequest(
-		String url,
 		Boolean isMain,
-		LocalDateTime insertedAt,
 		UUID advertisementId
-) {}
+)  {}
 
 record ImageResponse(
 		String url,
@@ -381,20 +332,28 @@ record ImageResponse(
 interface ImageMapper {
 
 	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
+	@Mapping(target = "version", ignore = true)
 	@Mapping(target = "insertedAt", expression = "java(LocalDateTime.now())")
 	AdvertisementImage mapAddImageRequestToAdvertisementImage(AddImageRequest addImageRequest);
 
 	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
-	@Mapping(target = "insertedAt", expression = "java(LocalDateTime.now())")
+	@Mapping(target = "version", ignore = true)
 	@Mapping(target = "url", source = "url")
+	@Mapping(target = "insertedAt", expression = "java(LocalDateTime.now())")
 	AdvertisementImage mapAddImageRequestToAdvertisementImage(AddImageRequest addImageRequest,String url);
+
+	@Mapping(target = "id", source = "advertisementImage.id")
+	@Mapping(target = "version", ignore = true)
+	@Mapping(target = "url", source = "url")
+	@Mapping(target = "insertedAt", expression = "java(LocalDateTime.now())")
+	AdvertisementImage mapAdvertisementImageWithUrl(AdvertisementImage advertisementImage,String url);
 
 	ImageResponse mapAdvertisementImageToImageResponse(AdvertisementImage advertisementImage);
 
-	@Mapping(target = "isMain", expression = "java(Boolean.False)")
+	@Mapping(target = "isMain", expression = "java(Boolean.FALSE)")
 	AddImageRequest mapAddImageRequestToFalse(AddImageRequest addImageRequest);
 
-	@Mapping(target = "isMain", expression = "java(Boolean.True)")
+	@Mapping(target = "isMain", expression = "java(Boolean.TRUE)")
 	AddImageRequest mapAddImageRequestToTrue(AddImageRequest addImageRequest);
 
 }

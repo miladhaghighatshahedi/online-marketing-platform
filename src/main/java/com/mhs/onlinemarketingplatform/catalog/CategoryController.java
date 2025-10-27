@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.catalog;
 
 import com.github.f4b6a3.uuid.UuidCreator;
-import com.mhs.onlinemarketingplatform.catalog.config.ApiProperties;
+import com.mhs.onlinemarketingplatform.catalog.config.ImagePathProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.*;
 import com.mhs.onlinemarketingplatform.catalog.event.AddCategoryEvent;
 import com.mhs.onlinemarketingplatform.catalog.event.UpdateCategoryEvent;
@@ -185,7 +185,7 @@ class CategoryService implements CategoryApi {
     private final CategoryMapper categoryMapper;
     private final ApplicationEventPublisher publisher;
     private final MessageSource messageSource;
-    private final ApiProperties properties;
+    private final ImagePathProperties properties;
 
     public CategoryService(
             AuditLogger auditLogger,
@@ -195,7 +195,7 @@ class CategoryService implements CategoryApi {
             CategoryMapper categoryMapper,
             ApplicationEventPublisher publisher,
             MessageSource messageSource,
-            ApiProperties properties) {
+            ImagePathProperties properties) {
         this.auditLogger = auditLogger;
         this.categoryRepository = categoryRepository;
         this.categoryClosureRepository = categoryClosureRepository;

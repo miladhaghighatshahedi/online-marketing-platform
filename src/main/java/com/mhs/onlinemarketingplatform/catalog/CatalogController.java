@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.catalog;
 
 import com.github.f4b6a3.uuid.UuidCreator;
-import com.mhs.onlinemarketingplatform.catalog.config.ApiProperties;
+import com.mhs.onlinemarketingplatform.catalog.config.ImagePathProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogErrorCode;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogNotFoundException;
@@ -139,7 +139,7 @@ class CatalogService {
 	private final CatalogMapper catalogMapper;
 	private final ApplicationEventPublisher publisher;
 	private final MessageSource messageSource;
-	private final ApiProperties properties;
+	private final ImagePathProperties properties;
 
 	public CatalogService(
 			AuditLogger auditLogger,
@@ -147,7 +147,7 @@ class CatalogService {
 			CatalogMapper catalogMapper,
 			ApplicationEventPublisher publisher,
 			MessageSource messageSource,
-			ApiProperties properties) {
+			ImagePathProperties properties) {
 		this.auditLogger = auditLogger;
 		this.catalogRepository = catalogRepository;
 		this.catalogMapper = catalogMapper;
