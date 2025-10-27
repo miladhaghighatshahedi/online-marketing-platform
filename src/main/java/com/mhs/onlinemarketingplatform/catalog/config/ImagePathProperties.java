@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "app.api")
-public class ApiProperties {
+public class ImagePathProperties {
 
 	private String catalogImagePath;
 	private String categoryImagePath;
