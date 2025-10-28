@@ -1,4 +1,5 @@
 # Online Marketing Platform
+# Spring Boot # Java # Spring Modulith # Spring Data JDBC # MapStruct
 
 
 Online Marketing Platform is a Spring Modulith-based web application developed in Java.
