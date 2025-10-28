@@ -531,7 +531,7 @@ class CategoryService implements CategoryApi {
         this.auditLogger.log("CHILDREN_CATEGORY_ACTIVATED", "CATEGORY", "Category ID: "+categoryId);
     }
 
-    public String uploadImage(UUID categoryId, MultipartFile file) {
+    String uploadImage(UUID categoryId, MultipartFile file) {
         logger.info("Uploading new photo for a category");
         Category category = this.categoryRepository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
@@ -547,7 +547,7 @@ class CategoryService implements CategoryApi {
         return imageUrl;
     }
 
-    public void deleteImage(UUID id) {
+    private void deleteImage(UUID id) {
         logger.info("Deleting exisiting directory with id: {} ",id);
         try {
             Path categoryFolder = Paths.get(properties.getCategoryImagePath(),id.toString()).toAbsolutePath().normalize();
