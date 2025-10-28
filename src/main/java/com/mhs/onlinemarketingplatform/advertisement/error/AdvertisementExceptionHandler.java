@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Map;
 
@@ -47,8 +48,18 @@ public class AdvertisementExceptionHandler {
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	public Map<String, Object> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-		return Map.of("error", "Bad Request", "message",
-				"Invalid path variable '" + ex.getName() + "': " + ex.getValue());
+		return Map.of("error", "Bad Request", "message","Invalid path variable '" + ex.getName() + "': " + ex.getValue());
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	public ResponseEntity<ApiErrorMessage> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"File size exceeds limit!"
+		);
+		errorLogger.logError("ADVERTISEMENT_IMAGE","ADVERTISEMENT_IMAGE_FILE_SIZE_EXCEEDED","Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
 	@ExceptionHandler(AdvertisementNotFoundException.class)

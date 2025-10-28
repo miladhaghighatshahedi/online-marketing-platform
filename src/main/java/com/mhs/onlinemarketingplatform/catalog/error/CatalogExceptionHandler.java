@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Map;
 
@@ -45,6 +46,17 @@ public class CatalogExceptionHandler {
 				"Invalid path variable '" + ex.getName() + "': " + ex.getValue());
 	}
 
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	public ResponseEntity<ApiErrorMessage> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"File size exceeds limit!"
+		);
+		errorLogger.logError("IMAGE","IMAGE_FILE_SIZE_EXCEEDED","Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
 	@ExceptionHandler(CatalogNotFoundException.class)
 	public ResponseEntity<ApiErrorMessage> handleCatalogNotFound(CatalogNotFoundException ex) {
 		ApiErrorMessage error = new ApiErrorMessage(
@@ -64,6 +76,50 @@ public class CatalogExceptionHandler {
 				"CATALOG_ALREADY_EXISTS"
 		);
 		errorLogger.logError("CATALOG", "CATALOG_ALREADY_EXISTS", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(CategoryNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleCategoryNotFound(CategoryNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"CATEGORY_NOT_FOUND"
+		);
+		errorLogger.logError("CATEGORY", "CATEGORY_NOT_FOUND", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+	@ExceptionHandler(CategoryAlreadyExistsException.class)
+	public ResponseEntity<ApiErrorMessage> handleCategoryAlreadyExists(CategoryAlreadyExistsException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"CATEGORY_ALREADY_EXISTS"
+		);
+		errorLogger.logError("CATEGORY", "CATEGORY_ALREADY_EXISTS", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(CategoryAlreadyActivatedException.class)
+	public ResponseEntity<ApiErrorMessage> handleCategoryAlreadyActivatedException(CategoryAlreadyActivatedException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"CATEGORY_ALREADY_ACTIVATED"
+		);
+		errorLogger.logError("CATEGORY", "CATEGORY_ALREADY_ACTIVATED", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(CategoryAlreadyDeactivatedException.class)
+	public ResponseEntity<ApiErrorMessage> handleCategoryAlreadyDeactivatedException(CategoryAlreadyDeactivatedException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"CATEGORY_ALREADY_DEACTIVATED"
+		);
+		errorLogger.logError("CATEGORY", "CATEGORY_ALREADY_DEACTIVATED", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
