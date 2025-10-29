@@ -13,13 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.error;
+package com.mhs.onlinemarketingplatform.advertisement.error.location;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-public class AdvertisementAlreadyDisabledException extends RuntimeException {
-	public AdvertisementAlreadyDisabledException(String message) {
+
+public class LocationNotFoundException extends RuntimeException {
+
+	private final LocationErrorCode code;
+
+	public LocationNotFoundException(String message, LocationErrorCode code) {
 		super(message);
+		this.code = code;
 	}
+
+	public LocationErrorCode getCode() {
+		return code;
+	}
+
 }

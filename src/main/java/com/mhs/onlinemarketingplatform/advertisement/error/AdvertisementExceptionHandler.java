@@ -22,7 +22,10 @@ import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.Adverti
 import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryNotFoundException;
 import com.mhs.onlinemarketingplatform.advertisement.error.image.ImageNotFoundException;
 import com.mhs.onlinemarketingplatform.advertisement.error.image.TotalNumberOfImagesExceedsException;
+import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationNotFoundException;
 import com.mhs.onlinemarketingplatform.common.ErrorLogger;
+import com.mhs.onlinemarketingplatform.advertisement.error.city.CityNotFoundException;
+import com.mhs.onlinemarketingplatform.advertisement.error.province.ProvinceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -137,6 +140,39 @@ public class AdvertisementExceptionHandler {
 		);
 		errorLogger.logError("NOF_IMAGES_EXCEEDED", "IMAGE", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(LocationNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleLocationNotFoundException(LocationNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"LOCATION_NOT_FOUND"
+		);
+		errorLogger.logError("LOCATION","LOCATION_NOT_FOUND","Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+	@ExceptionHandler(ProvinceNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleProvinceNotFoundException(ProvinceNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"PROVINCE_NOT_FOUND"
+		);
+		errorLogger.logError("PROVINCE","PROVINCE_NOT_FOUND","Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+	@ExceptionHandler(CityNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleCityNotFoundException(CityNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"CITY_NOT_FOUND"
+		);
+		errorLogger.logError("CITY","CITY_NOT_FOUND","Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
 	}
 
 }
