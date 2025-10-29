@@ -24,8 +24,8 @@ import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationErro
 import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationNotFoundException;
 import com.mhs.onlinemarketingplatform.advertisement.error.province.ProvinceErrorCode;
 import com.mhs.onlinemarketingplatform.advertisement.error.province.ProvinceNotFoundException;
-import com.mhs.onlinemarketingplatform.location.CityApi;
-import com.mhs.onlinemarketingplatform.location.ProvinceApi;
+import com.mhs.onlinemarketingplatform.region.CityApi;
+import com.mhs.onlinemarketingplatform.region.ProvinceApi;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
