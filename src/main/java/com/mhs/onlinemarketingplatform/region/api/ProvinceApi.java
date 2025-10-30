@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.region;
+package com.mhs.onlinemarketingplatform.region.api;
 
+import org.springframework.modulith.NamedInterface;
+
+import java.util.Optional;
 import java.util.UUID;
 
 /**
  * @author Milad Haghighat Shahedi
  */
+@NamedInterface
 public interface ProvinceApi {
 	boolean existsById(UUID id);
-	String findNameById(UUID id);
+	Optional<String> findNameById(UUID id);
 }

@@ -22,8 +22,8 @@ import com.mhs.onlinemarketingplatform.common.AuditLogger;
 
 import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationErrorCode;
 import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationNotFoundException;
-import com.mhs.onlinemarketingplatform.region.CityApi;
-import com.mhs.onlinemarketingplatform.region.ProvinceApi;
+import com.mhs.onlinemarketingplatform.region.api.CityApi;
+import com.mhs.onlinemarketingplatform.region.api.ProvinceApi;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -187,9 +187,20 @@ class LocationService {
 								LocaleContextHolder.getLocale()),
 						LocationErrorCode.LOCATION_NOT_FOUND));
 
-		String provinceName = this.provinceApi.findNameById(location.provinceId());
+		String provinceName = this.provinceApi.findNameById(location.provinceId()).orElseThrow(
+				()-> new LocationProvinceNotFoundException(
+						messageSource.getMessage("error.location.province.with.id.not.found",
+								new Object[]{location.provinceId()},
+								LocaleContextHolder.getLocale()),
+						LocationErrorCode.PROVINCE_NOT_FOUND));
 
-		String cityName = this.cityApi.findNameById(location.cityId());
+
+		String cityName = this.cityApi.findNameById(location.cityId()).orElseThrow(
+				() -> new LocationCityNotFoundException(
+						messageSource.getMessage("error.location.city.with.id.not.found",
+								new Object[]{location.cityId()},
+								LocaleContextHolder.getLocale()),
+						LocationErrorCode.CITY_NOT_FOUND));
 
 		return this.locationMapper.mappToLocationResponse(location.id(), provinceName, cityName);
 	}

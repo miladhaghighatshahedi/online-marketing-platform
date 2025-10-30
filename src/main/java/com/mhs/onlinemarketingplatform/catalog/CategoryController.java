@@ -16,6 +16,7 @@
 package com.mhs.onlinemarketingplatform.catalog;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.mhs.onlinemarketingplatform.catalog.api.CategoryApi;
 import com.mhs.onlinemarketingplatform.catalog.config.ImagePathProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.*;
 import com.mhs.onlinemarketingplatform.catalog.event.AddCategoryEvent;

@@ -13,14 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.catalog;
+package com.mhs.onlinemarketingplatform.catalog.api;
+
+import org.springframework.modulith.NamedInterface;
 
 import java.util.UUID;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-
+@NamedInterface
 public interface CategoryApi {
 
 	boolean existsById(UUID category);

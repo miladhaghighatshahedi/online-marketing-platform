@@ -17,6 +17,7 @@ package com.mhs.onlinemarketingplatform.region;
 
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
+import com.mhs.onlinemarketingplatform.region.api.ProvinceApi;
 import com.mhs.onlinemarketingplatform.region.error.province.ProvinceAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.region.error.province.ProvinceErrorCode;
 import com.mhs.onlinemarketingplatform.region.error.province.ProvinceNotFoundException;
@@ -189,13 +190,8 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceRepository.existsById(id);
 	}
 
-	public String findNameById(UUID id) {
-		return this.provinceRepository.findNameById(id).orElseThrow(() ->
-				new ProvinceNotFoundException(
-						messageSource.getMessage("error.province.province.with.id.not.found",
-								new Object[]{id},
-								LocaleContextHolder.getLocale()),
-						ProvinceErrorCode.PROVINCE_NOT_FOUND));
+	public Optional<String> findNameById(UUID id) {
+		return this.provinceRepository.findNameById(id);
 	}
 
 }

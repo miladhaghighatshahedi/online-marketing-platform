@@ -18,7 +18,7 @@ package com.mhs.onlinemarketingplatform.advertisement;
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.*;
 import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryNotFoundException;
-import com.mhs.onlinemarketingplatform.catalog.CategoryApi;
+import com.mhs.onlinemarketingplatform.catalog.api.CategoryApi;
 import com.mhs.onlinemarketingplatform.advertisement.event.AddAdvertisementEvent;
 import com.mhs.onlinemarketingplatform.advertisement.event.UpdateAdvertisementEvent;
 import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryErrorCode;

@@ -17,6 +17,7 @@ package com.mhs.onlinemarketingplatform.region;
 
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
+import com.mhs.onlinemarketingplatform.region.api.CityApi;
 import com.mhs.onlinemarketingplatform.region.error.city.CityAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.region.error.city.CityErrorCode;
 import com.mhs.onlinemarketingplatform.region.error.city.CityNotFoundException;
@@ -99,7 +100,7 @@ class CityController {
 
 @Service
 @Transactional
-class CityService implements CityApi{
+class CityService implements CityApi {
 
 	private static final Logger logger = LoggerFactory.getLogger(CityService.class);
 	private final AuditLogger auditLogger;
@@ -231,13 +232,8 @@ class CityService implements CityApi{
 		return this.cityRepository.existsById(id);
 	}
 
-	public String findNameById(UUID id) {
-		return this.cityRepository.findNameById(id).orElseThrow(() ->
-				new CityNotFoundException(
-						messageSource.getMessage("error.city.city.with.id.not.found",
-								new Object[]{id},
-								LocaleContextHolder.getLocale()),
-						CityErrorCode.CITY_NOT_FOUND));
+	public Optional<String> findNameById(UUID id) {
+		return this.cityRepository.findNameById(id);
 	}
 
 }
