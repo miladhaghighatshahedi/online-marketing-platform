@@ -18,7 +18,9 @@ package com.mhs.onlinemarketingplatform.advertisement.error.location;
 /**
  * @author Milad Haghighat Shahedi
  */
-
 public enum LocationErrorCode {
 	LOCATION_NOT_FOUND,
+	PROVINCE_NOT_FOUND,
+	CITY_NOT_FOUND
+
 }

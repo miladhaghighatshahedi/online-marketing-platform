@@ -18,7 +18,6 @@ package com.mhs.onlinemarketingplatform.advertisement.error.category;
 /**
  * @author Milad Haghighat Shahedi
  */
-
 public enum CategoryErrorCode {
 		CATEGORY_NOT_FOUND
 }

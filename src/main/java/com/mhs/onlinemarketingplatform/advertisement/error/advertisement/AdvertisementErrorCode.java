@@ -18,7 +18,6 @@ package com.mhs.onlinemarketingplatform.advertisement.error.advertisement;
 /**
  * @author Milad Haghighat Shahedi
  */
-
 public enum AdvertisementErrorCode {
 	ADVERTISEMENT_NOT_FOUND,
 	ADVERTISEMENT_ALREADY_EXISTS,

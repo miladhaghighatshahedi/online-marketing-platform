@@ -16,14 +16,12 @@
 package com.mhs.onlinemarketingplatform.advertisement;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationCityNotFoundException;
+import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationProvinceNotFoundException;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
 
-import com.mhs.onlinemarketingplatform.advertisement.error.city.CityErrorCode;
-import com.mhs.onlinemarketingplatform.advertisement.error.city.CityNotFoundException;
 import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationErrorCode;
 import com.mhs.onlinemarketingplatform.advertisement.error.location.LocationNotFoundException;
-import com.mhs.onlinemarketingplatform.advertisement.error.province.ProvinceErrorCode;
-import com.mhs.onlinemarketingplatform.advertisement.error.province.ProvinceNotFoundException;
 import com.mhs.onlinemarketingplatform.region.CityApi;
 import com.mhs.onlinemarketingplatform.region.ProvinceApi;
 import org.mapstruct.Mapper;
@@ -115,18 +113,18 @@ class LocationService {
 	    logger.info("Creating new location with latitude: {} and longitude: {}",addLocationRequest.latitude(),addLocationRequest.longitude());
 
 	    if(!this.provinceApi.existsById(addLocationRequest.provinceId())) {
-			throw new ProvinceNotFoundException(
-				    messageSource.getMessage("error.province.province.with.id.not.found",
+			throw new LocationProvinceNotFoundException(
+				    messageSource.getMessage("error.location.province.with.id.not.found",
 						    new Object[]{addLocationRequest.provinceId()},
 						    LocaleContextHolder.getLocale()),
-				    ProvinceErrorCode.PROVINCE_NOT_FOUND);}
+				    LocationErrorCode.PROVINCE_NOT_FOUND);}
 
 		if(!this.cityApi.existsById(addLocationRequest.cityId())) {
-			throw new CityNotFoundException(
-					messageSource.getMessage("error.city.city.with.id.not.found",
+			throw new LocationCityNotFoundException(
+					messageSource.getMessage("error.location.city.with.id.not.found",
 							new Object[]{addLocationRequest.provinceId()},
 							LocaleContextHolder.getLocale()),
-					CityErrorCode.CITY_NOT_FOUND);
+					LocationErrorCode.CITY_NOT_FOUND);
 		}
 
 		Location mappedLocation = this.locationMapper.mapAddLocationRequestToLocation(addLocationRequest);
@@ -146,18 +144,18 @@ class LocationService {
 						LocationErrorCode.LOCATION_NOT_FOUND));
 
 		if(!this.provinceApi.existsById(updateLocationRequest.provinceId())) {
-			throw new ProvinceNotFoundException(
-					messageSource.getMessage("error.province.province.with.id.not.found",
+			throw new LocationProvinceNotFoundException(
+					messageSource.getMessage("error.location.province.with.id.not.found",
 							new Object[]{updateLocationRequest.provinceId()},
 							LocaleContextHolder.getLocale()),
-					ProvinceErrorCode.PROVINCE_NOT_FOUND);}
+					LocationErrorCode.PROVINCE_NOT_FOUND);}
 
 		if(!this.cityApi.existsById(updateLocationRequest.cityId())) {
-			throw new CityNotFoundException(
-					messageSource.getMessage("error.city.city.with.id.not.found",
+			throw new LocationCityNotFoundException(
+					messageSource.getMessage("error.location.city.with.id.not.found",
 							new Object[]{updateLocationRequest.cityId()},
 							LocaleContextHolder.getLocale()),
-					CityErrorCode.CITY_NOT_FOUND);
+					LocationErrorCode.CITY_NOT_FOUND);
 		}
 
 		Location mappedLocation = this.locationMapper.mapUpdateLocationRequestToLocation(updateLocationRequest, exisitingLocation);

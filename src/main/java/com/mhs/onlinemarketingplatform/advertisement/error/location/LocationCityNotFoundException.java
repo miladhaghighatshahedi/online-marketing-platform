@@ -18,11 +18,11 @@ package com.mhs.onlinemarketingplatform.advertisement.error.location;
 /**
  * @author Milad Haghighat Shahedi
  */
-public class LocationNotFoundException extends RuntimeException {
+public class LocationCityNotFoundException extends RuntimeException {
 
 	private final LocationErrorCode code;
 
-	public LocationNotFoundException(String message, LocationErrorCode code) {
+	public LocationCityNotFoundException(String message, LocationErrorCode code) {
 		super(message);
 		this.code = code;
 	}

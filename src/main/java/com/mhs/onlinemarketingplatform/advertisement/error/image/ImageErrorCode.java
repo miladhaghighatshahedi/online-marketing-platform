@@ -18,7 +18,6 @@ package com.mhs.onlinemarketingplatform.advertisement.error.image;
 /**
  * @author Milad Haghighat Shahedi
  */
-
 public enum ImageErrorCode {
 		IMAGE_NOT_FOUND,
 	    TOTAL_NUMBER_OF_IMAGES_EXCEEDS,
