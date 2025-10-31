@@ -333,6 +333,7 @@ interface ImageMapper {
 
 	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
 	@Mapping(target = "version", ignore = true)
+	@Mapping(target = "url", ignore = true)
 	@Mapping(target = "insertedAt", expression = "java(LocalDateTime.now())")
 	AdvertisementImage mapAddImageRequestToAdvertisementImage(AddImageRequest addImageRequest);
 

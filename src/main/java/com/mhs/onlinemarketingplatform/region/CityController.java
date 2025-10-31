@@ -43,6 +43,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -60,7 +61,7 @@ class CityController {
 		this.cityService = cityService;
 	}
 
-	@GetMapping("/api/cities")
+	@PostMapping("/api/cities")
 	ResponseEntity<CityResponse> add(@RequestBody AddCityRequest addCityRequest) {
 		return ResponseEntity.ok(this.cityService.add(addCityRequest));
 	}
@@ -91,8 +92,8 @@ class CityController {
 		return ResponseEntity.ok(this.cityService.findByNameAndProvinceId(name,provinceId));
 	}
 
-	@GetMapping("/api/cities/province/{provinceId}")
-	ResponseEntity<Set<CityResponse>> findAllByProvinceId(@PathVariable("provinceId") UUID provinceId) {
+	@GetMapping("/api/cities/{provinceId}/province")
+	ResponseEntity<List<CityResponse>> findAllByProvinceId(@PathVariable("provinceId") UUID provinceId) {
 		return ResponseEntity.ok(this.cityService.findAllByProvinceId(provinceId));
 	}
 
@@ -221,11 +222,10 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(retrievedCity);
 	}
 
-	Set<CityResponse> findAllByProvinceId(UUID provinceId) {
+	List<CityResponse> findAllByProvinceId(UUID provinceId) {
 		logger.info("Retriving all cities by province id: {}",provinceId);
+		return this.cityRepository.findAllByProvinceId(provinceId);
 
-		Set<City> retrievedCities = this.cityRepository.findAllByProvinceId(provinceId);
-		return this.cityMapper.mapToASetOfCityResponses(retrievedCities);
 	}
 
 	public boolean existsById(UUID id) {
@@ -246,8 +246,8 @@ interface CityRepository extends CrudRepository<City,UUID> {
 
 	Optional<City> findByNameAndProvinceId(String name, UUID provinceId);
 
-	@Query("SELECT * FROM cities WHERE province_id = :provinceId ORDER BY name")
-	Set<City> findAllByProvinceId(@Param("provinceId") UUID provinceId);
+	@Query("SELECT id,name,province_id  FROM cities WHERE province_id= :provinceId ORDER BY name")
+	List<CityResponse> findAllByProvinceId(@Param("provinceId") UUID provinceId);
 
 	@Query("SELECT CASE WHEN COUNT(1) > 0  THEN TRUE ELSE FALSE END FROM cities WHERE name= :name AND province_id= :provinceId")
 	boolean existsByNameAndProvinceId(@Param("name") String name,@Param("provinceId") UUID provinceId);
@@ -298,7 +298,5 @@ interface CityMapper {
 	City mapUpdateCityRequestToCity(UpdateCityRequest request,City city);
 
 	CityResponse mapCityToCityResponse(City city);
-
-	Set<CityResponse> mapToASetOfCityResponses(Set<City> cities);
 
 }

@@ -1,0 +1,32 @@
+### add a new province
+POST http://localhost:8080/api/provinces
+Content-Type: application/json
+
+{
+  "name": "Tehran"
+}
+
+### update an existing province
+PUT http://localhost:8080/api/provinces
+Content-Type: application/json
+
+{
+  "id": "019a3a4a-566e-785d-9cfd-7253541f025f",
+  "name": "tehran"
+}
+
+### delete a province by id
+DELETE http://localhost:8080/api/provinces/019a3a4b-4258-74d5-a108-1be719ab0697
+Content-Type: application/json
+
+### get a province by id
+GET http://localhost:8080/api/provinces/019a3a4c-5940-7b57-a702-244f58ae48db
+Content-Type: application/json
+
+### get a province by name
+GET http://localhost:8080/api/provinces?name=Isfahan
+Content-Type: application/json
+
+### get all provinces
+GET http://localhost:8080/api/provinces
+Content-Type: application/json

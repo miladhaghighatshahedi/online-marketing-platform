@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -85,7 +86,7 @@ class ProvinceController {
 	}
 
 	@GetMapping("/api/provinces")
-	ResponseEntity<Set<ProvinceResponse>> findAllOrdered() {
+	ResponseEntity<List<ProvinceResponse>> findAllOrdered() {
 		return ResponseEntity.ok(this.provinceService.findAllOrdered());
 	}
 
@@ -180,10 +181,9 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceMapper.mapProvinceToProvinceResponse(province);
     }
 
-    Set<ProvinceResponse> findAllOrdered() {
+	List<ProvinceResponse> findAllOrdered() {
 	    logger.info("Retriving all provinces ordered");
-	    Set<Province> retrievedProvinces = this.provinceRepository.findAllOrdered();
-	    return this.provinceMapper.mapToASetOfProvinceResponses(retrievedProvinces);
+	    return this.provinceRepository.findAllOrdered();
     }
 
 	public boolean existsById(UUID id) {
@@ -202,17 +202,18 @@ interface ProvinceRepository extends CrudRepository<Province,UUID> {
 	@Query("SELECT * FROM provinces WHERE name = :name")
 	Optional<Province> findByName(@Param("name")  String name);
 
-	@Query("SELECT id,name FROM provinces order by name")
-	Set<Province> findAllOrdered();
-
 	@Query("SELECT CASE WHEN COUNT(1) > 0 THEN TRUE ELSE FALSE END FROM provinces WHERE name= :name")
 	boolean existsByName(@Param("name") String name);
 
-	@Query("SELECT CASE WHEN COUNT(1) > 0 THEN TRUE ELSE FALSE FROM provinces WHERE id = :id")
+	@Query("SELECT CASE WHEN COUNT(1) > 0 THEN TRUE ELSE FALSE END FROM provinces WHERE id = :id")
 	boolean existsById(@Param("id") UUID id);
 
 	@Query("SELECT name FROM provinces WHERE id= :id")
 	Optional<String> findNameById(@Param("id") UUID id);
+
+	@Query("SELECT id,name FROM provinces order by name")
+	List<ProvinceResponse> findAllOrdered();
+
 }
 
 @Table("provinces")
@@ -249,8 +250,6 @@ interface ProvinceMapper {
 	Province mapUpdateProvinceRequestToProvince(UpdateProvinceRequest request,Province province);
 
 	ProvinceResponse mapProvinceToProvinceResponse(Province province);
-
-	Set<ProvinceResponse> mapToASetOfProvinceResponses(Set<Province> provinces);
 
 }
 

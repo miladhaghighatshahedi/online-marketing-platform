@@ -1,4 +1,4 @@
-### add a root category to a catalog
+### add a new root category to a catalog
 POST http://localhost:8080/api/categories
 Content-Type: application/json
 
@@ -9,7 +9,7 @@ Content-Type: application/json
   "catalogId": {{catalogId_computer_electronics}}
 }
 
-### add a descendant category to a root category
+### add a new descendant category to a root category
 POST http://localhost:8080/api/categories/descendants
 Content-Type: application/json
 
@@ -21,7 +21,7 @@ Content-Type: application/json
   "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
 }
 
-### update a category
+### update an exisiting category
 PUT http://localhost:8080/api/categories
 Content-Type: application/json
 
@@ -33,31 +33,31 @@ Content-Type: application/json
   "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
 }
 
-### remove a category with no descendants
+### remove an exisiting category with no descendants by id
 DELETE http://localhost:8080/api/categories/5a84aa6f-fdb4-4dbd-ae11-c67adfcf0c90
 Content-Type: application/json
 
-### get a category by its id
+### get an exisiting category by id
 GET http://localhost:8080/api/categories/3d009975-4a7d-4b99-ac2a-ba6b653a6d6a
 Content-Type: application/json
 
-### get a category by its name
+### get an exisiting category by name
 GET http://localhost:8080/api/categories?name=ram
 Content-Type: application/json
 
-### get a category by its slug
+### get an exisiting category by slug
 GET http://localhost:8080/api/categories?slug=ram
 Content-Type: application/json
 
-### get a parent category with its level 1 descendants by id
+### get an exisiting parent category with its level 1 descendants by id
 GET http://localhost:8080/api/categories/79e784ec-b22d-456c-807f-300a21bffc2f/with-sub-categories
 Content-Type: application/json
 
-### activate a category
+### activate an exisiting category
 PUT http://localhost:8080/api/categories/cc4f6e4f-ebda-42d0-ad62-c12dcddcf0d2/activate
 Content-Type: application/json
 
-### deactivate a category
+### deactivate an exisiting category
 PUT http://localhost:8080/api/categories/cc4f6e4f-ebda-42d0-ad62-c12dcddcf0d2/deactivate
 Content-Type: application/json
 

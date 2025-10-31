@@ -1,0 +1,35 @@
+### add a new city
+POST http://localhost:8080/api/cities
+Content-Type: application/json
+
+{
+  "name": "Damavand",
+  "provinceId": "019a3a4a-566e-785d-9cfd-7253541f025f"
+}
+
+### update an existing city
+PUT http://localhost:8080/api/cities
+Content-Type: application/json
+
+{
+  "id": "019a3a5c-d85f-721f-bb38-35f2ebbba3a2",
+  "name": "pardis",
+  "provinceId" : "019a3a4a-566e-785d-9cfd-7253541f025f"
+}
+
+### delete a city by id
+DELETE http://localhost:8080/api/cities/019a3a5e-74be-77b4-a31d-1518a3167256
+Content-Type: application/json
+
+### get a city by id
+GET http://localhost:8080/api/cities/019a3a5f-9123-7a13-be55-36784950ddfa
+Content-Type: application/json
+
+### get a city by name
+GET http://localhost:8080/api/cities?name=damavand
+Content-Type: application/json
+
+### get all cities by provinceId
+GET http://localhost:8080/api/cities/019a3a4a-566e-785d-9cfd-7253541f025f/province
+Content-Type: application/json
+

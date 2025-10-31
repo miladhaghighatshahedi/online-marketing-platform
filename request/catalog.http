@@ -1,4 +1,4 @@
-### add new catalog 1
+### add a new catalog
 POST http://localhost:8080/api/catalogs
 Content-Type: application/json
 
@@ -8,7 +8,7 @@ Content-Type: application/json
   "slug": "computer_electronic"
 }
 
-### update existing catalog
+### update an existing catalog
 PUT http://localhost:8080/api/catalogs
 Content-Type: application/json
 
@@ -19,19 +19,19 @@ Content-Type: application/json
   "slug": "grocery_items"
 }
 
-### delete by id
+### delete a catalog by id
 DELETE http://localhost:8080/api/catalogs/c0c7caa6-cc95-4a65-9688-05706b11b986
 Content-Type: application/json
 
-### get catalog with its id
+### get a catalog with by id
 GET http://localhost:8080/api/catalogs/f1bd6f58-bb37-4552-a539-fe3fe15ece06
 Content-Type: application/json
 
-### get catalog with its name
+### get a catalog by name
 GET http://localhost:8080/api/catalogs?name=Computer%20Electronics
 Content-Type: application/json
 
-### get catalog with its slug
+### get a catalog with slug
 GET http://localhost:8080/api/catalogs?slug=computer_electronic
 Content-Type: application/json
 
