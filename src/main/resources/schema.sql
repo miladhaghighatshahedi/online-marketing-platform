@@ -78,12 +78,13 @@ create table if not exists locations
     city_id     uuid             not null references cities (id)
 );
 
-create table if not exists advertisement_images
+create table if not exists advertisement_image_metadata
 (
     id               uuid primary key not null,
     version          integer          not null,
-    url              varchar(100)     not null,
+    url              varchar(100),
     is_main          boolean          not null,
+    status           varchar(50)      not null,
     inserted_at      timestamp        not null,
     advertisement_id uuid             not null REFERENCES advertisements (id)
 );
@@ -125,8 +126,8 @@ create index if not exists index_province_name on provinces (name);
 create index if not exists index_location_province_id on locations (province_id);
 create index if not exists index_location_city_id on locations (city_id);
 
-create index if not exists index_image_advertisement_id on advertisement_images (advertisement_id);
-create unique index if not exists one_main_image_per_ad  ON advertisement_images (advertisement_id) WHERE is_main = true;
+create index if not exists index_image_advertisement_id on advertisement_image_metadata (advertisement_id);
+-- create unique index if not exists one_main_image_per_ad  ON advertisement_image_metadata (advertisement_id) WHERE is_main = true;
 
 create index if not exists index_advertisement_title on advertisements (title);
 create index if not exists index_advertisement_price on advertisements (price);
