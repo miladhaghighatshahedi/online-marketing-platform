@@ -99,7 +99,6 @@ class CategoryController {
     ResponseEntity<?> delete(@PathVariable("id") UUID id) {
         this.categoryService.delete(id);
         return ResponseEntity.noContent().build();
-
     }
 
     @GetMapping("/api/categories/{id}")

@@ -35,7 +35,7 @@ public class AsyncConfig {
 		executor.setCorePoolSize(5);
 		executor.setMaxPoolSize(10);
 		executor.setQueueCapacity(100);
-		executor.setThreadNamePrefix("AsyncImageWriter-");
+		executor.setThreadNamePrefix("image-task-");
 		executor.initialize();
 		return executor;
 	}

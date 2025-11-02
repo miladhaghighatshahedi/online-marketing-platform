@@ -1,0 +1,61 @@
+### Upload multiple images with a list of imageMetadata
+POST http://localhost:8080/api/images/upload/multiple
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="metadataList"
+Content-Type: application/json
+
+[
+  { "advertisementId": "1aa69ce6-f30d-4af2-91dd-ba11d7438d43", "isMain": true },
+  { "advertisementId": "1aa69ce6-f30d-4af2-91dd-ba11d7438d43", "isMain": false },
+  { "advertisementId": "1aa69ce6-f30d-4af2-91dd-ba11d7438d43", "isMain": false },
+  { "advertisementId": "1aa69ce6-f30d-4af2-91dd-ba11d7438d43", "isMain": false },
+  { "advertisementId": "1aa69ce6-f30d-4af2-91dd-ba11d7438d43", "isMain": false }
+]
+
+< F:\image1.png
+--boundary
+Content-Disposition: form-data; name="images"; filename="image1.png"
+Content-Type: image/png
+
+< F:\image2.png
+--boundary
+Content-Disposition: form-data; name="images"; filename="image2.png"
+Content-Type: image/png
+
+< F:\image3.png
+--boundary
+Content-Disposition: form-data; name="images"; filename="image3.png"
+Content-Type: image/png
+
+< F:\image4.png
+--boundary
+Content-Disposition: form-data; name="images"; filename="image4.png"
+Content-Type: image/png
+
+< F:\image5.png
+--boundary
+Content-Disposition: form-data; name="images"; filename="image5.png"
+Content-Type: image/png
+
+### get an exisiting imageMetadata by id
+GET http://localhost:8080/api/images/019a4482-5f29-76a2-ba34-7c1f6b214515
+Content-Type: application/json
+
+### get an exisiting imageMetadata by id and advertisementId
+GET http://localhost:8080/api/images/019a4482-5f29-76a2-ba34-7c1f6b214515/advertisement/1aa69ce6-f30d-4af2-91dd-ba11d7438d43
+Content-Type: application/json
+
+### get exisiting imageMetadatas by advertisementId
+GET http://localhost:8080/api/images/advertisement/1aa69ce6-f30d-4af2-91dd-ba11d7438d43
+Content-Type: application/json
+
+### delete an exisiting imageMetadatas by id and advertisementId
+DELETE http://localhost:8080/api/images/019a44ea-16d3-76d2-8598-88571982d4ef/advertisement/1aa69ce6-f30d-4af2-91dd-ba11d7438d43
+Content-Type: application/json
+
+
+### display an exisiting image by imageMetadata and advertisementId
+GET http://localhost:8080/api/images/1aa69ce6-f30d-4af2-91dd-ba11d7438d43/advertisement/019a4482-5f29-76a2-ba34-7c1f6b214515.png
+Content-Type: application/json
