@@ -30,7 +30,9 @@ import org.mapstruct.Mapping;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
+import org.springframework.context.event.EventListener;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -43,10 +45,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -59,6 +61,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Milad Haghighat Shahedi
@@ -68,35 +71,16 @@ import java.util.*;
 class AdvertisementImageController {
 
 	private final ImageMetadataService imageMetadataService;
-	private final ImageUploadService imageUploadService;
-	private final ImageUploadServiceAsync imageUploadServiceAsync;
-	private final ImagePathProperties imagePathProperties;
 
-	public AdvertisementImageController(
-			ImageMetadataService imageMetadataService,
-			ImageUploadService imageUploadService,
-			ImageUploadServiceAsync imageUploadServiceAsync,
-			ImagePathProperties imagePathProperties) {
+	public AdvertisementImageController(ImageMetadataService imageMetadataService) {
 		this.imageMetadataService = imageMetadataService;
-		this.imageUploadService = imageUploadService;
-		this.imageUploadServiceAsync = imageUploadServiceAsync;
-		this.imagePathProperties = imagePathProperties;
 	}
 
 	@PostMapping(value = "/api/images/upload/multiple",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<List<ImageMetadataResponse>> uploadMultipleImages(
 			@RequestPart("metadataList") List<AddImageMetadataRequest> metadataList,
 			@RequestPart("images") List<MultipartFile> images) {
-
-		List<ImageMetadataResponse> imageMetadataResponses = this.imageMetadataService.saveImageMetadata(metadataList, images);
-
-		Path imageBasePath = this.imageUploadService.createMainDirectoryIfNotExists(imageMetadataResponses,imagePathProperties.getAdvertisementImagePath());
-
-		List<byte[]> fileContents = images.stream().map(file -> {try {return file.getBytes();} catch (IOException e) {throw new UncheckedIOException(e);}}).toList();
-
-		this.imageUploadServiceAsync.storeImagesIntoFileSystemAsync(imageMetadataResponses,fileContents,imageBasePath);
-
-		return ResponseEntity.accepted().body(imageMetadataResponses);
+		return ResponseEntity.accepted().body(this.imageMetadataService.uploadMultipleImages(metadataList, images));
 	}
 
 	@GetMapping( "/api/images/{id}")
@@ -121,9 +105,7 @@ class AdvertisementImageController {
 	}
 
 	@GetMapping("/api/images/{advertisementId}/{imageName}")
-	ResponseEntity<Resource> getImage(
-			@PathVariable("advertisementId") String advertisementId,
-			@PathVariable("imageName") String imageName) throws Exception{
+	ResponseEntity<Resource> getImage(@PathVariable("advertisementId") String advertisementId, @PathVariable("imageName") String imageName) throws Exception{
 
 		Path imagePath = Paths.get("src/main/resources/image/advertisement").resolve(advertisementId).resolve(imageName).normalize();
 
@@ -145,6 +127,7 @@ class AdvertisementImageController {
 }
 
 @Service
+@Transactional
 class ImageMetadataService {
 
 	private static final int MAX_IMAGES_PER_ADVERTISEMENT = 5;
@@ -154,29 +137,28 @@ class ImageMetadataService {
 
 	private final ImageMetadataRepository imageMetadataRepository;
 	private final AdvertisementService advertisementService;
-	private final ImageUploadService imageUploadService;
 	private final ImagePathProperties imagePathProperties;
 	private final ImageMetadataMapper imageMetadataMapper;
+	private final ImageUploadService imageUploadService;
 	private final MessageSource messageSource;
 
 	public ImageMetadataService(
 			AuditLogger auditLogger,
 			ImageMetadataRepository imageMetadataRepository,
 			AdvertisementService advertisementService,
-			ImageUploadService imageUploadService,
 			ImagePathProperties imagePathProperties,
 			ImageMetadataMapper imageMetadataMapper,
+			ImageUploadService imageUploadService,
 			MessageSource messageSource) {
 		this.auditLogger = auditLogger;
 		this.imageMetadataRepository = imageMetadataRepository;
 		this.advertisementService = advertisementService;
-		this.imageUploadService = imageUploadService;
 		this.imagePathProperties = imagePathProperties;
 		this.imageMetadataMapper = imageMetadataMapper;
+		this.imageUploadService = imageUploadService;
 		this.messageSource = messageSource;
 	}
 
-	@Transactional
 	List<ImageMetadataResponse> saveImageMetadata(List<AddImageMetadataRequest> requests, List<MultipartFile> files) {
 		UUID advertisementId = requests.get(0).advertisementId();
 		logger.info("Uploading new images for advertisement with the ID: {} request-size: {} image-size: {}", advertisementId, requests.size(), files.size());
@@ -291,7 +273,7 @@ class ImageMetadataService {
 			AddImageMetadataRequest addImageMetadataRequest = normalizedRequestsWithOneMain.get(i);
 			ImageMetadata mappedMetaData = this.imageMetadataMapper.mapAddImageMetadataRequestToImageMetadata(addImageMetadataRequest);
 			savedMetadata.add(this.imageMetadataRepository.save(mappedMetaData));
-			this.auditLogger.log("IMAGE_METADATA_SAVED", "IMAGE_METADATA", "IMAGE_METADATA for the advertisement with the Id: " + mappedMetaData.advertisementId());
+			this.auditLogger.log("IMAGE_METADATA_SAVED", "IMAGE_METADATA", "IMAGE_METADATA saved for the advertisement with the Id: " + mappedMetaData.advertisementId());
 		}
 		return savedMetadata;
 	}
@@ -302,7 +284,7 @@ class ImageMetadataService {
 			AddImageMetadataRequest addImageMetadataRequest = requests.get(i);
 			ImageMetadata mappedMetaData = this.imageMetadataMapper.mapAddImageMetadataRequestToImageMetadata(addImageMetadataRequest);
 			savedMetadata.add(this.imageMetadataRepository.save(mappedMetaData));
-			this.auditLogger.log("IMAGE_METADATA_SAVED", "IMAGE_METADATA", "IMAGE_METADATA for advertisement with the Id: " + mappedMetaData.advertisementId());
+			this.auditLogger.log("IMAGE_METADATA_SAVED", "IMAGE_METADATA", "IMAGE_METADATA saved for advertisement with the Id: " + mappedMetaData.advertisementId());
 		}
 		return savedMetadata;
 	}
@@ -333,31 +315,36 @@ class ImageMetadataService {
 		return normalized;
 	}
 
+	List<ImageMetadataResponse> uploadMultipleImages(List<AddImageMetadataRequest> metadataList, List<MultipartFile> images) {
+
+		List<ImageMetadataResponse> imageMetadataResponses = saveImageMetadata(metadataList, images);
+
+		Path imageBasePath = this.imageUploadService.createMainDirectoryIfNotExists(imageMetadataResponses,imagePathProperties.getAdvertisementImagePath());
+
+		List<byte[]> fileContents = images.stream().map(file -> {try {return file.getBytes();} catch (IOException e) {throw new UncheckedIOException(e);}}).toList();
+
+		String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
+
+		this.imageUploadService.storeImagesIntoFileSystemAsync(imageMetadataResponses,fileContents,imageBasePath,baseUrl);
+
+		return imageMetadataResponses;
+
+	}
+
 }
 
 @Service
 class ImageUploadService {
 
 	private static final Logger logger = LoggerFactory.getLogger(ImageUploadService.class);
-
-	private final ImageMetadataMapper imageMetadataMapper;
-	private final ImageMetadataRepository imageMetadataRepository;
 	private final AuditLogger auditLogger;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
 	public ImageUploadService(
-			ImageMetadataMapper imageMetadataMapper,
-			ImageMetadataRepository imageMetadataRepository,
-			AuditLogger auditLogger) {
-		this.imageMetadataMapper = imageMetadataMapper;
-		this.imageMetadataRepository = imageMetadataRepository;
+			AuditLogger auditLogger,
+			ApplicationEventPublisher applicationEventPublisher) {
 		this.auditLogger = auditLogger;
-	}
-
-	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	void updateImageMetatdata(ImageMetadata imageMetadata, String imageUrl) {
-//		ImageMetadata mappedMetadata = this.imageMetadataMapper.mapImageMetadataWithUrlAndStatusAndSuccessed(imageMetadata, imageUrl);
-		ImageMetadata savedMetadata = this.imageMetadataRepository.save(mappedMetadata);
-		this.auditLogger.log("IMAGE_WITH_METADATA_STORED", "IMAGE_METADATA", "Image ID: " + savedMetadata.id());
+		this.applicationEventPublisher = applicationEventPublisher;
 	}
 
 	Path createMainDirectoryIfNotExists(List<ImageMetadataResponse> imageMetadataResponses, String path) {
@@ -379,50 +366,39 @@ class ImageUploadService {
 		}
 	}
 
-	String prepareImageUpload(UUID imageId, byte[] imageFile, Path directory) {
-		logger.info("Stroing an image into the directory with id: {} and path: {} ", imageId, directory);
-		logger.info("Writing image {} ({} bytes) to {}", imageId, imageFile.length, directory);
+	String prepareImageUpload(UUID imageId, byte[] imageFile, Path imageBasePath,String baseUrl) {
+		logger.info("Stroing an image with size ({} bytes) and id: {} and path: {} ",imageFile.length, imageId, imageBasePath);
 		String imageName = imageId.toString() + ".png";
 		try {
-			Path imagePath = directory.resolve(imageName);
+			Path imagePath = imageBasePath.resolve(imageName);
 			Files.write(imagePath, imageFile);
-			return ServletUriComponentsBuilder.fromCurrentContextPath().path("/api/advertisements/images/" + imageName).toUriString();
+			return baseUrl + "/api/advertisements/images/" + imageName;
 		} catch (Exception e) {
-			throw new RuntimeException("Exception in storing an image into the direcotry");
+			throw new RuntimeException("Exception happened while storing image in to the advertisement directory",e);
 		}
-	}
-
-	String imageExtension(String imageName) {
-		return imageName != null && imageName.contains(".") ? imageName.substring(imageName.lastIndexOf(".") + 1) : "png";
-	}
-
-}
-
-@Service
-class ImageUploadServiceAsync {
-
-	private static final Logger logger = LoggerFactory.getLogger(ImageUploadServiceAsync.class);
-
-	private final ImageUploadService imageUploadService;
-
-	public ImageUploadServiceAsync(ImageUploadService imageUploadService) {
-		this.imageUploadService = imageUploadService;
 	}
 
 	@Async("imageTaskExecutor")
-	public void storeImagesIntoFileSystemAsync(List<ImageMetadataResponse> responses, List<byte[]> fileContents, Path imageBasePath) {
+	public CompletableFuture<List<String>> storeImagesIntoFileSystemAsync(List<ImageMetadataResponse> responses, List<byte[]> imagefiles, Path imageBasePath,String baseUrl){
+		logger.info("Calling ASYNC method with thread {} to store {} images and {} metadata",Thread.currentThread().getName(),imagefiles.size(),responses.size());
+		List<String> storedImageUrls = new ArrayList<>();
 		for (int i = 0; i < responses.size(); i++) {
-			ImageMetadataResponse imageMetadataResponse = responses.get(i);
-			byte[] file = fileContents.get(i);
 			try {
-				logger.info("Current thread: {}", Thread.currentThread().getName());
-				String imageUrl = this.imageUploadService.prepareImageUpload(imageMetadataResponse.id(), file, imageBasePath);
-				this.imageUploadService.updateImageMetatdata(imageMetadata, imageUrl);
+				ImageMetadataResponse imageMetadataResponse = responses.get(i);
+				String storedImageUrl = prepareImageUpload(imageMetadataResponse.id(), imagefiles.get(i), imageBasePath, baseUrl);
+				storedImageUrls.add(i,storedImageUrl);
+				this.auditLogger.log("ASYNC_IMAGE_FILE_STORED", "ASYNC_IMAGE_FILE", "ASYNC_IMAGE_FILE stored with the url " + storedImageUrl);
+
+				this.applicationEventPublisher.publishEvent(new UpdateImageMetadataEvent(imageMetadataResponse.id(),storedImageUrl));
+
 			} catch (Exception e) {
-				logger.error("Failed to upload images with the id: {} ", imageMetadata, e);
-				throw new RuntimeException("Failed to upload advertisement images", e);
+				storedImageUrls.add( i,"Error storing image index");
+				logger.error("Exception happened while stroing images asynchronously",e);
 			}
 		}
+		this.auditLogger.log("ASYNC_IMAGE_FILE_STORED", "ASYNC_IMAGE_FILE", "ASYNC_IMAGE_FILE all images stored successfully = " + storedImageUrls.size());
+		logger.info("All {} images processed successfully", storedImageUrls.size());
+		return CompletableFuture.completedFuture(storedImageUrls);
 	}
 
 }
@@ -493,8 +469,8 @@ interface ImageMetadataMapper {
 	ImageMetadata mapAddImageMetadataRequestToImageMetadata(AddImageMetadataRequest addImageMetadataRequest, String url);
 
 	@Mapping(target = "url", source = "url")
-	@Mapping(target = "status", constant = "SUCCESSED")
-	ImageMetadata mapImageMetadataWithUrlAndStatusAndSuccessed(ImageMetadata imageMetadata, String url);
+	@Mapping(target = "status", constant = "SUCCEED")
+	ImageMetadata mapImageMetadataWithUrlAndStatusAndSucceed(ImageMetadata imageMetadata, String url);
 
 	@Mapping(target = "id", source = "imageMetadata.id")
 	@Mapping(target = "version", ignore = true)
@@ -515,3 +491,40 @@ interface ImageMetadataMapper {
 
 }
 
+record UpdateImageMetadataEvent(UUID id,String url) {}
+
+@Component
+class ImageMetadataUpdateEventHandler {
+
+	private final ImageMetadataRepository imageMetadataRepository;
+	private final ImageMetadataMapper imageMetadataMapper;
+	private final MessageSource messageSource;
+	private final AuditLogger auditLogger;
+
+	public ImageMetadataUpdateEventHandler(
+			ImageMetadataRepository imageMetadataRepository,
+			ImageMetadataMapper imageMetadataMapper,
+			MessageSource messageSource,
+			AuditLogger auditLogger) {
+		this.imageMetadataRepository = imageMetadataRepository;
+		this.imageMetadataMapper = imageMetadataMapper;
+		this.messageSource = messageSource;
+		this.auditLogger = auditLogger;
+	}
+
+	@Transactional
+	@EventListener
+	public void handleImageStored(UpdateImageMetadataEvent event) {
+		ImageMetadata imageMetadata = this.imageMetadataRepository.findById(event.id()).orElseThrow(() ->
+				new ImageNotFoundException(
+						messageSource.getMessage("error.image.image.with.id.not.found",
+								new Object[]{event.id()},
+								LocaleContextHolder.getLocale()),
+						ImageErrorCode.IMAGE_NOT_FOUND));
+
+		ImageMetadata mappedImageMetadata = this.imageMetadataMapper.mapImageMetadataWithUrlAndStatusAndSucceed(imageMetadata, event.url());
+		this.imageMetadataRepository.save(mappedImageMetadata);
+		this.auditLogger.log("IMAGE_METADATA_UPDATED", "IMAGE_METADATA", "IMAGE_METADATA updated for the Id: " + event.id());
+
+	}
+}
