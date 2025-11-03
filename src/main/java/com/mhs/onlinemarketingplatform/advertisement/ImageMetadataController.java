@@ -440,7 +440,7 @@ record ImageMetadataResponse(UUID id,String url, Boolean isMain, LocalDateTime i
 enum Status {
 
 	PENDING("PENDING"),
-	SUCCESSED("SUCCESSED"),
+	SUCCEED("SUCCEED"),
 	FAILED("FAILED");
 
 	final String status;
