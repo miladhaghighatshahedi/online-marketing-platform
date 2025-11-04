@@ -34,6 +34,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
+import org.springframework.context.event.EventListener;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
@@ -46,6 +47,8 @@ import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
@@ -54,6 +57,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -62,9 +67,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 
 /**
@@ -75,9 +80,13 @@ import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 class CategoryController {
 
     private final CategoryService categoryService;
+    private final CategoryImageUploadService categoryImageUploadService;
 
-    CategoryController(CategoryService categoryService) {
+    public CategoryController(
+            CategoryService categoryService,
+            CategoryImageUploadService categoryImageUploadService) {
         this.categoryService = categoryService;
+        this.categoryImageUploadService = categoryImageUploadService;
     }
 
     @PostMapping("/api/categories")
@@ -157,12 +166,13 @@ class CategoryController {
 
     @PutMapping("/api/categories/image")
     ResponseEntity<String> uploadImage(@RequestParam("id") UUID id,@RequestParam("image") MultipartFile image) {
-        return ResponseEntity.ok(this.categoryService.uploadImage(id,image));
+        this.categoryService.uploadImage(id,image);
+        return ResponseEntity.accepted().body("Image upload accepted: processing asynchronously...");
     }
 
     @GetMapping(value = {"/api/categories/image/category/{imageName}"},produces = IMAGE_PNG_VALUE)
     byte[] getImage(@PathVariable("imageName") String imageName) throws Exception{
-        return Files.readAllBytes(Paths.get("src/main/resources/image/category/"+this.categoryService.removeExtension(imageName)+"/"+imageName));
+        return Files.readAllBytes(Paths.get("src/main/resources/image/category/"+this.categoryImageUploadService.removeExtension(imageName)+"/"+imageName));
     }
 
     @GetMapping("/api/categories/root/count")
@@ -182,6 +192,7 @@ class CategoryService implements CategoryApi {
     private final CategoryRepository categoryRepository;
     private final CategoryClosureRepository categoryClosureRepository;
     private final CatalogService catalogService;
+    private final CategoryImageUploadService categoryImageUploadService;
     private final CategoryMapper categoryMapper;
     private final ApplicationEventPublisher publisher;
     private final MessageSource messageSource;
@@ -192,6 +203,7 @@ class CategoryService implements CategoryApi {
             CategoryRepository categoryRepository,
             CategoryClosureRepository categoryClosureRepository,
             CatalogService catalogService,
+            CategoryImageUploadService categoryImageUploadService,
             CategoryMapper categoryMapper,
             ApplicationEventPublisher publisher,
             MessageSource messageSource,
@@ -200,6 +212,7 @@ class CategoryService implements CategoryApi {
         this.categoryRepository = categoryRepository;
         this.categoryClosureRepository = categoryClosureRepository;
         this.catalogService = catalogService;
+        this.categoryImageUploadService = categoryImageUploadService;
         this.categoryMapper = categoryMapper;
         this.publisher = publisher;
         this.messageSource = messageSource;
@@ -531,20 +544,20 @@ class CategoryService implements CategoryApi {
         this.auditLogger.log("CHILDREN_CATEGORY_ACTIVATED", "CATEGORY", "Category ID: "+categoryId);
     }
 
-    String uploadImage(UUID categoryId, MultipartFile file) {
-        logger.info("Uploading new photo for a category");
-        Category category = this.categoryRepository.findById(categoryId)
-                .orElseThrow(() ->  new CategoryNotFoundException(
-                        messageSource.getMessage("error.category.category.with.id.not.found",
-                                new Object[]{categoryId},
-                                LocaleContextHolder.getLocale()),
-                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+    void uploadImage(UUID categoryId, MultipartFile image) {
+        logger.info("Uploading a new photo for a category with the ID {}",categoryId);
+        if(!this.categoryRepository.existsById(categoryId)){
+            throw new CategoryNotFoundException(
+                    messageSource.getMessage("error.category.category.with.id.not.found",
+                            new Object[]{categoryId},
+                            LocaleContextHolder.getLocale()),
+                    CategoryErrorCode.CATEGORY_NOT_FOUND);}
 
-        String imageUrl = prepareImageUpload(categoryId,file);
-        Category updatedCatalogWithImage = this.categoryMapper.mapCategoryWithImage(imageUrl,category);
-        this.categoryRepository.save(updatedCatalogWithImage);
-        this.auditLogger.log("CATEGORY_IMAGE_UPDATED", "CATEGORY", "Category NAME: "+category.name());
-        return imageUrl;
+        Path imageBasePath = this.categoryImageUploadService.createMainDirectoryIfNotExists(categoryId,properties.getCategoryImagePath());
+        byte[] file = this.categoryImageUploadService.preloadImage(image);
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
+
+        this.categoryImageUploadService.storeImagesIntoFileSystemAsync(categoryId,file,imageBasePath,baseUrl);
     }
 
     private void deleteImage(UUID id) {
@@ -558,45 +571,6 @@ class CategoryService implements CategoryApi {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private String prepareImageUpload(UUID id, MultipartFile image) {
-        String imageName =  id + imageExtension(image.getOriginalFilename());
-        try {
-
-            Path categoryFolder = Paths.get(properties.getCategoryImagePath(),id.toString()).toAbsolutePath().normalize();
-            if(!Files.exists(categoryFolder)) {
-                Files.createDirectories(categoryFolder);
-            }
-
-            Path imagePath = categoryFolder.resolve(imageName);
-            Files.copy(image.getInputStream(),imagePath,REPLACE_EXISTING);
-            return ServletUriComponentsBuilder
-                    .fromCurrentContextPath()
-                    .path("/api/categories/image/category/" + imageName).toUriString();
-        } catch (Exception e) {
-            throw new RuntimeException("");
-        }
-    }
-
-    private String imageExtension(String imageName) {
-        return Optional.of(imageName)
-                .filter(name -> name.contains("."))
-                .map(name -> "." + name.substring(imageName.lastIndexOf(".") + 1))
-                .orElse(".png");
-    }
-
-    String removeExtension(String filename) {
-        if (filename == null || filename.isEmpty()) {
-            return filename;
-        }
-
-        int lastDotIndex = filename.lastIndexOf(".");
-        if (lastDotIndex > 0) {
-            return filename.substring(0, lastDotIndex);
-        }
-
-        return filename;
     }
 
     <T> void validateDuplicatesByNameAndSlug(T request,Function<T,String> nameParam,Function<T,String> slugParam){
@@ -620,6 +594,93 @@ class CategoryService implements CategoryApi {
 
     public boolean existsById(UUID categoryId){
         return this.categoryRepository.existsById(categoryId);
+    }
+
+}
+
+@Service
+class CategoryImageUploadService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CatalogImageUploadService.class);
+    private final AuditLogger auditLogger;
+    private final ApplicationEventPublisher applicationEventPublisher;
+
+    public CategoryImageUploadService(
+            AuditLogger auditLogger,
+            ApplicationEventPublisher applicationEventPublisher) {
+        this.auditLogger = auditLogger;
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    Path createMainDirectoryIfNotExists(UUID id, String path) {
+        if(id == null) {
+            throw new RuntimeException("Exception in creating the main directory ");
+        }
+        logger.info("Main directory with the id: {} and path: {} created", id, path);
+        try {
+            Path direcetory = Paths.get(path, id.toString()).toAbsolutePath().normalize();
+            if (!Files.exists(direcetory)) {
+                Files.createDirectories(direcetory);
+            }
+            return direcetory;
+        } catch (Exception e) {
+            throw new RuntimeException("Exception in creating a main directory to store image");
+        }
+    }
+
+    private String imageExtension(String imageName) {
+        return Optional.of(imageName)
+                .filter(name -> name.contains("."))
+                .map(name -> "." + name.substring(imageName.lastIndexOf(".") + 1))
+                .orElse(".png");
+    }
+
+    String removeExtension(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return filename;
+        }
+
+        int lastDotIndex = filename.lastIndexOf(".");
+        if (lastDotIndex > 0) {
+            return filename.substring(0, lastDotIndex);
+        }
+
+        return filename;
+    }
+
+    byte[] preloadImage(MultipartFile file) {
+        try {
+            return file.getBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    String prepareImageUpload(UUID imageId, byte[] imageFile, Path imageBasePath,String baseUrl) {
+        logger.info("Stroing an image with size ({} bytes) and id: {} and path: {} ",imageFile.length, imageId, imageBasePath);
+        String imageName = imageId.toString() + ".png";
+        try {
+            Path imagePath = imageBasePath.resolve(imageName);
+            Files.write(imagePath, imageFile);
+            return baseUrl + "/api/categories/image/category/" + imageName;
+        } catch (Exception e) {
+            throw new RuntimeException("Exception happened while storing image in to the advertisement directory",e);
+        }
+    }
+
+    @Async("categoryImageTaskExecutor")
+    public void storeImagesIntoFileSystemAsync(UUID imageId, byte[] imagefile, Path imageBasePath, String baseUrl){
+        logger.info("Calling ASYNC method with thread {} to store image with name {} and size {} ",Thread.currentThread().getName(),imageId,imagefile.length);
+        String storedImageUrl = null;
+        try {
+            storedImageUrl = prepareImageUpload(imageId, imagefile, imageBasePath,baseUrl);
+            this.auditLogger.log("ASYNC_CATEGORY_IMAGE_FILE_STORED", "ASYNC_CATEGORY_IMAGE_FILE", "ASYNC_CATEGORY_IMAGE_FILE stored with the url " + storedImageUrl);
+            this.applicationEventPublisher.publishEvent(new UpdateCategoryImageUrlEvent(imageId,storedImageUrl));
+        } catch (Exception e) {
+            logger.error("Exception happened while stroing the image asynchronously",e);
+        }
+        this.auditLogger.log("ASYNC_CATEGORY_IMAGE_FILE_STORED", "ASYNC_CATEGORY_IMAGE_FILE_STORED", "ASYNC_CATEGORY_IMAGE_FILE_STORED one image stored successfully = " + imageId);
+        logger.info("One image processed successfully with the name {}",imageId);
     }
 
 }
@@ -836,6 +897,8 @@ interface CategoryMapper {
     @Mapping(target = "catalogId", source = "category.catalogId")
     Category mapUpdateToCategory(UpdateParentRequest request, Category category);
 
+    @Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
+    @Mapping(target = "version", source = "category.version")
     @Mapping(target = "imageUrl", source = "newImageUrl")
     Category mapCategoryWithImage(String newImageUrl,Category category);
 
@@ -901,4 +964,40 @@ interface CategoryMapper {
 
 // controller // service // repository // model // mapper // enum // dto  // exception
 
+record UpdateCategoryImageUrlEvent(UUID id,String url) {}
+
+@Component
+class UpdateCategoryImageUrlEventHandler {
+
+    private final MessageSource messageSource;
+    private final AuditLogger auditLogger;
+    private final CategoryRepository categoryRepository;
+    private final CategoryMapper categoryMapper;
+
+    public UpdateCategoryImageUrlEventHandler(
+            MessageSource messageSource,
+            AuditLogger auditLogger,
+            CategoryRepository categoryRepository,
+            CategoryMapper categoryMapper) {
+        this.messageSource = messageSource;
+        this.auditLogger = auditLogger;
+        this.categoryRepository = categoryRepository;
+        this.categoryMapper = categoryMapper;
+    }
+
+    @Transactional
+    @EventListener
+    public void handleImageStored(UpdateCategoryImageUrlEvent event) {
+        Category category = this.categoryRepository.findById(event.id())
+                .orElseThrow(() ->  new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{event.id()},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        Category updatedCategoryWithImage = this.categoryMapper.mapCategoryWithImage(event.url(),category);
+        this.categoryRepository.save(updatedCategoryWithImage);
+        this.auditLogger.log("CATEGORY_IMAGE_FILE_UPDATED", "CATEGORY_IMAGE_UPLOAD_EVENT", "CATEGORY_IMAGE_FILE updated for the Id: " + event.id());
+    }
+}
 
