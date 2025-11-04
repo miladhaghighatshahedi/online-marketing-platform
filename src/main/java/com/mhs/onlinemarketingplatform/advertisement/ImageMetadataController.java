@@ -61,7 +61,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Milad Haghighat Shahedi
@@ -77,10 +76,11 @@ class AdvertisementImageController {
 	}
 
 	@PostMapping(value = "/api/images/upload/multiple",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    ResponseEntity<List<ImageMetadataResponse>> uploadMultipleImages(
+    ResponseEntity<String> uploadMultipleImages(
 			@RequestPart("metadataList") List<AddImageMetadataRequest> metadataList,
 			@RequestPart("images") List<MultipartFile> images) {
-		return ResponseEntity.accepted().body(this.imageMetadataService.uploadMultipleImages(metadataList, images));
+		this.imageMetadataService.uploadMultipleImages(metadataList, images);
+		return ResponseEntity.accepted().body("Image upload accepted: processing asynchronously...");
 	}
 
 	@GetMapping( "/api/images/{id}")
@@ -378,8 +378,8 @@ class ImageUploadService {
 		}
 	}
 
-	@Async("imageTaskExecutor")
-	public CompletableFuture<List<String>> storeImagesIntoFileSystemAsync(List<ImageMetadataResponse> responses, List<byte[]> imagefiles, Path imageBasePath,String baseUrl){
+	@Async("advertisementImageTaskExecutor")
+	public void storeImagesIntoFileSystemAsync(List<ImageMetadataResponse> responses, List<byte[]> imagefiles, Path imageBasePath,String baseUrl){
 		logger.info("Calling ASYNC method with thread {} to store {} images and {} metadata",Thread.currentThread().getName(),imagefiles.size(),responses.size());
 		List<String> storedImageUrls = new ArrayList<>();
 		for (int i = 0; i < responses.size(); i++) {
@@ -398,7 +398,6 @@ class ImageUploadService {
 		}
 		this.auditLogger.log("ASYNC_IMAGE_FILE_STORED", "ASYNC_IMAGE_FILE", "ASYNC_IMAGE_FILE all images stored successfully = " + storedImageUrls.size());
 		logger.info("All {} images processed successfully", storedImageUrls.size());
-		return CompletableFuture.completedFuture(storedImageUrls);
 	}
 
 }
@@ -524,7 +523,7 @@ class ImageMetadataUpdateEventHandler {
 
 		ImageMetadata mappedImageMetadata = this.imageMetadataMapper.mapImageMetadataWithUrlAndStatusAndSucceed(imageMetadata, event.url());
 		this.imageMetadataRepository.save(mappedImageMetadata);
-		this.auditLogger.log("IMAGE_METADATA_UPDATED", "IMAGE_METADATA", "IMAGE_METADATA updated for the Id: " + event.id());
+		this.auditLogger.log("IMAGE_METADATA_UPDATED", "IMAGE_METADATA_EVENT", "IMAGE_METADATA updated for the Id: " + event.id());
 
 	}
 }

@@ -27,15 +27,15 @@ import java.util.concurrent.Executor;
  */
 @Configuration
 @EnableAsync
-public class AsyncConfig {
+public class AdvertisementAsyncConfig {
 
-	@Bean(name = "imageTaskExecutor")
+	@Bean(name = "advertisementImageTaskExecutor")
 	public Executor imageTaskExecutor() {
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 		executor.setCorePoolSize(5);
 		executor.setMaxPoolSize(10);
 		executor.setQueueCapacity(100);
-		executor.setThreadNamePrefix("image-task-");
+		executor.setThreadNamePrefix("advertisement-image-task-");
 		executor.initialize();
 		return executor;
 	}
