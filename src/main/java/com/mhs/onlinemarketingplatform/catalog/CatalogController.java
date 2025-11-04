@@ -33,6 +33,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
+import org.springframework.context.event.EventListener;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
@@ -44,6 +45,8 @@ import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
@@ -52,6 +55,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -59,7 +64,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
 
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 
 /**
@@ -70,9 +74,14 @@ import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 class CatalogController {
 
 	private final CatalogService catalogService;
+	private final CatalogImageUploadService catalogImageUploadService;
 
-	CatalogController(CatalogService catalogService) {
+
+	public CatalogController(
+			CatalogService catalogService,
+			CatalogImageUploadService catalogImageUploadService) {
 		this.catalogService = catalogService;
+		this.catalogImageUploadService = catalogImageUploadService;
 	}
 
 	@PostMapping("/api/catalogs")
@@ -118,12 +127,13 @@ class CatalogController {
 
 	@PutMapping("/api/catalogs/image")
 	ResponseEntity<String> uploadImage(@RequestParam("id") UUID id,@RequestParam("image") MultipartFile image) {
-		return ResponseEntity.ok(this.catalogService.uploadImage(id,image));
+		this.catalogService.uploadImage(id,image);
+		return ResponseEntity.accepted().body("Image upload accepted: processing asynchronously...");
 	}
 
 	@GetMapping(value = "/api/catalogs/image/catalog/{imageName}",produces = IMAGE_PNG_VALUE)
 	byte[] getImage(@PathVariable("imageName") String imageName) throws Exception{
-		return Files.readAllBytes(Paths.get("src/main/resources/image/catalog/"+this.catalogService.removeExtension(imageName)+"/"+imageName));
+		return Files.readAllBytes(Paths.get("src/main/resources/image/catalog/"+this.catalogImageUploadService.removeExtension(imageName)+"/"+imageName));
 	}
 
 }
@@ -139,7 +149,8 @@ class CatalogService {
 	private final CatalogMapper catalogMapper;
 	private final ApplicationEventPublisher publisher;
 	private final MessageSource messageSource;
-	private final ImagePathProperties properties;
+	private final ImagePathProperties imagePathProperties;
+	private final CatalogImageUploadService catalogImageUploadService;
 
 	public CatalogService(
 			AuditLogger auditLogger,
@@ -147,13 +158,15 @@ class CatalogService {
 			CatalogMapper catalogMapper,
 			ApplicationEventPublisher publisher,
 			MessageSource messageSource,
-			ImagePathProperties properties) {
+			ImagePathProperties imagePathProperties,
+			CatalogImageUploadService catalogImageUploadService) {
 		this.auditLogger = auditLogger;
 		this.catalogRepository = catalogRepository;
 		this.catalogMapper = catalogMapper;
 		this.publisher = publisher;
 		this.messageSource = messageSource;
-		this.properties = properties;
+		this.imagePathProperties = imagePathProperties;
+		this.catalogImageUploadService = catalogImageUploadService;
 	}
 
 	@CacheEvict(value = "catalogsPage", allEntries = true)
@@ -294,26 +307,26 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToPagedResponse(catalogs);
 	}
 
-	public String uploadImage(UUID catalogId, MultipartFile file) {
-		logger.info("Uploading new photo for a catalog");
-		Catalog catalog = this.catalogRepository.findById(catalogId)
-				.orElseThrow(() -> new CatalogNotFoundException(
-						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
-								new Object[]{catalogId},
-								LocaleContextHolder.getLocale()),
-						CatalogErrorCode.CATALOG_NOT_FOUND));
+	public void uploadImage(UUID catalogId, MultipartFile image) {
+		logger.info("Uploading a new photo for a catalog with the ID {}",catalogId);
+		 if(!this.catalogRepository.existsById(catalogId)) {
+			 throw new CatalogNotFoundException(
+					 messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+							 new Object[]{catalogId},
+							 LocaleContextHolder.getLocale()),
+					 CatalogErrorCode.CATALOG_NOT_FOUND);}
 
-		String imageUrl = prepareImageUpload(catalogId,file);
-		Catalog updatedCatalogWithImage = this.catalogMapper.mapCatalogWithImage(imageUrl,catalog);
-		this.catalogRepository.save(updatedCatalogWithImage);
-		this.auditLogger.log("CATALOG_IMAGE_UPDATED", "CATALOG", "Catalog NAME: "+catalog.name());
-		return imageUrl;
+		Path imageBasePath = this.catalogImageUploadService.createMainDirectoryIfNotExists(catalogId,imagePathProperties.getCatalogImagePath());
+        byte[] file = this.catalogImageUploadService.preloadImage(image);
+		String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
+
+		this.catalogImageUploadService.storeImagesIntoFileSystemAsync(catalogId, file, imageBasePath, baseUrl);
 	}
 
 	public void deleteImage(UUID id) {
 		logger.info("Deleting exisiting directory with id: {} ",id);
 		try {
-			Path catalogFolder = Paths.get(properties.getCatalogImagePath(),id.toString()).toAbsolutePath().normalize();
+			Path catalogFolder = Paths.get(imagePathProperties.getCatalogImagePath(),id.toString()).toAbsolutePath().normalize();
 
 			if(Files.exists(catalogFolder)) {
 				FileUtils.deleteDirectory(catalogFolder.toFile());
@@ -325,26 +338,43 @@ class CatalogService {
 		}
 	}
 
-	private String prepareImageUpload(UUID id, MultipartFile image) {
-		String imageName =  id + imageExtension(image.getOriginalFilename());
+	boolean existsById(UUID id) {
+		return this.catalogRepository.existsById(id);
+	}
+
+}
+
+@Service
+class CatalogImageUploadService {
+
+	private static final Logger logger = LoggerFactory.getLogger(CatalogImageUploadService.class);
+	private final AuditLogger auditLogger;
+	private final ApplicationEventPublisher applicationEventPublisher;
+
+	public CatalogImageUploadService(
+			AuditLogger auditLogger,
+			ApplicationEventPublisher applicationEventPublisher) {
+		this.auditLogger = auditLogger;
+		this.applicationEventPublisher = applicationEventPublisher;
+	}
+
+	Path createMainDirectoryIfNotExists(UUID id, String path) {
+		if(id == null) {
+			throw new RuntimeException("Exception in creating the main directory ");
+		}
+		logger.info("Main directory with the id: {} and path: {} created", id, path);
 		try {
-
-			Path catalogFolder = Paths.get(properties.getCatalogImagePath(),id.toString()).toAbsolutePath().normalize();
-			if(!Files.exists(catalogFolder)) {
-				Files.createDirectories(catalogFolder);
+			Path direcetory = Paths.get(path, id.toString()).toAbsolutePath().normalize();
+			if (!Files.exists(direcetory)) {
+				Files.createDirectories(direcetory);
 			}
-
-			Path imagePath = catalogFolder.resolve(imageName);
-			Files.copy(image.getInputStream(),imagePath,REPLACE_EXISTING);
-			return ServletUriComponentsBuilder
-					.fromCurrentContextPath()
-					.path("/api/catalogs/image/catalog/" + imageName).toUriString();
+			return direcetory;
 		} catch (Exception e) {
-			throw new RuntimeException("");
+			throw new RuntimeException("Exception in creating a main directory to store image");
 		}
 	}
 
-	private String imageExtension(String imageName) {
+	String imageExtension(String imageName) {
 		return Optional.of(imageName)
 				.filter(name -> name.contains("."))
 				.map(name -> "." + name.substring(imageName.lastIndexOf(".") + 1))
@@ -364,8 +394,39 @@ class CatalogService {
 		return filename;
 	}
 
-	boolean existsById(UUID id) {
-		return this.catalogRepository.existsById(id);
+	byte[] preloadImage(MultipartFile file) {
+		try {
+		 return file.getBytes();
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
+
+	String prepareImageUpload(UUID imageId, byte[] imageFile, Path imageBasePath,String baseUrl) {
+		logger.info("Stroing an image with size ({} bytes) and id: {} and path: {} ",imageFile.length, imageId, imageBasePath);
+		String imageName = imageId.toString() + ".png";
+		try {
+			Path imagePath = imageBasePath.resolve(imageName);
+			Files.write(imagePath, imageFile);
+			return baseUrl + "/api/catalogs/image/catalog/" + imageName;
+		} catch (Exception e) {
+			throw new RuntimeException("Exception happened while storing image in to the advertisement directory",e);
+		}
+	}
+
+	@Async("catalogImageTaskExecutor")
+	public void storeImagesIntoFileSystemAsync(UUID imageId, byte[] imageFile,Path imageBasePath,String baseUrl){
+		logger.info("Calling ASYNC method with thread {} to store image with name {} and size {} ",Thread.currentThread().getName(),imageId,imageFile.length);
+		String storedImageUrl = null;
+		try {
+			storedImageUrl = prepareImageUpload(imageId, imageFile, imageBasePath,baseUrl);
+			this.auditLogger.log("ASYNC_CATALOG_IMAGE_FILE_STORED", "ASYNC_CATALOG_IMAGE_FILE", "ASYNC_CATALOG_IMAGE_FILE stored with the url " + storedImageUrl);
+			this.applicationEventPublisher.publishEvent(new UpdateCatalogImageUrlEvent(imageId,storedImageUrl));
+		} catch (Exception e) {
+			logger.error("Exception happened while stroing the image asynchronously",e);
+		}
+		this.auditLogger.log("ASYNC_CATALOG_IMAGE_FILE_STORED", "ASYNC_CATALOG_IMAGE_FILE_STORED", "ASYNC_CATALOG_IMAGE_FILE_STORED one image stored successfully = " + imageId);
+		logger.info("One image processed successfully with the name {}",imageId);
 	}
 
 }
@@ -515,8 +576,10 @@ interface CatalogMapper {
 	@Mapping(target = "createdAt", source = "catalog.createdAt")
 	@Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
 	@Mapping(target = "imageUrl", ignore = true)
-	Catalog mapUpdateRequestToCatalog(UpdateCatalogRequest request, Catalog  catalog);
+	Catalog mapUpdateRequestToCatalog(UpdateCatalogRequest request,Catalog catalog);
 
+	@Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
+	@Mapping(target = "version", source = "catalog.version")
 	@Mapping(target = "imageUrl", source = "newImageUrl")
 	Catalog mapCatalogWithImage(String newImageUrl,Catalog catalog);
 
@@ -553,7 +616,41 @@ interface CatalogMapper {
 
 }
 
-
 // controller // service // repository // model // enum // dto // mapper // exception
 
+record UpdateCatalogImageUrlEvent(UUID id,String url) {}
 
+@Component
+class UpdateCatalogImageUrlEventHandler {
+
+	private final MessageSource messageSource;
+	private final AuditLogger auditLogger;
+    private final CatalogRepository catalogRepository;
+	private final CatalogMapper catalogMapper;
+
+	public UpdateCatalogImageUrlEventHandler(
+			MessageSource messageSource,
+			AuditLogger auditLogger,
+			CatalogRepository catalogRepository,
+			CatalogMapper catalogMapper) {
+		this.messageSource = messageSource;
+		this.auditLogger = auditLogger;
+		this.catalogRepository = catalogRepository;
+		this.catalogMapper = catalogMapper;
+	}
+
+	@Transactional
+	@EventListener
+	public void handleImageStored(UpdateCatalogImageUrlEvent event) {
+		Catalog catalog = this.catalogRepository.findById(event.id())
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+								new Object[]{event.id()},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_NOT_FOUND));
+
+		Catalog updatedCatalogWithImage = this.catalogMapper.mapCatalogWithImage(event.url(),catalog);
+		this.catalogRepository.save(updatedCatalogWithImage);
+		this.auditLogger.log("CATALOG_IMAGE_FILE_UPDATED", "CATALOG_IMAGE_UPLOAD_EVENT", "CATALOG_IMAGE_FILE updated for the Id: " + event.id());
+	}
+}
