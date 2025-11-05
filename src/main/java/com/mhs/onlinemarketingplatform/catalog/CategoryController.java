@@ -67,7 +67,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
@@ -102,6 +101,11 @@ class CategoryController {
     @PutMapping("/api/categories")
     ResponseEntity<CategoryResponse> update(@RequestBody UpdateParentRequest updateParentRequest) {
         return ResponseEntity.ok(this.categoryService.update(updateParentRequest));
+    }
+
+    @PatchMapping("/api/categories")
+    ResponseEntity<CategoryResponse> patch(@RequestBody PatchParentRequest patchParentRequest) {
+        return ResponseEntity.ok(this.categoryService.patch(patchParentRequest));
     }
 
     @DeleteMapping("/api/categories/{id}")
@@ -323,6 +327,63 @@ class CategoryService implements CategoryApi {
                             CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
 
         Category mappedCategory = this.categoryMapper.mapUpdateToCategory(updateParentRequest,existingCategory);
+        Category storedCategory = this.categoryRepository.save(mappedCategory);
+        this.auditLogger.log("CATALOG_UPDATED", "CATALOG", "Catalog NAME: " + storedCategory.name());
+
+        this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
+        return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
+    }
+
+    @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
+    public CategoryResponse patch(PatchParentRequest patchParentRequest) {
+        logger.info("Patching exisiting category with name: {}",patchParentRequest.name());
+        UUID catalogId = UUID.fromString(patchParentRequest.catalogId());
+        UUID id = UUID.fromString(patchParentRequest.id());
+
+        if(!this.catalogService.existsById(catalogId)) {
+            throw new CatalogNotFoundException(
+                    messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+                            new Object[]{catalogId},
+                            LocaleContextHolder.getLocale()),
+                    CatalogErrorCode.CATALOG_NOT_FOUND);}
+
+        Category existingCategory = this.categoryRepository.findById(id)
+                .orElseThrow(() -> new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{id},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        String existingName = patchParentRequest.name();
+        String existingslug = patchParentRequest.slug();
+
+        if(patchParentRequest.name() != null && !existingName.equals(patchParentRequest.name())) {
+            boolean exists = this.categoryRepository.existsByName(patchParentRequest.name());
+            if(exists) {
+                throw new CategoryAlreadyExistsException(
+                        messageSource.getMessage("error.category.category.with.name.exists",
+                                new Object[]{patchParentRequest.name()},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_ALREADY_EXISTS);}}
+
+        if(patchParentRequest.slug() != null && !existingslug.equals(patchParentRequest.slug())) {
+            boolean exists = this.categoryRepository.existsBySlug(patchParentRequest.slug());
+            if(exists) {
+                throw new CategoryAlreadyExistsException(
+                        messageSource.getMessage("error.category.category.with.slug.exists",
+                                new Object[]{patchParentRequest.slug()},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_ALREADY_EXISTS);}}
+
+
+        if(!existingCategory.catalogId().equals(catalogId)){
+            throw new CategoryNotBelongToCatalog(
+                    messageSource.getMessage("error.category.category.not.belong.to.catalog",
+                            new Object[]{id},
+                            LocaleContextHolder.getLocale()),
+                    CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
+
+        Category mappedCategory = this.categoryMapper.mapPatchToCategory(patchParentRequest,existingCategory);
         Category storedCategory = this.categoryRepository.save(mappedCategory);
         this.auditLogger.log("CATALOG_UPDATED", "CATALOG", "Catalog NAME: " + storedCategory.name());
 
@@ -817,6 +878,14 @@ record UpdateParentRequest(
         @NotNull String imageUrl,
         @NotNull String catalogId) {}
 
+record PatchParentRequest(
+        @NotNull String id,
+        String name,
+        String description,
+        String slug,
+        String imageUrl,
+        @NotNull String catalogId) {}
+
 record AddChildRequest(
         @NotNull String name,
         @NotBlank String description,
@@ -893,9 +962,22 @@ interface CategoryMapper {
     @Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
     @Mapping(target = "categoryStatus", constant = "INACTIVE")
     @Mapping(target = "slug", expression = "java(request.slug() != null ? request.slug() : category.slug())")
-    @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "imageUrl",  source = "category.imageUrl")
     @Mapping(target = "catalogId", source = "category.catalogId")
     Category mapUpdateToCategory(UpdateParentRequest request, Category category);
+
+
+    @Mapping(target = "id", source = "category.id")
+    @Mapping(target = "version", source = "category.version")
+    @Mapping(target = "name", expression = "java(request.name() != null ? request.name() : category.name())")
+    @Mapping(target = "description", expression = "java(request.description() != null ? request.description() : category.description())")
+    @Mapping(target = "createdAt", source = "category.createdAt")
+    @Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
+    @Mapping(target = "categoryStatus", constant = "INACTIVE")
+    @Mapping(target = "slug", expression = "java(request.slug() != null ? request.slug() : category.slug())")
+    @Mapping(target = "imageUrl",  source = "category.imageUrl")
+    @Mapping(target = "catalogId", source = "category.catalogId")
+    Category mapPatchToCategory(PatchParentRequest request, Category category);
 
     @Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
     @Mapping(target = "version", source = "category.version")

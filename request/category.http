@@ -33,6 +33,17 @@ Content-Type: application/json
   "catalogId": "59501b01-64c4-4f4b-a817-9b4915c22715"
 }
 
+### patch an exisiting category
+PATCH http://localhost:8080/api/categories
+Content-Type: application/json
+
+{
+  "id": "019a5374-c2ae-7e12-b31b-5872aaa78a8a",
+  "name": "تست کتگوری2",
+  "slug": "تست کتگوری2",
+  "catalogId": "019a5374-7aec-7d89-bb22-334062a32c83"
+}
+
 ### remove an exisiting category with no descendants by id
 DELETE http://localhost:8080/api/categories/5a84aa6f-fdb4-4dbd-ae11-c67adfcf0c90
 Content-Type: application/json
