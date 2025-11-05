@@ -94,6 +94,11 @@ class CatalogController {
 		return ResponseEntity.ok(this.catalogService.update(updateCatalogRequest));
 	}
 
+	@PatchMapping("/api/catalogs")
+	ResponseEntity<CatalogResponse> patch(@RequestBody PatchCatalogRequest patchCatalogRequest) {
+		return ResponseEntity.ok(this.catalogService.patch(patchCatalogRequest));
+	}
+
 	@DeleteMapping("/api/catalogs/{id}")
 	ResponseEntity<?> delete(@PathVariable("id") UUID id) {
 		this.catalogService.delete(id);
@@ -193,29 +198,71 @@ class CatalogService {
 
 	@CacheEvict(value = "catalogsPage", allEntries = true)
 	public CatalogResponse update(UpdateCatalogRequest updateCatalogRequest) {
-		logger.info("Updating exisiting catalog with name: {}",updateCatalogRequest.name());
+		logger.info("Updating exisiting catalog with name: {}", updateCatalogRequest.name());
 		UUID id = UUID.fromString(updateCatalogRequest.id());
 
-		Catalog exisitngCatalog = this.catalogRepository.findById(id)
-				.orElseThrow(() -> new CatalogNotFoundException(
+		Catalog exisitngCatalog = this.catalogRepository.findById(id).orElseThrow(() ->
+				new CatalogNotFoundException(
 						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
 								new Object[]{updateCatalogRequest.id()},
 								LocaleContextHolder.getLocale()),
 						CatalogErrorCode.CATALOG_NOT_FOUND));
 
-		if(!exisitngCatalog.name().equals(updateCatalogRequest.name()) || !exisitngCatalog.slug().equals(updateCatalogRequest.slug())) {
+		if (! exisitngCatalog.name().equals(updateCatalogRequest.name()) || ! exisitngCatalog.slug().equals(updateCatalogRequest.slug())) {
 			boolean exists = catalogRepository.existsByNameOrSlugAndNotId(updateCatalogRequest.name(), updateCatalogRequest.slug(), id);
 			if (exists) {
 				throw new CatalogAlreadyExistsException(
 						messageSource.getMessage("error.catalog.catalog.with.duplicate.name.or.slug",
-								new Object[]{updateCatalogRequest.name(),
-										updateCatalogRequest.slug()},
+								new Object[]{updateCatalogRequest.name(), updateCatalogRequest.slug()},
 								LocaleContextHolder.getLocale()),
 						CatalogErrorCode.CATALOG_ALREADY_EXISTS);
 			}
 		}
 
 		Catalog mappedCatalog = this.catalogMapper.mapUpdateRequestToCatalog(updateCatalogRequest,exisitngCatalog);
+		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
+		this.auditLogger.log("CATEGORY_UPDATED", "CATEGORY", "Category NAME: " + storedCatalog.name());
+
+		this.publisher.publishEvent(new UpdateCatalogEvent(storedCatalog.id()));
+		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
+
+	}
+
+	@CacheEvict(value = "catalogsPage", allEntries = true)
+	public CatalogResponse patch(PatchCatalogRequest patchCatalogRequest) {
+		logger.info("Patching exisiting catalog with name: {}",patchCatalogRequest.name());
+		UUID id = UUID.fromString(patchCatalogRequest.id());
+
+
+		Catalog exisitngCatalog = this.catalogRepository.findById(id)
+				.orElseThrow(() -> new CatalogNotFoundException(
+						messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+								new Object[]{patchCatalogRequest.id()},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_NOT_FOUND));
+
+		String existingName = exisitngCatalog.name();
+		String existingSlug = exisitngCatalog.slug();
+
+		if(patchCatalogRequest.name() != null && !existingName.equals(patchCatalogRequest.name())) {
+			boolean exists = this.catalogRepository.existsByName(patchCatalogRequest.name());
+			if(exists) {
+				throw new CatalogAlreadyExistsException(
+						messageSource.getMessage("error.catalog.catalog.with.name.exists",
+								new Object[]{patchCatalogRequest.name()},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_ALREADY_EXISTS);}}
+
+		if(patchCatalogRequest.slug() != null && !existingSlug.equals(patchCatalogRequest.slug())) {
+			boolean exists = this.catalogRepository.existsBySlug(patchCatalogRequest.slug());
+			if(exists) {
+				throw new CatalogAlreadyExistsException(
+						messageSource.getMessage("error.catalog.catalog.with.slug.exists",
+								new Object[]{patchCatalogRequest.slug()},
+								LocaleContextHolder.getLocale()),
+						CatalogErrorCode.CATALOG_ALREADY_EXISTS);}}
+
+		Catalog mappedCatalog = this.catalogMapper.mapPatchRequestToCatalog(patchCatalogRequest,exisitngCatalog);
 		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
 		this.auditLogger.log("CATEGORY_UPDATED", "CATEGORY", "Category NAME: " + storedCatalog.name());
 
@@ -307,6 +354,7 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToPagedResponse(catalogs);
 	}
 
+	@CacheEvict(value = "catalogsPage", allEntries = true)
 	public void uploadImage(UUID catalogId, MultipartFile image) {
 		logger.info("Uploading a new photo for a catalog with the ID {}",catalogId);
 		 if(!this.catalogRepository.existsById(catalogId)) {
@@ -504,6 +552,12 @@ record UpdateCatalogRequest(
 		@NotNull String description,
 		@NotNull String slug) {}
 
+record PatchCatalogRequest(
+		@NotNull String id,
+		String name,
+		String description,
+		String slug) {}
+
 record CatalogResponse(
 		String id,
 		String name,
@@ -575,8 +629,18 @@ interface CatalogMapper {
 	@Mapping(target = "description", expression = "java(request.description() != null ? request.description() : catalog.description())")
 	@Mapping(target = "createdAt", source = "catalog.createdAt")
 	@Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
-	@Mapping(target = "imageUrl", ignore = true)
+	@Mapping(target = "imageUrl",source = "catalog.imageUrl")
 	Catalog mapUpdateRequestToCatalog(UpdateCatalogRequest request,Catalog catalog);
+
+	@Mapping(target = "id", source = "catalog.id")
+	@Mapping(target = "version", source = "catalog.version")
+	@Mapping(target = "name", expression = "java(request.name() != null ? request.name() : catalog.name())")
+	@Mapping(target = "slug", expression = "java(request.slug() != null ? request.slug() : catalog.slug())")
+	@Mapping(target = "description", expression = "java(request.description() != null ? request.description() : catalog.description())")
+	@Mapping(target = "createdAt", source = "catalog.createdAt")
+	@Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
+	@Mapping(target = "imageUrl", source = "catalog.imageUrl")
+	Catalog mapPatchRequestToCatalog(PatchCatalogRequest request,Catalog catalog);
 
 	@Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
 	@Mapping(target = "version", source = "catalog.version")
