@@ -28,6 +28,8 @@ import org.mapstruct.Mapping;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
@@ -45,7 +47,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -93,8 +94,14 @@ class CityController {
 	}
 
 	@GetMapping("/api/cities/{provinceId}/province")
-	ResponseEntity<List<CityResponse>> findAllByProvinceId(@PathVariable("provinceId") UUID provinceId) {
-		return ResponseEntity.ok(this.cityService.findAllByProvinceId(provinceId));
+	ResponseEntity<CityApiResponse<List<CityResponse>>> findAllByProvinceId(@PathVariable("provinceId") UUID provinceId) {
+		List<CityResponse> fetchedCities = this.cityService.findAllByProvinceId(provinceId);
+		return ResponseEntity.ok(new CityApiResponse<>(true,"Cities fetched successfuly!",fetchedCities));
+	}
+
+	@GetMapping("/api/cities/count")
+	long countRootCategories() {
+		return this.cityService.countCities();
 	}
 
 }
@@ -124,7 +131,8 @@ class CityService implements CityApi {
 		this.messageSource = messageSource;
 	}
 
-	CityResponse add(AddCityRequest addCityRequest) {
+	@CacheEvict(value = "cities", allEntries = true)
+	public CityResponse add(AddCityRequest addCityRequest) {
 		logger.info("Creating new city with name: {} and provinceId: {}",addCityRequest.name(),addCityRequest.provinceId());
 
 		this.provinceRepository.findById(addCityRequest.provinceId()).orElseThrow(() ->
@@ -147,7 +155,8 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(storedCity);
 	}
 
-	CityResponse update(UpdateCityRequest updateCityRequest) {
+	@CacheEvict(value = "cities", allEntries = true)
+	public CityResponse update(UpdateCityRequest updateCityRequest) {
 		logger.info("Updating existing city with name: {} and provinceId: {}",updateCityRequest.name(),updateCityRequest.provinceId());
 
 		City existingCity = this.cityRepository.findById(updateCityRequest.id()).orElseThrow(() ->
@@ -170,7 +179,8 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(storedCity);
 	}
 
-	void delete(UUID id) {
+	@CacheEvict(value = "cities", allEntries = true)
+	public void delete(UUID id) {
 		City existingCity = this.cityRepository.findById(id).orElseThrow(() ->
 				new CityNotFoundException(
 						messageSource.getMessage("error.city.city.with.id.not.found",
@@ -183,7 +193,8 @@ class CityService implements CityApi {
 		this.auditLogger.log("CITY_DELETED", "CITY", "City name: " + existingCity.name());
 	}
 
-	CityResponse findById(UUID id) {
+	@Cacheable(key = "#id" , value = "city")
+	public CityResponse findById(UUID id) {
 		logger.info("Looking up city by ID: {}",id);
 
 		City existingCity = this.cityRepository.findById(id).orElseThrow(() ->
@@ -196,7 +207,8 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(existingCity);
 	}
 
-	CityResponse findByName(String name) {
+	@Cacheable(key = "#name" , value = "city")
+	public CityResponse findByName(String name) {
 		logger.info("Looking up city by NAME: {}",name);
 
 		City existingCity = this.cityRepository.findByName(name).orElseThrow(() ->
@@ -209,7 +221,8 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(existingCity);
 	}
 
-	CityResponse findByNameAndProvinceId(String name,UUID provinceId) {
+	@Cacheable(key = "#name + ':' + #provinceId",value = "cityByNameAndProvince")
+	public CityResponse findByNameAndProvinceId(String name,UUID provinceId) {
 		logger.info("Looking up city by NAME: {} and ProvinceId: {}",name,provinceId);
 
 		City retrievedCity = this.cityRepository.findByNameAndProvinceId(name, provinceId).orElseThrow(() ->
@@ -222,7 +235,8 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(retrievedCity);
 	}
 
-	List<CityResponse> findAllByProvinceId(UUID provinceId) {
+	@Cacheable(value = "cities")
+	public List<CityResponse> findAllByProvinceId(UUID provinceId) {
 		logger.info("Retriving all cities by province id: {}",provinceId);
 		return this.cityRepository.findAllByProvinceId(provinceId);
 
@@ -234,6 +248,11 @@ class CityService implements CityApi {
 
 	public Optional<String> findNameById(UUID id) {
 		return this.cityRepository.findNameById(id);
+	}
+
+	@Cacheable(value = "cityCount")
+	public long countCities() {
+		return this.cityRepository.countCities();
 	}
 
 }
@@ -257,6 +276,9 @@ interface CityRepository extends CrudRepository<City,UUID> {
 
 	@Query("SELECT name FROM cities WHERE id= :id")
 	Optional<String> findNameById(@Param("id") UUID id);
+
+	@Query("SELECT COUNT(*) FROM cities c")
+	long countCities();
 }
 
 @Table("cities")
@@ -282,6 +304,12 @@ record CityResponse(
 		UUID id,
 		String name,
 		UUID provinceId
+) {}
+
+record CityApiResponse<T>(
+		boolean success,
+		String message,
+		T data
 ) {}
 
 @Mapper(componentModel = "spring" , nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,imports = {UuidCreator.class})

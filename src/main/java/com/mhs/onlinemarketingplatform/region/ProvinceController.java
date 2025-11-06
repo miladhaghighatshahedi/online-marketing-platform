@@ -26,6 +26,8 @@ import org.mapstruct.Mapping;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
@@ -43,7 +45,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -86,8 +87,9 @@ class ProvinceController {
 	}
 
 	@GetMapping("/api/provinces")
-	ResponseEntity<List<ProvinceResponse>> findAllOrdered() {
-		return ResponseEntity.ok(this.provinceService.findAllOrdered());
+	ResponseEntity<ProvinceApiResponse<List<ProvinceResponse>>> findAllOrdered() {
+		List<ProvinceResponse> fetchedProvinces = this.provinceService.findAllOrdered();
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"Provinces fetched successfuly!",fetchedProvinces));
 	}
 
 }
@@ -113,7 +115,8 @@ class ProvinceService implements ProvinceApi {
 		this.messageSource = messageSource;
 	}
 
-	ProvinceResponse add(AddProvinceRequest addProvinceRequest) {
+	@CacheEvict(value = "provinces", allEntries = true)
+	public ProvinceResponse add(AddProvinceRequest addProvinceRequest) {
 		logger.info("Creating new province with name: {}",addProvinceRequest.name());
 
 		if(this.provinceRepository.existsByName(addProvinceRequest.name())) {
@@ -130,7 +133,8 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceMapper.mapProvinceToProvinceResponse(storedProvince);
 	}
 
-	ProvinceResponse update(UpdateProvinceRequest updateProvinceRequest) {
+	@CacheEvict(value = "provinces", allEntries = true)
+	public ProvinceResponse update(UpdateProvinceRequest updateProvinceRequest) {
 		logger.info("Updating existing province with name: {}",updateProvinceRequest.name());
 
 		Province existingProvince = this.provinceRepository.findById(updateProvinceRequest.id()).orElseThrow(() ->
@@ -146,7 +150,8 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceMapper.mapProvinceToProvinceResponse(updatedProvince);
 	}
 
-	void delete(UUID id) {
+	@CacheEvict(value = "provinces", allEntries = true)
+	public void delete(UUID id) {
 		Province existingProvince = this.provinceRepository.findById(id).orElseThrow(() ->
 				new ProvinceNotFoundException(
 						messageSource.getMessage("error.province.province.with.id.not.found",
@@ -159,7 +164,8 @@ class ProvinceService implements ProvinceApi {
 		this.auditLogger.log("PROVINCE_DELETED", "PROVINCE", "Province name: " + existingProvince.name());
 	}
 
-	ProvinceResponse findById(UUID id) {
+	@Cacheable(key = "#id" , value = "province")
+	public ProvinceResponse findById(UUID id) {
 		logger.info("Looking up province by ID: {}",id);
 		Province existingProvince = this.provinceRepository.findById(id).orElseThrow(() ->
 				new ProvinceNotFoundException(
@@ -170,7 +176,8 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceMapper.mapProvinceToProvinceResponse(existingProvince);
 	}
 
-    ProvinceResponse findByName(String name) {
+	@Cacheable(key = "#name" , value = "province-name")
+    public ProvinceResponse findByName(String name) {
 	    logger.info("Looking up province by Name: {}",name);
 	    Province province = this.provinceRepository.findByName(name).orElseThrow(() ->
 			    new ProvinceNotFoundException(
@@ -181,7 +188,8 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceMapper.mapProvinceToProvinceResponse(province);
     }
 
-	List<ProvinceResponse> findAllOrdered() {
+	@Cacheable(value = "provinces")
+	public List<ProvinceResponse> findAllOrdered() {
 	    logger.info("Retriving all provinces ordered");
 	    return this.provinceRepository.findAllOrdered();
     }
@@ -235,6 +243,12 @@ record UpdateProvinceRequest(
 record ProvinceResponse(
 		UUID id,
 		String name
+) {}
+
+record ProvinceApiResponse<T>(
+		boolean success,
+		String message,
+		T data
 ) {}
 
 @Mapper(componentModel = "spring",nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE, imports = {UuidCreator.class})
