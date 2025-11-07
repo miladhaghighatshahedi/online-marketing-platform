@@ -7,6 +7,18 @@ Content-Type: application/json
   "provinceId": "019a3a4a-566e-785d-9cfd-7253541f025f"
 }
 
+### add bulk cities
+POST http://localhost:8080/api/cities/bulk
+Content-Type: application/json
+
+{
+  "names": [
+    "L","M","N"
+  ],
+  "provinceId" : "019a3a4a-566e-785d-9cfd-7253541f025f"
+}
+
+
 ### update an existing city
 PUT http://localhost:8080/api/cities
 Content-Type: application/json

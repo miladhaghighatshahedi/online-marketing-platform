@@ -23,6 +23,7 @@ import com.mhs.onlinemarketingplatform.region.error.city.CityErrorCode;
 import com.mhs.onlinemarketingplatform.region.error.city.CityNotFoundException;
 import com.mhs.onlinemarketingplatform.region.error.province.ProvinceErrorCode;
 import com.mhs.onlinemarketingplatform.region.error.province.ProvinceNotFoundException;
+import jakarta.validation.constraints.NotNull;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.NullValuePropertyMappingStrategy;
@@ -30,6 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
@@ -39,15 +42,17 @@ import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * @author Milad Haghighat Shahedi
@@ -63,40 +68,51 @@ class CityController {
 	}
 
 	@PostMapping("/api/cities")
-	ResponseEntity<CityResponse> add(@RequestBody AddCityRequest addCityRequest) {
-		return ResponseEntity.ok(this.cityService.add(addCityRequest));
+	ResponseEntity<CityApiResponse<CityResponse>> add(@RequestBody AddCityRequest addCityRequest) {
+		CityResponse addedCityResponse = this.cityService.add(addCityRequest);
+		return ResponseEntity.ok(new CityApiResponse<>(true,"City saved successfully!",addedCityResponse));
+	}
+
+	@PostMapping("/api/cities/bulk")
+	ResponseEntity<String> addBulk(@RequestBody AddBulkCityRequest addBulkCityRequest) {
+		this.cityService.addBulk(addBulkCityRequest);
+		return ResponseEntity.accepted().body("Add bulk cities accepted: processing add cities...");
 	}
 
 	@PutMapping("/api/cities")
-	ResponseEntity<CityResponse> add(@RequestBody UpdateCityRequest updateCityRequest) {
-		return ResponseEntity.ok(this.cityService.update(updateCityRequest));
+	ResponseEntity<CityApiResponse<CityResponse>> update(@RequestBody UpdateCityRequest updateCityRequest) {
+		CityResponse updatedCityResponse = this.cityService.update(updateCityRequest);
+		return ResponseEntity.ok(new CityApiResponse<>(true,"City updated successfully!",updatedCityResponse));
 	}
 
 	@DeleteMapping("/api/cities/{id}")
 	ResponseEntity<?> delete(@PathVariable("id") UUID id) {
 		this.cityService.delete(id);
-		return ResponseEntity.noContent().build();
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"City deleted successfully!",null));
 	}
 
 	@GetMapping("/api/cities/{id}")
-    ResponseEntity<CityResponse> findById(@PathVariable("id") UUID id) {
-		return ResponseEntity.ok(this.cityService.findById(id));
+    ResponseEntity<CityApiResponse<CityResponse>> findById(@PathVariable("id") UUID id) {
+		CityResponse fetchedCity = this.cityService.findById(id);
+		return ResponseEntity.ok(new CityApiResponse<>(true,"City fetched successfully!",fetchedCity));
     }
 
 	@GetMapping(value = "/api/cities",params = "name")
-	ResponseEntity<CityResponse> findById(@RequestParam("name") String name) {
-		return ResponseEntity.ok(this.cityService.findByName(name));
+	ResponseEntity<CityApiResponse<CityResponse>> findById(@RequestParam("name") String name) {
+		CityResponse fetchedCity = this.cityService.findByName(name);
+		return ResponseEntity.ok(new CityApiResponse<>(true,"City fetched successfully!",fetchedCity));
 	}
 
 	@GetMapping(value = "/api/cities/{provinceId}",params = "name")
-	ResponseEntity<CityResponse> findByNameAndProvinceId(@RequestParam("name") String name,@PathVariable("provinceId") UUID provinceId) {
-		return ResponseEntity.ok(this.cityService.findByNameAndProvinceId(name,provinceId));
+	ResponseEntity<CityApiResponse<CityResponse>> findByNameAndProvinceId(@RequestParam("name") String name,@PathVariable("provinceId") UUID provinceId) {
+		CityResponse fetchedCity = this.cityService.findByNameAndProvinceId(name, provinceId);
+		return ResponseEntity.ok(new CityApiResponse<>(true,"City fetched successfully!",fetchedCity));
 	}
 
 	@GetMapping("/api/cities/{provinceId}/province")
 	ResponseEntity<CityApiResponse<List<CityResponse>>> findAllByProvinceId(@PathVariable("provinceId") UUID provinceId) {
 		List<CityResponse> fetchedCities = this.cityService.findAllByProvinceId(provinceId);
-		return ResponseEntity.ok(new CityApiResponse<>(true,"Cities fetched successfuly!",fetchedCities));
+		return ResponseEntity.ok(new CityApiResponse<>(true,"Cities fetched successfully!",fetchedCities));
 	}
 
 	@GetMapping("/api/cities/count")
@@ -117,21 +133,29 @@ class CityService implements CityApi {
 	private final ProvinceRepository provinceRepository;
 	private final CityMapper cityMapper;
 	private final MessageSource messageSource;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
 	public CityService(
 			AuditLogger auditLogger,
 			CityRepository cityRepository,
 			ProvinceRepository provinceRepository,
 			CityMapper cityMapper,
-			MessageSource messageSource) {
+			MessageSource messageSource,
+			ApplicationEventPublisher applicationEventPublisher) {
 		this.auditLogger = auditLogger;
 		this.cityRepository = cityRepository;
 		this.provinceRepository = provinceRepository;
 		this.cityMapper = cityMapper;
 		this.messageSource = messageSource;
+		this.applicationEventPublisher = applicationEventPublisher;
 	}
 
-	@CacheEvict(value = "cities", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "cities", allEntries = true),
+			@CacheEvict(value = "city", allEntries = true),
+			@CacheEvict(value = "cityByNameAndProvince", allEntries = true),
+			@CacheEvict(value = "cityCount", allEntries = true)
+	})
 	public CityResponse add(AddCityRequest addCityRequest) {
 		logger.info("Creating new city with name: {} and provinceId: {}",addCityRequest.name(),addCityRequest.provinceId());
 
@@ -155,7 +179,54 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(storedCity);
 	}
 
-	@CacheEvict(value = "cities", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "cities", allEntries = true),
+			@CacheEvict(value = "city", allEntries = true),
+			@CacheEvict(value = "cityByNameAndProvince", allEntries = true),
+			@CacheEvict(value = "cityCount", allEntries = true)
+	})
+	public void addBulk(AddBulkCityRequest addBulkCityRequest) {
+		logger.info("Creating a bulk list of cities with provinceId: {}",addBulkCityRequest.provinceId());
+
+		if(!this.provinceRepository.existsById(addBulkCityRequest.provinceId()))
+		{
+			throw new ProvinceNotFoundException(
+						messageSource.getMessage("error.province.province.with.id.not.found",
+								new Object[]{addBulkCityRequest.provinceId()},
+								LocaleContextHolder.getLocale()), ProvinceErrorCode.PROVINCE_NOT_FOUND);}
+
+
+		List<String> normalizedListOfNames = addBulkCityRequest.names().stream()
+				.filter(Objects::nonNull)
+				.map(String::trim)
+				.filter(name -> !name.isBlank())
+				.distinct()
+				.toList();
+
+		if (normalizedListOfNames.isEmpty()) { return;}
+
+		List<City> existingCities = this.cityRepository.findAllByProvinceId(addBulkCityRequest.provinceId());
+
+		List<String> existingNamesNormalized = existingCities.stream().map(City::name).toList();
+
+		List<City> bulkCities = normalizedListOfNames.stream()
+				.filter(name -> !existingNamesNormalized.contains(name))
+				.map(nameNormalized -> cityMapper.mapStringToCity(nameNormalized,addBulkCityRequest.provinceId())).toList();
+
+		if (bulkCities.isEmpty()) {
+			return;
+		}
+
+		applicationEventPublisher.publishEvent(new AddBulkCityEvent(bulkCities,addBulkCityRequest.provinceId()));
+
+	}
+
+	@Caching(evict = {
+			@CacheEvict(value = "cities", allEntries = true),
+			@CacheEvict(value = "city", allEntries = true),
+			@CacheEvict(value = "cityByNameAndProvince", allEntries = true),
+			@CacheEvict(value = "cityCount", allEntries = true)
+	})
 	public CityResponse update(UpdateCityRequest updateCityRequest) {
 		logger.info("Updating existing city with name: {} and provinceId: {}",updateCityRequest.name(),updateCityRequest.provinceId());
 
@@ -179,7 +250,12 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(storedCity);
 	}
 
-	@CacheEvict(value = "cities", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "cities", allEntries = true),
+			@CacheEvict(value = "city", allEntries = true),
+			@CacheEvict(value = "cityByNameAndProvince", allEntries = true),
+			@CacheEvict(value = "cityCount", allEntries = true)
+	})
 	public void delete(UUID id) {
 		City existingCity = this.cityRepository.findById(id).orElseThrow(() ->
 				new CityNotFoundException(
@@ -238,8 +314,8 @@ class CityService implements CityApi {
 	@Cacheable(value = "cities")
 	public List<CityResponse> findAllByProvinceId(UUID provinceId) {
 		logger.info("Retriving all cities by province id: {}",provinceId);
-		return this.cityRepository.findAllByProvinceId(provinceId);
-
+		List<City> exisitingCities = this.cityRepository.findAllByProvinceId(provinceId);
+		return this.cityMapper.mapListToListOfResponse(exisitingCities);
 	}
 
 	public boolean existsById(UUID id) {
@@ -265,8 +341,8 @@ interface CityRepository extends CrudRepository<City,UUID> {
 
 	Optional<City> findByNameAndProvinceId(String name, UUID provinceId);
 
-	@Query("SELECT id,name,province_id  FROM cities WHERE province_id= :provinceId ORDER BY name")
-	List<CityResponse> findAllByProvinceId(@Param("provinceId") UUID provinceId);
+	@Query("SELECT * FROM cities WHERE province_id= :provinceId ORDER BY name")
+	List<City> findAllByProvinceId(@Param("provinceId") UUID provinceId);
 
 	@Query("SELECT CASE WHEN COUNT(1) > 0  THEN TRUE ELSE FALSE END FROM cities WHERE name= :name AND province_id= :provinceId")
 	boolean existsByNameAndProvinceId(@Param("name") String name,@Param("provinceId") UUID provinceId);
@@ -284,20 +360,24 @@ interface CityRepository extends CrudRepository<City,UUID> {
 @Table("cities")
 record City(
 		@Id UUID id,
-		@Version
-		int version,
-		String name,
-		UUID provinceId) {}
+		@Version int version,
+		@NotNull String name,
+		@NotNull UUID provinceId) {}
 
 record AddCityRequest(
-	String name,
-	UUID provinceId
+		@NotNull String name,
+		@NotNull UUID provinceId
 ) {}
 
+record AddBulkCityRequest(
+		@NotNull List<String> names,
+		@NotNull UUID provinceId
+){}
+
 record UpdateCityRequest(
-		UUID id,
-		String name,
-		UUID provinceId
+		@NotNull UUID id,
+		@NotNull String name,
+		@NotNull UUID provinceId
 ) {}
 
 record CityResponse(
@@ -319,6 +399,11 @@ interface CityMapper {
 	@Mapping(target = "version", ignore = true)
 	City mapAddCityRequestToCity(AddCityRequest request);
 
+	@Mapping(target = "id",expression = "java(UuidCreator.getTimeOrderedEpoch())")
+	@Mapping(target = "version", constant = "0")
+	@Mapping(target = "provinceId", source = "provinceId")
+	City mapStringToCity(String name,UUID provinceId);
+
 	@Mapping(target = "id", source = "city.id")
 	@Mapping(target = "version", source = "city.version")
 	@Mapping(target = "name", expression = "java(request.name() != null ? request.name() : city.name())")
@@ -326,5 +411,37 @@ interface CityMapper {
 	City mapUpdateCityRequestToCity(UpdateCityRequest request,City city);
 
 	CityResponse mapCityToCityResponse(City city);
+
+	List<CityResponse> mapListToListOfResponse(Iterable<City> cities);
+
+
+}
+
+record AddBulkCityEvent(List<City> cities,UUID provinceId) {}
+
+@Component
+class AddBulkCityEventHandler {
+
+	private final CityRepository cityRepository;
+	private final AuditLogger auditLogger;
+	private final static Logger logger = LoggerFactory.getLogger(AddBulkCityEventHandler.class);
+
+	public AddBulkCityEventHandler(
+			CityRepository cityRepository,
+			AuditLogger auditLogger) {
+		this.cityRepository = cityRepository;
+		this.auditLogger = auditLogger;
+	}
+
+	@Async("cityTaskExecutor")
+	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+	public void handleAddBulkCityEvent(AddBulkCityEvent addBulkCityEvent) {
+		logger.info("Calling ASYNC method with thread {} to store {} cities to the province with ID {} ",Thread.currentThread().getName(),addBulkCityEvent.cities().size(),addBulkCityEvent.provinceId());
+		List<City> cities = addBulkCityEvent.cities();
+		if (cities == null || cities.isEmpty()) return;
+
+		this.cityRepository.saveAll(addBulkCityEvent.cities());
+		this.auditLogger.log("CITY_BULK_ADD", "CITY_BULK_ADD", "BULK CITIES add to the province with ID: "+addBulkCityEvent.provinceId());
+	}
 
 }
