@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.annotation.Id;
@@ -61,35 +62,39 @@ class ProvinceController {
 	}
 
 	@PostMapping("/api/provinces")
-	ResponseEntity<ProvinceResponse> add(@RequestBody AddProvinceRequest addProvinceRequest) {
-		return ResponseEntity.ok(this.provinceService.add(addProvinceRequest));
+	ResponseEntity<ProvinceApiResponse<ProvinceResponse>> add(@RequestBody AddProvinceRequest addProvinceRequest) {
+		ProvinceResponse addedProvinceResponse = this.provinceService.add(addProvinceRequest);
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"Province saved successfully!",addedProvinceResponse));
 	}
 
 	@PutMapping("/api/provinces")
-	ResponseEntity<ProvinceResponse> update(@RequestBody UpdateProvinceRequest updateProvinceRequest) {
-		return ResponseEntity.ok(this.provinceService.update(updateProvinceRequest));
+	ResponseEntity<ProvinceApiResponse<ProvinceResponse>> update(@RequestBody UpdateProvinceRequest updateProvinceRequest) {
+		ProvinceResponse updatedProvinceResponse = this.provinceService.update(updateProvinceRequest);
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"Province updated successfully!",updatedProvinceResponse));
 	}
 
 	@DeleteMapping("/api/provinces/{id}")
 	ResponseEntity<?> delete(@PathVariable("id") UUID id) {
 		this.provinceService.delete(id);
-		return ResponseEntity.noContent().build();
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"Province deleted successfully!",null));
 	}
 
 	@GetMapping("/api/provinces/{id}")
-	ResponseEntity<ProvinceResponse> findById(@PathVariable("id") UUID id) {
-		return ResponseEntity.ok(this.provinceService.findById(id));
+	ResponseEntity<ProvinceApiResponse<ProvinceResponse>> findById(@PathVariable("id") UUID id) {
+		ProvinceResponse fetchedCity = this.provinceService.findById(id);
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"City fetched successfully!!",fetchedCity));
 	}
 
 	@GetMapping(value = "/api/provinces",params = "name")
-	ResponseEntity<ProvinceResponse> findByName(@RequestParam("name") String name) {
-		return ResponseEntity.ok(this.provinceService.findByName(name));
+	ResponseEntity<ProvinceApiResponse<ProvinceResponse>> findByName(@RequestParam("name") String name) {
+		ProvinceResponse fetchedCity = this.provinceService.findByName(name);
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"City fetched successfully!!",fetchedCity));
 	}
 
 	@GetMapping("/api/provinces")
 	ResponseEntity<ProvinceApiResponse<List<ProvinceResponse>>> findAllOrdered() {
 		List<ProvinceResponse> fetchedProvinces = this.provinceService.findAllOrdered();
-		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"Provinces fetched successfuly!",fetchedProvinces));
+		return ResponseEntity.ok(new ProvinceApiResponse<>(true,"Provinces fetched successfully!",fetchedProvinces));
 	}
 
 }
@@ -115,7 +120,11 @@ class ProvinceService implements ProvinceApi {
 		this.messageSource = messageSource;
 	}
 
-	@CacheEvict(value = "provinces", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "provinces", allEntries = true),
+			@CacheEvict(value = "province", allEntries = true),
+			@CacheEvict(value = "province-name", allEntries = true)
+	})
 	public ProvinceResponse add(AddProvinceRequest addProvinceRequest) {
 		logger.info("Creating new province with name: {}",addProvinceRequest.name());
 
@@ -133,7 +142,11 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceMapper.mapProvinceToProvinceResponse(storedProvince);
 	}
 
-	@CacheEvict(value = "provinces", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "provinces", allEntries = true),
+			@CacheEvict(value = "province", allEntries = true),
+			@CacheEvict(value = "province-name", allEntries = true)
+	})
 	public ProvinceResponse update(UpdateProvinceRequest updateProvinceRequest) {
 		logger.info("Updating existing province with name: {}",updateProvinceRequest.name());
 
@@ -150,7 +163,11 @@ class ProvinceService implements ProvinceApi {
 		return this.provinceMapper.mapProvinceToProvinceResponse(updatedProvince);
 	}
 
-	@CacheEvict(value = "provinces", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "provinces", allEntries = true),
+			@CacheEvict(value = "province", allEntries = true),
+			@CacheEvict(value = "province-name", allEntries = true)
+	})
 	public void delete(UUID id) {
 		Province existingProvince = this.provinceRepository.findById(id).orElseThrow(() ->
 				new ProvinceNotFoundException(
