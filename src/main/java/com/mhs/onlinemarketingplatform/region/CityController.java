@@ -179,12 +179,7 @@ class CityService implements CityApi {
 		return this.cityMapper.mapCityToCityResponse(storedCity);
 	}
 
-	@Caching(evict = {
-			@CacheEvict(value = "cities", allEntries = true),
-			@CacheEvict(value = "city", allEntries = true),
-			@CacheEvict(value = "cityByNameAndProvince", allEntries = true),
-			@CacheEvict(value = "cityCount", allEntries = true)
-	})
+    // CacheEvict moved on async method
 	public void addBulk(AddBulkCityRequest addBulkCityRequest) {
 		logger.info("Creating a bulk list of cities with provinceId: {}",addBulkCityRequest.provinceId());
 
@@ -433,6 +428,12 @@ class AddBulkCityEventHandler {
 		this.auditLogger = auditLogger;
 	}
 
+	@Caching(evict = {
+			@CacheEvict(value = "cities", allEntries = true),
+			@CacheEvict(value = "city", allEntries = true),
+			@CacheEvict(value = "cityByNameAndProvince", allEntries = true),
+			@CacheEvict(value = "cityCount", allEntries = true)
+	})
 	@Async("cityTaskExecutor")
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void handleAddBulkCityEvent(AddBulkCityEvent addBulkCityEvent) {
