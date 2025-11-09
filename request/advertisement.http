@@ -1,11 +1,16 @@
 ###
-POST http://localhost:8080/api/me/products/a912dd5f-39a0-445e-92ac-25b5f64b3683
+POST http://localhost:8080/api/me/advertisements/a912dd5f-39a0-445e-92ac-25b5f64b3683
 Content-Type: application/json
 
 {
-  "name": "test",
+  "title": "test",
   "description": "test",
-  "price": "5000000"
+  "price": "5000000",
+  "type": "",
+  "attributes": "",
+  "locationId": "",
+  "categoryId": "",
+  "ownerId": ""
 }
 
 ###

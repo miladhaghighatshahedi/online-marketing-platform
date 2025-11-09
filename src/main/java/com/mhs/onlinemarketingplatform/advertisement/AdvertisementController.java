@@ -67,8 +67,9 @@ class AdvertisementController {
 	}
 
 	@PostMapping("/api/me/advertisements")
-	ResponseEntity<AdvertisementResponse> addByOwner(@RequestBody AddAdvertisementRequest addAdvertisementRequest) {
-		return ResponseEntity.ok(this.advertisementService.addByOwner(addAdvertisementRequest));
+	ResponseEntity<AdvertisementApiResponse<AdvertisementResponse>> addByOwner(@RequestBody AddAdvertisementRequest addAdvertisementRequest) {
+		AdvertisementResponse addedAdvertisementResponse = this.advertisementService.addByOwner(addAdvertisementRequest);
+		return ResponseEntity.ok(new AdvertisementApiResponse<>(true,"Advertisement saved successfully",addedAdvertisementResponse));
 	}
 
 	@PutMapping("/api/me/advertisements")
@@ -410,6 +411,12 @@ record AdvertisementPagedResponse<T>(
 		int size,
 		long totalElements,
 		int totalPages) {}
+
+record AdvertisementApiResponse<T>(
+		boolean success,
+		String message,
+		T data
+) {}
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
 interface AdvertisementMapper {
