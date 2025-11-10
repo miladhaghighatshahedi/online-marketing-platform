@@ -15,12 +15,11 @@
  */
 package com.mhs.onlinemarketingplatform.catalog;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.catalog.api.CategoryApi;
 import com.mhs.onlinemarketingplatform.catalog.config.ImagePathProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.*;
-import com.mhs.onlinemarketingplatform.catalog.event.AddCategoryEvent;
-import com.mhs.onlinemarketingplatform.catalog.event.UpdateCategoryEvent;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -78,153 +77,291 @@ import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 @ResponseBody
 class CategoryController {
 
-    private final CategoryService categoryService;
-    private final CategoryImageUploadService categoryImageUploadService;
+    private final CategoryQueryService queryService;
+    private final CategoryCommandService commandService;
+    private final CategoryImageUploadService imageUploadService;
 
-    public CategoryController(
-            CategoryService categoryService,
-            CategoryImageUploadService categoryImageUploadService) {
-        this.categoryService = categoryService;
-        this.categoryImageUploadService = categoryImageUploadService;
+    public CategoryController(CategoryQueryService queryService, CategoryCommandService commandService, CategoryImageUploadService imageUploadService) {
+        this.queryService = queryService;
+        this.commandService = commandService;
+        this.imageUploadService = imageUploadService;
     }
 
     @PostMapping("/api/categories")
-    ResponseEntity<CategoryResponse> addParent(@RequestBody AddParentRequest addParentRequest) {
-        return ResponseEntity.ok(this.categoryService.addAncestor(addParentRequest));
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> addParent(@RequestBody AddParentRequest addParentRequest) {
+        CategoryResponse addedParentCategory = this.commandService.addParent(addParentRequest);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category parent added succesfully!",addedParentCategory));
     }
 
     @PostMapping("/api/categories/descendants")
-    ResponseEntity<CategoryResponse> addChild(@RequestBody AddChildRequest addChildRequest) {
-        return ResponseEntity.ok(this.categoryService.addDescendant(addChildRequest));
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> addChild(@RequestBody AddChildRequest addChildRequest) {
+        CategoryResponse adddedChildCategory = this.commandService.addChild(addChildRequest);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category child added succesfully!",adddedChildCategory));
     }
 
     @PutMapping("/api/categories")
-    ResponseEntity<CategoryResponse> update(@RequestBody UpdateParentRequest updateParentRequest) {
-        return ResponseEntity.ok(this.categoryService.update(updateParentRequest));
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> update(@RequestBody UpdateParentRequest updateParentRequest) {
+        CategoryResponse updatedParentCategory = this.commandService.update(updateParentRequest);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category parent updated succesfully!",updatedParentCategory));
     }
 
     @PatchMapping("/api/categories")
-    ResponseEntity<CategoryResponse> patch(@RequestBody PatchParentRequest patchParentRequest) {
-        return ResponseEntity.ok(this.categoryService.patch(patchParentRequest));
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> patch(@RequestBody PatchParentRequest patchParentRequest) {
+        CategoryResponse patchedCategory = this.commandService.patch(patchParentRequest);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category patched succesfully!",patchedCategory));
     }
 
     @DeleteMapping("/api/categories/{id}")
     ResponseEntity<?> delete(@PathVariable("id") UUID id) {
-        this.categoryService.delete(id);
+        this.commandService.delete(id);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category deleted succesfully!",null));
+    }
+
+    @PutMapping("/api/categories/{id}/activate")
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> activate(@PathVariable("id") UUID id) {
+        CategoryResponse activatedCategory = this.commandService.activate(id);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category activated successfully!",activatedCategory));
+    }
+
+    @PutMapping("/api/categories/{id}/deactivate")
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> deactivate(@PathVariable("id") UUID id) {
+        CategoryResponse deactivatedCategory = this.commandService.deactivate(id);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Categordey deactivated successfully!",deactivatedCategory));
+    }
+
+    @PutMapping("/api/categories/{id}/versioned")
+    ResponseEntity<?> activateOrDeactivateParentAndChildrenWithVersioning(@PathVariable("id") UUID id, @RequestBody UpdateCategoryStatusRequest request) {
+        this.commandService.activateOrDeactivateParentAndChildrenWithVersioning(id,request.categoryStatus());
         return ResponseEntity.noContent().build();
     }
 
+
+
+
     @GetMapping("/api/categories/{id}")
-    ResponseEntity<CategoryResponse> findById(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(this.categoryService.findById(id));
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> findById(@PathVariable("id") UUID id) {
+        CategoryResponse foundCategory = this.queryService.findById(id);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category found successfully!",foundCategory));
     }
 
     @GetMapping(value = "/api/categories", params = "name")
-    ResponseEntity<CategoryResponse> findByName(@RequestParam("name") String name) {
-        return ResponseEntity.ok(this.categoryService.findByName(name));
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> findByName(@RequestParam("name") String name) {
+        CategoryResponse foundCategory = this.queryService.findByName(name);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category found successfully!",foundCategory));
     }
 
     @GetMapping(value = "/api/categories", params = "slug")
-    ResponseEntity<CategoryResponse> findBySlug(@RequestParam("slug") String slug) {
-        return ResponseEntity.ok(this.categoryService.findBySlug(slug));
+    ResponseEntity<CategoryApiResponse<CategoryResponse>> findBySlug(@RequestParam("slug") String slug) {
+        CategoryResponse foundCategory = this.queryService.findBySlug(slug);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Category found successfully!",foundCategory));
     }
 
     @GetMapping("/api/categories/{id}/with-sub-categories")
     ResponseEntity<CategoryDtoWithSubs> findACategoryWithSubCategoriesById(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(this.categoryService.findACategoryWithSubCategoriesById(id));
+        return ResponseEntity.ok(this.queryService.findACategoryWithSubCategoriesById(id));
     }
 
     @GetMapping(value = "/api/categories/root")
     Page<RootCategoryResponse> findAllrootCategories(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        return this.categoryService.findAllRootCategories(page,size);
+        return this.queryService.findAllRootCategories(page,size);
     }
 
-    @GetMapping("/api/categories/ancestors/{id}")
-    List<Category> findAllAncestors(@PathVariable("id") UUID id) {
-        return this.categoryService.findAncestors(id);
+    @GetMapping("/api/categories/{catalogId}/catalog")
+    ResponseEntity<CategoryApiResponse<List<CategoryResponse>>> findActiveRootCategoriesByCatalogId(@PathVariable("catalogId") UUID catalogId) {
+        List<CategoryResponse> foundCategories = this.queryService.findActiveRootCategoriesByCatalogId(catalogId);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Categories found successfully!",foundCategories));
     }
 
-    @GetMapping("/api/categories/descendants/{id}")
-    List<Category> findAllDescendants(@PathVariable("id") UUID id) {
-        return this.categoryService.findDescendants(id);
-    }
 
-    @PutMapping("/api/categories/{id}/activate")
-    ResponseEntity<CategoryResponse> activate(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(this.categoryService.activate(id));
-    }
 
-    @PutMapping("/api/categories/{id}/deactivate")
-    ResponseEntity<CategoryResponse> deactivate(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(this.categoryService.deactivate(id));
-    }
-
-    @PutMapping("/api/categories/{id}/versioned")
-    ResponseEntity<?> activateOrDeactivateParentAndChildrenWithVersioning(
-            @PathVariable("id") UUID id,
-            @RequestBody UpdateCategoryStatusRequest request) {
-
-        this.categoryService.activateOrDeactivateParentAndChildrenWithVersioning(id,request.categoryStatus());
-        return ResponseEntity.noContent().build();
-    }
 
     @PutMapping("/api/categories/image")
     ResponseEntity<String> uploadImage(@RequestParam("id") UUID id,@RequestParam("image") MultipartFile image) {
-        this.categoryService.uploadImage(id,image);
+        this.commandService.uploadImage(id,image);
         return ResponseEntity.accepted().body("Image upload accepted: processing asynchronously...");
     }
 
     @GetMapping(value = {"/api/categories/image/category/{imageName}"},produces = IMAGE_PNG_VALUE)
-    byte[] getImage(@PathVariable("imageName") String imageName) throws Exception{
-        return Files.readAllBytes(Paths.get("src/main/resources/image/category/"+this.categoryImageUploadService.removeExtension(imageName)+"/"+imageName));
+    byte[] getImage(@PathVariable("imageName") String imageName) throws Exception {
+        return Files.readAllBytes(Paths.get("src/main/resources/image/category/"+this.imageUploadService.removeExtension(imageName)+"/"+imageName));
     }
 
     @GetMapping("/api/categories/root/count")
     long countRootCategories() {
-        return this.categoryService.countRootCategories();
+        return this.queryService.countRootCategories();
     }
 
 }
 
-@Service("categoryService")
-@Transactional
-class CategoryService implements CategoryApi {
+@Service
+class CategoryQueryService {
 
-    private static final Logger logger = LoggerFactory.getLogger(CategoryService.class);
+    private static final Logger logger = LoggerFactory.getLogger(CategoryQueryService.class);
+
     private final AuditLogger auditLogger;
-
-    private final CategoryRepository categoryRepository;
-    private final CategoryClosureRepository categoryClosureRepository;
-    private final CatalogService catalogService;
-    private final CategoryImageUploadService categoryImageUploadService;
-    private final CategoryMapper categoryMapper;
-    private final ApplicationEventPublisher publisher;
+    private final CategoryRepository repository;
+    private final CategoryMapper mapper;
     private final MessageSource messageSource;
-    private final ImagePathProperties properties;
 
-    public CategoryService(
-            AuditLogger auditLogger,
-            CategoryRepository categoryRepository,
-            CategoryClosureRepository categoryClosureRepository,
-            CatalogService catalogService,
-            CategoryImageUploadService categoryImageUploadService,
-            CategoryMapper categoryMapper,
-            ApplicationEventPublisher publisher,
-            MessageSource messageSource,
-            ImagePathProperties properties) {
+    public CategoryQueryService(AuditLogger auditLogger, CategoryRepository repository, CategoryMapper mapper, MessageSource messageSource) {
         this.auditLogger = auditLogger;
-        this.categoryRepository = categoryRepository;
-        this.categoryClosureRepository = categoryClosureRepository;
-        this.catalogService = catalogService;
-        this.categoryImageUploadService = categoryImageUploadService;
-        this.categoryMapper = categoryMapper;
-        this.publisher = publisher;
+        this.repository = repository;
+        this.mapper = mapper;
         this.messageSource = messageSource;
+    }
+
+    CategoryResponse findById(UUID categoryId) {
+        logger.info("Looking up category by ID: {}",categoryId);
+        Category category = this.repository.findById(categoryId)
+                .orElseThrow(() ->  new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{categoryId},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+        return this.mapper.mapCategoryToResponse(category);
+    }
+
+    CategoryResponse findByName(String name) {
+        logger.info("Looking up category by NAME: {}",name);
+        Category category = this.repository.findByName(name)
+                .orElseThrow(() ->  new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.name.not.found",
+                                new Object[]{name},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+        return this.mapper.mapCategoryToResponse(category);
+    }
+
+    CategoryResponse findBySlug(String slug) {
+        logger.info("Looking up category by SLUG: {}",slug);
+        Category category = this.repository.findBySlug(slug)
+                .orElseThrow(() ->  new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.slug.not.found",
+                                new Object[]{slug},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+        return this.mapper.mapCategoryToResponse(category);
+    }
+
+    List<CategoryResponse> findActiveRootCategoriesByCatalogId(UUID catalogId) {
+        logger.info("Retriving active root categories by catalog ID: {}",catalogId);
+        List<Category> existingCategories = this.repository.findActiveRootCategoriesByCatalogId(catalogId);
+        return this.mapper.mapListToListOfResponse(existingCategories);
+    }
+
+    @Cacheable(key = "#id" , value = "categories")
+    public CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID id) {
+        logger.info("Retriving a category and its children by ID: {}",id);
+        Category ancestor = this.repository.findById(id)
+                .orElseThrow(() -> new CategoryNotFoundException(
+                        messageSource.getMessage("error.category.category.with.id.not.found",
+                                new Object[]{id},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        List<Category> descendants = this.repository.findDescendants(id);
+
+        List<CategoryDtoWithSubs> descendantDto = descendants.stream()
+                .map(mapper::toCategoryDtoWithSubs)
+                .toList();
+
+        this.auditLogger.log("CATEGORY_RETRIEVED", "CATEGORY", "Category NAME: "+ancestor.name());
+        return this.mapper.toCategoryDtoWithSubs(ancestor, descendantDto);
+    }
+
+    Page<RootCategoryResponse> findAllRootCategories(int page, int size) {
+        logger.info("Retriving all root categories");
+        int offset = page * size;
+
+        List<Category> categories = this.repository.findAllRootCategories(size, offset);
+
+        if (categories.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page, size), 0);
+        }
+
+        long total = this.repository.countRootCategories();
+
+        List<RootCategoryResponse> rootCategoryResponseList = this.mapper.toRootCategoryResponseList(categories);
+
+        this.auditLogger.log("ROOT_CATEGORIES_RETRIEVED_ALL", "CATEGORY", "Category TOTAL: "+total);
+        return new PageImpl<>(
+                rootCategoryResponseList,
+                PageRequest.of(page,size),
+                total
+        );
+    }
+
+    List<Category> findDescendants(UUID id) {
+        if(!this.repository.existsById(id)) {
+            throw new CategoryNotFoundException(
+                    messageSource.getMessage("error.category.category.with.id.not.found",
+                            new Object[]{id},
+                            LocaleContextHolder.getLocale()),
+                    CategoryErrorCode.CATEGORY_NOT_FOUND);}
+        List<Category> descendants = this.repository.findDescendants(id);
+        if(descendants.isEmpty()){
+            logger.info("Category {} has no descendants", id);
+        }
+        return descendants;
+    }
+
+    List<Category> findAncestors(UUID id) {
+        if(!this.repository.existsById(id)) {
+            throw new CategoryNotFoundException(
+                    messageSource.getMessage("error.category.category.with.id.not.found",
+                            new Object[]{id},
+                            LocaleContextHolder.getLocale()),
+                    CategoryErrorCode.CATEGORY_NOT_FOUND);}
+        List<Category> ancestors = this.repository.findAncestors(id);
+        if(ancestors.isEmpty()){
+            logger.info("Category {} has no ancestors", id);
+        }
+        return ancestors;
+    }
+
+    @Cacheable(key = "'rootCategoryCount'",value = "categories")
+    public long countRootCategories() {
+        return this.repository.countRootCategories();
+    }
+
+}
+
+@Service
+class CategoryCommandService implements CategoryApi{
+    private static final Logger logger = LoggerFactory.getLogger(CategoryCommandService.class);
+
+    private final AuditLogger auditLogger;
+    private final CategoryRepository repository;
+    private final CategoryClosureRepository categoryClosureRepository;
+    private final CategoryQueryService queryService;
+    private final CatalogService catalogService;
+    private final CategoryImageUploadService imageUploadService;
+    private final CategoryMapper mapper;
+    private final ImagePathProperties properties;
+    private final MessageSource messageSource;
+
+    public CategoryCommandService(AuditLogger auditLogger,
+                                  CategoryRepository repository,
+                                  CategoryClosureRepository categoryClosureRepository,
+                                  CategoryQueryService queryService,
+                                  CatalogService catalogService,
+                                  CategoryImageUploadService imageUploadService,
+                                  CategoryMapper mapper,
+                                  ImagePathProperties properties,
+                                  MessageSource messageSource) {
+        this.auditLogger = auditLogger;
+        this.repository = repository;
+        this.categoryClosureRepository = categoryClosureRepository;
+        this.queryService = queryService;
+        this.catalogService = catalogService;
+        this.imageUploadService = imageUploadService;
+        this.mapper = mapper;
         this.properties = properties;
+        this.messageSource = messageSource;
     }
 
     @CacheEvict(value = "catalogs", allEntries = true)
-    public CategoryResponse addAncestor(AddParentRequest addParentRequest) {
+    public CategoryResponse addParent(AddParentRequest addParentRequest) {
         logger.info("Creating new parent category with name: {}",addParentRequest.name());
         UUID catalogId = UUID.fromString(addParentRequest.catalogId());
 
@@ -233,58 +370,57 @@ class CategoryService implements CategoryApi {
                     messageSource.getMessage("error.catalog.catalog.with.id.not.found",
                             new Object[]{catalogId},
                             LocaleContextHolder.getLocale()),
-                            CatalogErrorCode.CATALOG_NOT_FOUND);}
+                    CatalogErrorCode.CATALOG_NOT_FOUND);}
 
         validateDuplicatesByNameAndSlug(addParentRequest,AddParentRequest::name,AddParentRequest::slug);
 
-        Category mappedCategory = this.categoryMapper.mapAddParentToCategory(addParentRequest);
+        Category mappedCategory = this.mapper.mapAddParentToCategory(addParentRequest);
 
-        Category storedCategory = this.categoryRepository.save(mappedCategory);
+        Category storedCategory = this.repository.save(mappedCategory);
         this.categoryClosureRepository.insertSelf(storedCategory.id());
         this.auditLogger.log("PARENT_CTEGORY_CREATED", "CATEGORY", "Category NAME: " + storedCategory.name());
 
-        this.publisher.publishEvent(new AddCategoryEvent(storedCategory.id()));
-        return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
+        return this.mapper.mapCategoryToResponse(this.repository.findById(storedCategory.id()).orElseThrow());
     }
 
     @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
-    public CategoryResponse addDescendant(AddChildRequest addChildRequest) {
+    public CategoryResponse addChild(AddChildRequest addChildRequest) {
         logger.info("Creating new child category with name: {}",addChildRequest.name());
         UUID catalogId = UUID.fromString(addChildRequest.catalogId());
         UUID categoryId = UUID.fromString(addChildRequest.categoryId());
 
         if(!this.catalogService.existsById(catalogId)) {
             throw new CatalogNotFoundException(
-                            messageSource.getMessage("error.catalog.catalog.with.id.not.found",
-                                    new Object[]{catalogId},
-                                    LocaleContextHolder.getLocale()),
-                                    CatalogErrorCode.CATALOG_NOT_FOUND);}
+                    messageSource.getMessage("error.catalog.catalog.with.id.not.found",
+                            new Object[]{catalogId},
+                            LocaleContextHolder.getLocale()),
+                    CatalogErrorCode.CATALOG_NOT_FOUND);}
 
         validateDuplicatesByNameAndSlug(addChildRequest,AddChildRequest::name,AddChildRequest::slug);
 
-        Category existingCategory = this.categoryRepository.findById(categoryId)
+        Category existingCategory = this.repository.findById(categoryId)
                 .orElseThrow(() -> new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
                                 new Object[]{categoryId},
                                 LocaleContextHolder.getLocale()),
-                                CategoryErrorCode.CATEGORY_NOT_FOUND));
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
 
         if(!existingCategory.catalogId().equals(catalogId)){
             throw new CategoryNotBelongToCatalog(
                     messageSource.getMessage("error.category.category.not.belong.to.catalog",
                             new Object[]{categoryId},
                             LocaleContextHolder.getLocale()),
-                            CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
+                    CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
 
-        Category mappedCategory = this.categoryMapper.mapAddChildToCategory(addChildRequest);
+        Category mappedCategory = this.mapper.mapAddChildToCategory(addChildRequest);
 
-        Category storedChildCategory = this.categoryRepository.save(mappedCategory);
+        Category storedChildCategory = this.repository.save(mappedCategory);
         this.categoryClosureRepository.insertSelf(storedChildCategory.id());
         this.categoryClosureRepository.insertClosure(categoryId,storedChildCategory.id());
         this.auditLogger.log("CHILD_CATEGORY_CREATED", "CATEGORY", "Category NAME: " + storedChildCategory.name());
 
-        this.publisher.publishEvent(new AddCategoryEvent(storedChildCategory.id()));
-        return this.categoryMapper.mapCategoryToResponse(storedChildCategory);
+
+        return this.mapper.mapCategoryToResponse(storedChildCategory);
     }
 
     @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
@@ -298,17 +434,17 @@ class CategoryService implements CategoryApi {
                     messageSource.getMessage("error.catalog.catalog.with.id.not.found",
                             new Object[]{catalogId},
                             LocaleContextHolder.getLocale()),
-                            CatalogErrorCode.CATALOG_NOT_FOUND);}
+                    CatalogErrorCode.CATALOG_NOT_FOUND);}
 
-        Category existingCategory = this.categoryRepository.findById(id)
+        Category existingCategory = this.repository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
-                                                  new Object[]{id},
-                                                  LocaleContextHolder.getLocale()),
-                                                  CategoryErrorCode.CATEGORY_NOT_FOUND));
+                                new Object[]{id},
+                                LocaleContextHolder.getLocale()),
+                        CategoryErrorCode.CATEGORY_NOT_FOUND));
 
         if(!existingCategory.name().equals(updateParentRequest.name()) || !existingCategory.slug().equals(updateParentRequest.slug())) {
-            boolean exists = this.categoryRepository.existsByNameOrSlugAndNotId(updateParentRequest.name(), updateParentRequest.slug(), id);
+            boolean exists = this.repository.existsByNameOrSlugAndNotId(updateParentRequest.name(), updateParentRequest.slug(), id);
             if (exists) {
                 throw new CategoryAlreadyExistsException(
                         messageSource.getMessage("error.category.category.with.duplicate.name.or.slug",
@@ -320,18 +456,17 @@ class CategoryService implements CategoryApi {
         }
 
         if(!existingCategory.catalogId().equals(catalogId)){
-           throw new CategoryNotBelongToCatalog(
+            throw new CategoryNotBelongToCatalog(
                     messageSource.getMessage("error.category.category.not.belong.to.catalog",
                             new Object[]{id},
                             LocaleContextHolder.getLocale()),
-                            CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
+                    CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
 
-        Category mappedCategory = this.categoryMapper.mapUpdateToCategory(updateParentRequest,existingCategory);
-        Category storedCategory = this.categoryRepository.save(mappedCategory);
+        Category mappedCategory = this.mapper.mapUpdateToCategory(updateParentRequest,existingCategory);
+        Category storedCategory = this.repository.save(mappedCategory);
         this.auditLogger.log("CATALOG_UPDATED", "CATALOG", "Catalog NAME: " + storedCategory.name());
 
-        this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
-        return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
+        return this.mapper.mapCategoryToResponse(this.repository.findById(storedCategory.id()).orElseThrow());
     }
 
     @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
@@ -347,7 +482,7 @@ class CategoryService implements CategoryApi {
                             LocaleContextHolder.getLocale()),
                     CatalogErrorCode.CATALOG_NOT_FOUND);}
 
-        Category existingCategory = this.categoryRepository.findById(id)
+        Category existingCategory = this.repository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
                                 new Object[]{id},
@@ -358,7 +493,7 @@ class CategoryService implements CategoryApi {
         String existingslug = patchParentRequest.slug();
 
         if(patchParentRequest.name() != null && !existingName.equals(patchParentRequest.name())) {
-            boolean exists = this.categoryRepository.existsByName(patchParentRequest.name());
+            boolean exists = this.repository.existsByName(patchParentRequest.name());
             if(exists) {
                 throw new CategoryAlreadyExistsException(
                         messageSource.getMessage("error.category.category.with.name.exists",
@@ -367,7 +502,7 @@ class CategoryService implements CategoryApi {
                         CategoryErrorCode.CATEGORY_ALREADY_EXISTS);}}
 
         if(patchParentRequest.slug() != null && !existingslug.equals(patchParentRequest.slug())) {
-            boolean exists = this.categoryRepository.existsBySlug(patchParentRequest.slug());
+            boolean exists = this.repository.existsBySlug(patchParentRequest.slug());
             if(exists) {
                 throw new CategoryAlreadyExistsException(
                         messageSource.getMessage("error.category.category.with.slug.exists",
@@ -383,17 +518,16 @@ class CategoryService implements CategoryApi {
                             LocaleContextHolder.getLocale()),
                     CategoryErrorCode.CATEGORY_NOT_BELONG_TO_CATALOG);}
 
-        Category mappedCategory = this.categoryMapper.mapPatchToCategory(patchParentRequest,existingCategory);
-        Category storedCategory = this.categoryRepository.save(mappedCategory);
+        Category mappedCategory = this.mapper.mapPatchToCategory(patchParentRequest,existingCategory);
+        Category storedCategory = this.repository.save(mappedCategory);
         this.auditLogger.log("CATALOG_UPDATED", "CATALOG", "Catalog NAME: " + storedCategory.name());
 
-        this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
-        return this.categoryMapper.mapCategoryToResponse(this.categoryRepository.findById(storedCategory.id()).orElseThrow());
+        return this.mapper.mapCategoryToResponse(this.repository.findById(storedCategory.id()).orElseThrow());
     }
 
     @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public void delete(UUID id) {
-        Category category = this.categoryRepository.findById(id)
+        Category category = this.repository.findById(id)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
                                 new Object[]{id},
@@ -401,162 +535,67 @@ class CategoryService implements CategoryApi {
                         CategoryErrorCode.CATEGORY_NOT_FOUND));
         logger.info("Deleting exisiting category with id: {} and name: {}",category.id(),category.name());
 
-        List<Category> descendants = findDescendants(id);
+        List<Category> descendants = this.queryService.findDescendants(id);
         if(!descendants.isEmpty()){
             logger.info("Category {} has descendants",category.name());
             return;
         }
-        this.categoryRepository.delete(id);
-        this.categoryRepository.deleteById(id);
+        this.repository.delete(id);
+        this.repository.deleteById(id);
         this.deleteImage(id);
         logger.info("Deleting exisiting category with name: {}",category.name());
     }
 
-    CategoryResponse findById(UUID categoryId) {
-        logger.info("Looking up category by ID: {}",categoryId);
-        Category category = this.categoryRepository.findById(categoryId)
+    CategoryResponse activate(UUID categoryId) {
+        Category exsitingCategory = this.repository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
                                 new Object[]{categoryId},
-                                LocaleContextHolder.getLocale()),
-                                CategoryErrorCode.CATEGORY_NOT_FOUND));
-        return this.categoryMapper.mapCategoryToResponse(category);
-    }
-
-    CategoryResponse findByName(String name) {
-        logger.info("Looking up category by NAME: {}",name);
-        Category category = this.categoryRepository.findByName(name)
-                .orElseThrow(() ->  new CategoryNotFoundException(
-                        messageSource.getMessage("error.category.category.with.name.not.found",
-                                new Object[]{name},
-                                LocaleContextHolder.getLocale()),
-                                CategoryErrorCode.CATEGORY_NOT_FOUND));
-        return this.categoryMapper.mapCategoryToResponse(category);
-    }
-
-    CategoryResponse findBySlug(String slug) {
-        logger.info("Looking up category by SLUG: {}",slug);
-        Category category = this.categoryRepository.findBySlug(slug)
-                .orElseThrow(() ->  new CategoryNotFoundException(
-                        messageSource.getMessage("error.category.category.with.slug.not.found",
-                                new Object[]{slug},
-                                LocaleContextHolder.getLocale()),
-                                CategoryErrorCode.CATEGORY_NOT_FOUND));
-        return this.categoryMapper.mapCategoryToResponse(category);
-    }
-
-    @Cacheable(key = "#id" , value = "categories")
-    public CategoryDtoWithSubs findACategoryWithSubCategoriesById(UUID id) {
-        logger.info("Retriving a category and its children by ID: {}",id);
-        Category ancestor = this.categoryRepository.findById(id)
-                .orElseThrow(() -> new CategoryNotFoundException(
-                        messageSource.getMessage("error.category.category.with.id.not.found",
-                                new Object[]{id},
                                 LocaleContextHolder.getLocale()),
                         CategoryErrorCode.CATEGORY_NOT_FOUND));
-
-        List<Category> descendants = this.categoryRepository.findDescendants(id);
-
-        List<CategoryDtoWithSubs> descendantDto = descendants.stream()
-                .map(categoryMapper::toCategoryDtoWithSubs)
-                .toList();
-
-        this.auditLogger.log("CATEGORY_RETRIEVED", "CATEGORY", "Category NAME: "+ancestor.name());
-        return this.categoryMapper.toCategoryDtoWithSubs(ancestor, descendantDto);
-    }
-
-    Page<RootCategoryResponse> findAllRootCategories(int page, int size) {
-        logger.info("Retriving all root categories");
-        int offset = page * size;
-
-        List<Category> categories = this.categoryRepository.findAllRootCategories(size, offset);
-
-        if (categories.isEmpty()) {
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page, size), 0);
-        }
-
-        long total = this.categoryRepository.countRootCategories();
-
-        List<RootCategoryResponse> rootCategoryResponseList = this.categoryMapper.toRootCategoryResponseList(categories);
-
-        this.auditLogger.log("ROOT_CATEGORIES_RETRIEVED_ALL", "CATEGORY", "Category TOTAL: "+total);
-        return new PageImpl<>(
-                rootCategoryResponseList,
-                PageRequest.of(page,size),
-                total
-        );
-    }
-
-    CategoryResponse activate(UUID categoryId) {
-        Category exsitingCategory = this.categoryRepository.findById(categoryId)
-                .orElseThrow(() ->  new CategoryNotFoundException(
-                        messageSource.getMessage("error.category.category.with.id.not.found",
-                                new Object[]{categoryId},
-                                LocaleContextHolder.getLocale()),
-                                CategoryErrorCode.CATEGORY_NOT_FOUND));
         logger.info("Activate a category by ID: {} and Name: {}",categoryId,exsitingCategory.name());
 
         if(exsitingCategory.categoryStatus() == CategoryStatus.INACTIVE) {
-            Category activatedCategory = this.categoryMapper.toActivate(exsitingCategory);
-            Category storedCategory = this.categoryRepository.save(activatedCategory);
+            Category activatedCategory = this.mapper.toActivate(exsitingCategory);
+            Category storedCategory = this.repository.save(activatedCategory);
             this.auditLogger.log("CATEGORY_ACTIVATED", "CATEGORY", "Category NAME: "+exsitingCategory.name());
 
-            this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
-            return this.categoryMapper.mapCategoryToResponse(storedCategory);
+            return this.mapper.mapCategoryToResponse(storedCategory);
         }
 
         throw new CategoryAlreadyActivatedException(
                 messageSource.getMessage("error.category.category.already.activated",
                         new Object[]{categoryId,exsitingCategory.name()},
                         LocaleContextHolder.getLocale()),
-                        CategoryErrorCode.CATEGORY_ALREADY_ACTIVATED);
+                CategoryErrorCode.CATEGORY_ALREADY_ACTIVATED);
     }
 
     CategoryResponse deactivate(UUID categoryId) {
         logger.info("Deactivate a category by ID: {}",categoryId);
-        Category exsitingCategory = this.categoryRepository.findById(categoryId)
+        Category exsitingCategory = this.repository.findById(categoryId)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
-                        new Object[]{categoryId},
-                        LocaleContextHolder.getLocale()),
+                                new Object[]{categoryId},
+                                LocaleContextHolder.getLocale()),
                         CategoryErrorCode.CATEGORY_NOT_FOUND));
         logger.info("Deactivate a category by ID: {} and NAME: {}",categoryId,exsitingCategory.name());
 
         if(exsitingCategory.categoryStatus() == CategoryStatus.ACTIVE) {
-            Category deactivatedCategory = this.categoryMapper.toDeactivate(exsitingCategory);
-            Category storedCategory = this.categoryRepository.save(deactivatedCategory);
+            Category deactivatedCategory = this.mapper.toDeactivate(exsitingCategory);
+            Category storedCategory = this.repository.save(deactivatedCategory);
             this.auditLogger.log("CATEGORY_DEACTIVATED", "CATEGORY", "Category NAME: "+exsitingCategory.name());
-            this.publisher.publishEvent(new UpdateCategoryEvent(storedCategory.id()));
-            return this.categoryMapper.mapCategoryToResponse(storedCategory);
+            return this.mapper.mapCategoryToResponse(storedCategory);
         }
 
         throw new CategoryAlreadyDeactivatedException(
                 messageSource.getMessage("error.category.category.already.deactivated",
                         new Object[]{categoryId,exsitingCategory.name()},
                         LocaleContextHolder.getLocale()),
-                        CategoryErrorCode.CATEGORY_ALREADY_DEACTIVATED);
-    }
-
-    List<Category> findDescendants(UUID id) {
-        findById(id);
-        List<Category> descendants = this.categoryRepository.findDescendants(id);
-        if(descendants.isEmpty()){
-            logger.info("Category {} has no descendants", id);
-        }
-        return descendants;
-    }
-
-    List<Category> findAncestors(UUID id) {
-        findById(id);
-        List<Category> ancestors = this.categoryRepository.findAncestors(id);
-        if(ancestors.isEmpty()){
-            logger.info("Category {} has no ancestors", id);
-        }
-        return ancestors;
+                CategoryErrorCode.CATEGORY_ALREADY_DEACTIVATED);
     }
 
     void activateOrDeactivateParentAndChildrenWithVersioning(UUID id, CategoryStatus status) {
-        Category category = this.categoryRepository.findById(id)
+        Category category = this.repository.findById(id)
                 .orElseThrow(() ->  new CategoryNotFoundException(
                         messageSource.getMessage("error.category.category.with.id.not.found",
                                 new Object[]{id},
@@ -580,45 +619,49 @@ class CategoryService implements CategoryApi {
 
     void deactivateParentAndChildrenWithVersioning(UUID categoryId){
         deactivate(categoryId);
-        List<Category> children = this.categoryRepository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
+        List<Category> children = this.repository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
 
         if (children.isEmpty()) {
             logger.info("Category {} has no descendants to deactivate", categoryId);
             return;
         }
 
-        List<Category> deactivatedChildren = this.categoryMapper.toDeactivateList(children);
-        this.categoryRepository.saveAll(deactivatedChildren);
+        List<Category> deactivatedChildren = this.mapper.toDeactivateList(children);
+        this.repository.saveAll(deactivatedChildren);
         this.auditLogger.log("CHILDREN_CATEGORY_DEACTIVATED", "CATEGORY", "Category ID: "+categoryId);
     }
 
     void activateParentAndChildrenWithVersioning(UUID categoryId){
         activate(categoryId);
-        List<Category> children = this.categoryRepository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
+        List<Category> children = this.repository.findDescendantsForActivationOrDeactivationWithVersioning(categoryId);
 
         if (children.isEmpty()) {
             logger.info("Category {} has no descendants to deactivate", categoryId);
             return;
         }
-        List<Category> deactivatedChildren = this.categoryMapper.toActivateList(children);
-        this.categoryRepository.saveAll(deactivatedChildren);
+        List<Category> deactivatedChildren = this.mapper.toActivateList(children);
+        this.repository.saveAll(deactivatedChildren);
         this.auditLogger.log("CHILDREN_CATEGORY_ACTIVATED", "CATEGORY", "Category ID: "+categoryId);
+    }
+
+    public boolean existsById(UUID categoryId){
+        return this.repository.existsById(categoryId);
     }
 
     void uploadImage(UUID categoryId, MultipartFile image) {
         logger.info("Uploading a new photo for a category with the ID {}",categoryId);
-        if(!this.categoryRepository.existsById(categoryId)){
+        if(!this.repository.existsById(categoryId)){
             throw new CategoryNotFoundException(
                     messageSource.getMessage("error.category.category.with.id.not.found",
                             new Object[]{categoryId},
                             LocaleContextHolder.getLocale()),
                     CategoryErrorCode.CATEGORY_NOT_FOUND);}
 
-        Path imageBasePath = this.categoryImageUploadService.createMainDirectoryIfNotExists(categoryId,properties.getCategoryImagePath());
-        byte[] file = this.categoryImageUploadService.preloadImage(image);
+        Path imageBasePath = this.imageUploadService.createMainDirectoryIfNotExists(categoryId,properties.getCategoryImagePath());
+        byte[] file = this.imageUploadService.preloadImage(image);
         String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
 
-        this.categoryImageUploadService.storeImagesIntoFileSystemAsync(categoryId,file,imageBasePath,baseUrl);
+        this.imageUploadService.storeImagesIntoFileSystemAsync(categoryId,file,imageBasePath,baseUrl);
     }
 
     private void deleteImage(UUID id) {
@@ -637,24 +680,15 @@ class CategoryService implements CategoryApi {
     <T> void validateDuplicatesByNameAndSlug(T request,Function<T,String> nameParam,Function<T,String> slugParam){
         String name = nameParam.apply(request);
         String slug = slugParam.apply(request);
-        boolean existsByName = this.categoryRepository.existsByName(name);
-        boolean existsBySlug = this.categoryRepository.existsBySlug(slug);
+        boolean existsByName = this.repository.existsByName(name);
+        boolean existsBySlug = this.repository.existsBySlug(slug);
         if(existsByName || existsBySlug) {
             throw new CategoryAlreadyExistsException(
                     messageSource.getMessage("error.category.category.with.duplicate.name.or.slug",
                             new Object[]{name, slug},
                             LocaleContextHolder.getLocale()),
-                            CategoryErrorCode.CATEGORY_ALREADY_EXISTS);
+                    CategoryErrorCode.CATEGORY_ALREADY_EXISTS);
         }
-    }
-
-    @Cacheable(key = "'rootCategoryCount'",value = "categories")
-    public long countRootCategories() {
-        return this.categoryRepository.countRootCategories();
-    }
-
-    public boolean existsById(UUID categoryId){
-        return this.categoryRepository.existsById(categoryId);
     }
 
 }
@@ -756,30 +790,27 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     Optional<Category> findBySlug(String slug);
 
     @Query("""
-        SELECT
-        c.id,
-        c.name,
-        c.slug,
-        c.description,
-        c.category_status,
-        c.created_at,
-        c.updated_at,
-        c.image_url
+          SELECT id,name FROM categories
+          LEFT JOIN category_closure cc ON cc.child_id = id AND cc.depth = 1
+          WHERE catalog_id = :catalogId AND category_status = 'ACTIVE' AND cc.parent_id is NULL
+          order by created_at
+    """)
+    List<Category> findActiveRootCategoriesByCatalogId(@Param("catalogId") UUID id);
+
+    @Query("""
+        SELECT c.id, c.name,c.slug,c.description,
+        c.category_status,c.created_at,c.updated_at, c.image_url
         FROM categories c
         WHERE NOT EXISTS (
-        SELECT 1
-        FROM category_closure cc
-        WHERE cc.child_id = c.id
-        AND cc.depth = 1
-        )
+        SELECT 1 FROM category_closure cc WHERE cc.child_id = c.id AND cc.depth = 1 )
         ORDER BY c.created_at LIMIT :size OFFSET :offset
     """)
     List<Category> findAllRootCategories(int size,int offset);
 
     @Query("""
          SELECT c.* FROM categories c
-                 JOIN category_closure cc ON cc.child_id = c.id
-                 WHERE cc.parent_id = :parentId AND cc.depth = 1 order by created_at
+         JOIN category_closure cc ON cc.child_id = c.id
+          WHERE cc.parent_id = :parentId AND cc.depth = 1 order by created_at
     """)
     List<Category> findDescendants(@Param("parentId") UUID id);
 
@@ -896,6 +927,7 @@ record AddChildRequest(
 
 record UpdateCategoryStatusRequest(CategoryStatus categoryStatus) {}
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 record CategoryResponse(
         String id,
         String name,
@@ -936,6 +968,12 @@ record CategoryDtoWithSubs (
         String imageUrl,
         UUID catalogId,
         List<CategoryDtoWithSubs> subCategories
+) {}
+
+record CategoryApiResponse<T>(
+        boolean success,
+        String message,
+        T data
 ) {}
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
@@ -995,6 +1033,8 @@ interface CategoryMapper {
     RootCategoryResponse toRootCategoryResponse(Category category);
 
     List<RootCategoryResponse> toRootCategoryResponseList(List<Category> list);
+
+    List<CategoryResponse> mapListToListOfResponse(Iterable<Category> categories);
 
     @Mapping(target = "id", source = "id")
     @Mapping(target = "name", source = "name")

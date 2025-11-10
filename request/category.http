@@ -48,6 +48,10 @@ Content-Type: application/json
 DELETE http://localhost:8080/api/categories/5a84aa6f-fdb4-4dbd-ae11-c67adfcf0c90
 Content-Type: application/json
 
+### get exisiting categories by catalogId
+GET http://localhost:8080/api/categories/59501b01-64c4-4f4b-a817-9b4915c22715/catalog
+Content-Type: application/json
+
 ### get an exisiting category by id
 GET http://localhost:8080/api/categories/3d009975-4a7d-4b99-ac2a-ba6b653a6d6a
 Content-Type: application/json
