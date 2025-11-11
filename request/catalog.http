@@ -48,6 +48,10 @@ Content-Type: application/json
 GET http://localhost:8080/api/catalogs
 Content-Type: application/json
 
+### get all catalogs ordered
+GET http://localhost:8080/api/catalogs/ordered
+Content-Type: application/json
+
 ### get a catalog with its root categories by id
 GET http://localhost:8080/api/catalogs/59501b01-64c4-4f4b-a817-9b4915c22715/with-root-categories
 Content-Type: application/json

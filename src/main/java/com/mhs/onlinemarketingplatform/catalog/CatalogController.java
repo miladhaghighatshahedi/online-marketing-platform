@@ -15,13 +15,12 @@
  */
 package com.mhs.onlinemarketingplatform.catalog;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.catalog.config.ImagePathProperties;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogErrorCode;
 import com.mhs.onlinemarketingplatform.catalog.error.CatalogNotFoundException;
-import com.mhs.onlinemarketingplatform.catalog.event.AddCatalogEvent;
-import com.mhs.onlinemarketingplatform.catalog.event.UpdateCatalogEvent;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
 import jakarta.validation.constraints.NotNull;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
@@ -31,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.context.event.EventListener;
@@ -85,39 +85,45 @@ class CatalogController {
 	}
 
 	@PostMapping("/api/catalogs")
-	ResponseEntity<CatalogResponse> add(@RequestBody AddCatalogRequest addCatalogRequest) {
-		return ResponseEntity.ok(this.catalogService.add(addCatalogRequest));
+	ResponseEntity<CatalogApiResponse<CatalogResponse>> add(@RequestBody AddCatalogRequest addCatalogRequest) {
+		CatalogResponse addedCatalog = this.catalogService.add(addCatalogRequest);
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalog saved successfully!",addedCatalog));
 	}
 
 	@PutMapping("/api/catalogs")
-	ResponseEntity<CatalogResponse> update(@RequestBody UpdateCatalogRequest updateCatalogRequest) {
-		return ResponseEntity.ok(this.catalogService.update(updateCatalogRequest));
+	ResponseEntity<CatalogApiResponse<CatalogResponse>> update(@RequestBody UpdateCatalogRequest updateCatalogRequest) {
+		CatalogResponse updatedCatalog = this.catalogService.update(updateCatalogRequest);
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalog updated successfully!",updatedCatalog));
 	}
 
 	@PatchMapping("/api/catalogs")
-	ResponseEntity<CatalogResponse> patch(@RequestBody PatchCatalogRequest patchCatalogRequest) {
-		return ResponseEntity.ok(this.catalogService.patch(patchCatalogRequest));
+	ResponseEntity<CatalogApiResponse<CatalogResponse>> patch(@RequestBody PatchCatalogRequest patchCatalogRequest) {
+		CatalogResponse patchedCatalog = this.catalogService.patch(patchCatalogRequest);
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalog patched successfully!",patchedCatalog));
 	}
 
 	@DeleteMapping("/api/catalogs/{id}")
 	ResponseEntity<?> delete(@PathVariable("id") UUID id) {
 		this.catalogService.delete(id);
-		return ResponseEntity.noContent().build();
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalog deleted successfully!",null));
 	}
 
 	@GetMapping("/api/catalogs/{id}")
-	ResponseEntity<CatalogResponse> findById(@PathVariable("id") UUID id) {
-		return ResponseEntity.ok(this.catalogService.findById(id));
+	ResponseEntity<CatalogApiResponse<CatalogResponse>> findById(@PathVariable("id") UUID id) {
+		CatalogResponse foundCatalog = this.catalogService.findById(id);
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalog found successfully!",foundCatalog));
 	}
 
 	@GetMapping(value = "/api/catalogs",params = "name")
-	ResponseEntity<CatalogResponse> findByName(@RequestParam("name") String name) {
-		return ResponseEntity.ok(this.catalogService.findByName(name));
+	ResponseEntity<CatalogApiResponse<CatalogResponse>> findByName(@RequestParam("name") String name) {
+		CatalogResponse foundCatalog = this.catalogService.findByName(name);
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalog found successfully!",foundCatalog));
 	}
 
 	@GetMapping(value = "/api/catalogs",params = "slug")
-	ResponseEntity<CatalogResponse> findBySlug(@RequestParam("slug") String slug) {
-		return ResponseEntity.ok(this.catalogService.findBySlug(slug));
+	ResponseEntity<CatalogApiResponse<CatalogResponse>> findBySlug(@RequestParam("slug") String slug) {
+		CatalogResponse foundCatalog = this.catalogService.findBySlug(slug);
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalog found successfully!",foundCatalog));
 	}
 
 	@GetMapping("/api/catalogs/{id}/with-root-categories")
@@ -126,6 +132,12 @@ class CatalogController {
 	}
 
 	@GetMapping("/api/catalogs")
+	ResponseEntity<CatalogApiResponse<List<CatalogResponse>>> findAll() {
+		List<CatalogResponse> foundCatalogs = this.catalogService.findAll();
+		return ResponseEntity.ok(new CatalogApiResponse<>(true,"Catalogs found successfully!",foundCatalogs));
+	}
+
+	@GetMapping("/api/catalogs/ordered")
 	CatalogPagedResponse<CatalogResponse> findAllOrderByCreatedAt(@PageableDefault(size = 6) Pageable pageable) {
 		return this.catalogService.findAllOrderByCreatedAt(pageable);
 	}
@@ -152,7 +164,6 @@ class CatalogService {
 
 	private final CatalogRepository catalogRepository;
 	private final CatalogMapper catalogMapper;
-	private final ApplicationEventPublisher publisher;
 	private final MessageSource messageSource;
 	private final ImagePathProperties imagePathProperties;
 	private final CatalogImageUploadService catalogImageUploadService;
@@ -161,20 +172,23 @@ class CatalogService {
 			AuditLogger auditLogger,
 			CatalogRepository catalogRepository,
 			CatalogMapper catalogMapper,
-			ApplicationEventPublisher publisher,
 			MessageSource messageSource,
 			ImagePathProperties imagePathProperties,
 			CatalogImageUploadService catalogImageUploadService) {
 		this.auditLogger = auditLogger;
 		this.catalogRepository = catalogRepository;
 		this.catalogMapper = catalogMapper;
-		this.publisher = publisher;
 		this.messageSource = messageSource;
 		this.imagePathProperties = imagePathProperties;
 		this.catalogImageUploadService = catalogImageUploadService;
 	}
 
-	@CacheEvict(value = "catalogsPage", allEntries = true)
+
+	@Caching(evict = {
+			@CacheEvict(value = "catalogsPage", allEntries = true), @CacheEvict(value = "catalog", allEntries = true),
+			@CacheEvict(value = "catalog-name", allEntries = true), @CacheEvict(value = "catalog-slug", allEntries = true),
+			@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "catalogsPage", allEntries = true)
+	})
 	public CatalogResponse add(AddCatalogRequest addCatalogRequest) {
 		logger.info("Creating new catalog with name: {}",addCatalogRequest.name());
 
@@ -192,11 +206,15 @@ class CatalogService {
 		Catalog mappedCatalog = this.catalogMapper.mapAddRequestToCatalog(addCatalogRequest);
 		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
 		this.auditLogger.log("CATALOG_CREATED", "CATALOG", "Catalog ID: " + storedCatalog.id());
-		this.publisher.publishEvent(new AddCatalogEvent(storedCatalog.id()));
+
 		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
 	}
 
-	@CacheEvict(value = "catalogsPage", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "catalogsPage", allEntries = true), @CacheEvict(value = "catalog", allEntries = true),
+			@CacheEvict(value = "catalog-name", allEntries = true), @CacheEvict(value = "catalog-slug", allEntries = true),
+			@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "catalogsPage", allEntries = true)
+	})
 	public CatalogResponse update(UpdateCatalogRequest updateCatalogRequest) {
 		logger.info("Updating exisiting catalog with name: {}", updateCatalogRequest.name());
 		UUID id = UUID.fromString(updateCatalogRequest.id());
@@ -223,12 +241,15 @@ class CatalogService {
 		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
 		this.auditLogger.log("CATEGORY_UPDATED", "CATEGORY", "Category NAME: " + storedCatalog.name());
 
-		this.publisher.publishEvent(new UpdateCatalogEvent(storedCatalog.id()));
 		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
 
 	}
 
-	@CacheEvict(value = "catalogsPage", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "catalogsPage", allEntries = true), @CacheEvict(value = "catalog", allEntries = true),
+			@CacheEvict(value = "catalog-name", allEntries = true), @CacheEvict(value = "catalog-slug", allEntries = true),
+			@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "catalogsPage", allEntries = true)
+	})
 	public CatalogResponse patch(PatchCatalogRequest patchCatalogRequest) {
 		logger.info("Patching exisiting catalog with name: {}",patchCatalogRequest.name());
 		UUID id = UUID.fromString(patchCatalogRequest.id());
@@ -266,11 +287,14 @@ class CatalogService {
 		Catalog storedCatalog = this.catalogRepository.save(mappedCatalog);
 		this.auditLogger.log("CATEGORY_UPDATED", "CATEGORY", "Category NAME: " + storedCatalog.name());
 
-		this.publisher.publishEvent(new UpdateCatalogEvent(storedCatalog.id()));
 		return this.catalogMapper.mapCatalogToResponse(storedCatalog);
 	}
 
-	@CacheEvict(value = "catalogsPage", allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = "catalogsPage", allEntries = true), @CacheEvict(value = "catalog", allEntries = true),
+			@CacheEvict(value = "catalog-name", allEntries = true), @CacheEvict(value = "catalog-slug", allEntries = true),
+			@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "catalogsPage", allEntries = true)
+	})
 	public void delete(UUID id) {
 		Catalog catalog = this.catalogRepository.findById(id)
 				.orElseThrow(() -> new CatalogNotFoundException(
@@ -323,6 +347,13 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToResponse(catalog);
 	}
 
+	@Cacheable(value = "catalogs")
+	public List<CatalogResponse> findAll() {
+		logger.info("Retriving all catalogs ");
+		List<Catalog> exisitingCatalogs = this.catalogRepository.findAll();
+		return this.catalogMapper.mapListToListOfResponse(exisitingCatalogs);
+	}
+
 	@Cacheable(key = "#id",value = "catalogs")
 	public CatalogDto findACatalogWithRootCategoriesById(UUID id) {
 		logger.info("Retriving a catalog and its children by ID: {}",id);
@@ -354,7 +385,6 @@ class CatalogService {
 		return this.catalogMapper.mapCatalogToPagedResponse(catalogs);
 	}
 
-	@CacheEvict(value = "catalogsPage", allEntries = true)
 	public void uploadImage(UUID catalogId, MultipartFile image) {
 		logger.info("Uploading a new photo for a catalog with the ID {}",catalogId);
 		 if(!this.catalogRepository.existsById(catalogId)) {
@@ -482,6 +512,9 @@ class CatalogImageUploadService {
 @Repository("catalogRepository")
 interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
 
+	@Query("SELECT id,name FROM catalogs ORDER BY created_at")
+	List<Catalog> findAll();
+
 	Optional<Catalog> findById(UUID id);
 
 	Optional<Catalog> findBySlug(String slug);
@@ -493,7 +526,7 @@ interface CatalogRepository extends ListCrudRepository<Catalog, UUID> {
 	boolean existsBySlug(@Param("slug") String slug);
 
 	@Query("""
-			SELECT COUNT(*) > 0 FROM Catalogs c
+			SELECT COUNT(*) > 0 FROM catalogs c
 			 WHERE (c.name = :name OR c.slug = :slug) AND c.id <> :id
 			 """)
 	boolean existsByNameOrSlugAndNotId(@Param("name") String name, @Param("slug") String slug, @Param("id") UUID id);
@@ -558,6 +591,7 @@ record PatchCatalogRequest(
 		String description,
 		String slug) {}
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 record CatalogResponse(
 		String id,
 		String name,
@@ -611,6 +645,12 @@ record CatalogWithRootCategory(
 		String category_status,
 		LocalDateTime category_created_at,
 		String category_image_url
+) {}
+
+record CatalogApiResponse<T>(
+		boolean response,
+		String message,
+		T data
 ) {}
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
@@ -677,6 +717,8 @@ interface CatalogMapper {
 	@Mapping(target = "imageUrl", source = "category_image_url")
 	@Mapping(target = "catalogId", source = "catalog_id")
 	CategoryDto mapToCategoryDto(CatalogWithRootCategory row);
+
+	List<CatalogResponse> mapListToListOfResponse(Iterable<Catalog> catalogs);
 
 }
 
