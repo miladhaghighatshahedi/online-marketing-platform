@@ -77,11 +77,11 @@ PUT http://localhost:8080/api/categories/cc4f6e4f-ebda-42d0-ad62-c12dcddcf0d2/de
 Content-Type: application/json
 
 ### get all ancestors categories
-GET http://localhost:8080/api/categories/ancestors/78710ae4-cb8d-4756-a403-faa7794ce511
+GET http://localhost:8080/api/categories/parents/78710ae4-cb8d-4756-a403-faa7794ce511
 Content-Type: application/json
 
 ### get all descendants categories
-GET http://localhost:8080/api/categories/descendants/79e784ec-b22d-456c-807f-300a21bffc2f
+GET http://localhost:8080/api/categories/children/3ec82e85-da8c-4126-be36-aa4b1b157258
 Content-Type: application/json
 
 ### activate or deactivate with versioning (ACTIVE || INACTIVE)

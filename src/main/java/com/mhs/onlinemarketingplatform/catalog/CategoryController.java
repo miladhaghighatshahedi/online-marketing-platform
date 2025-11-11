@@ -166,6 +166,18 @@ class CategoryController {
         return this.queryService.findAllRootCategories(page,size);
     }
 
+    @GetMapping("/api/categories/parents/{id}")
+    ResponseEntity<CategoryApiResponse<List<CategoryResponse>>> findAllParents(@PathVariable("id") UUID id) {
+        List<CategoryResponse> parents = this.queryService.findParents(id);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Parent categories found successfuly!",parents));
+    }
+
+    @GetMapping("/api/categories/children/{id}")
+    ResponseEntity<CategoryApiResponse<List<CategoryResponse>>>findAllChildren(@PathVariable("id") UUID id) {
+        List<CategoryResponse> childCategories = this.queryService.findChildren(id);
+        return ResponseEntity.ok(new CategoryApiResponse<>(true,"Chil categories found successfuly!",childCategories));
+    }
+
     @GetMapping("/api/categories/{catalogId}/catalog")
     ResponseEntity<CategoryApiResponse<List<CategoryResponse>>> findActiveRootCategoriesByCatalogId(@PathVariable("catalogId") UUID catalogId) {
         List<CategoryResponse> foundCategories = this.queryService.findActiveRootCategoriesByCatalogId(catalogId);
@@ -317,6 +329,34 @@ class CategoryQueryService {
             logger.info("Category {} has no ancestors", id);
         }
         return ancestors;
+    }
+
+    List<CategoryResponse> findChildren(UUID id) {
+        if(!this.repository.existsById(id)) {
+            throw new CategoryNotFoundException(
+                    messageSource.getMessage("error.category.category.with.id.not.found",
+                            new Object[]{id},
+                            LocaleContextHolder.getLocale()),
+                    CategoryErrorCode.CATEGORY_NOT_FOUND);}
+        List<Category> children = this.repository.findChildren(id);
+        if(children.isEmpty()){
+            logger.info("Category {} has no descendants", id);
+        }
+        return this.mapper.mapListToListOfResponse(children);
+    }
+
+    List<CategoryResponse> findParents(UUID id) {
+        if(!this.repository.existsById(id)) {
+            throw new CategoryNotFoundException(
+                    messageSource.getMessage("error.category.category.with.id.not.found",
+                            new Object[]{id},
+                            LocaleContextHolder.getLocale()),
+                    CategoryErrorCode.CATEGORY_NOT_FOUND);}
+        List<Category> parents = this.repository.findParents(id);
+        if(parents.isEmpty()){
+            logger.info("Category {} has no ancestors", id);
+        }
+        return this.mapper.mapListToListOfResponse(parents);
     }
 
     @Cacheable(key = "'rootCategoryCount'",value = "categories")
@@ -822,6 +862,22 @@ interface CategoryRepository extends CrudRepository<Category, UUID>{
     """)
     List<Category> findAncestors(@Param("childId") UUID id);
 
+
+    @Query("""
+         SELECT id,name FROM categories c
+         JOIN category_closure cc ON cc.child_id = c.id
+          WHERE cc.parent_id = :parentId AND cc.depth = 1 order by created_at
+    """)
+    List<Category> findChildren(@Param("parentId") UUID id);
+
+    @Query("""
+      SELECT id,name FROM categories c
+                JOIN category_closure cc ON cc.parent_id = c.id
+                WHERE cc.child_id = :childId AND cc.depth > 0
+                ORDER BY cc.depth
+    """)
+    List<Category> findParents(@Param("childId") UUID id);
+
     @Query("SELECT c.* FROM categories c WHERE c.id IN (SELECT cc.child_id FROM category_closure cc WHERE cc.parent_id = :id)")
     List<Category> findDescendantsForActivationOrDeactivationWithVersioning(@Param("id") UUID id);
 
@@ -1109,6 +1165,7 @@ class UpdateCategoryImageUrlEventHandler {
 
     @Transactional
     @EventListener
+    @Caching(evict = {@CacheEvict(value = "catalogs", allEntries = true), @CacheEvict(value = "categories", allEntries = true)})
     public void handleImageStored(UpdateCategoryImageUrlEvent event) {
         Category category = this.categoryRepository.findById(event.id())
                 .orElseThrow(() ->  new CategoryNotFoundException(
