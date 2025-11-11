@@ -342,7 +342,7 @@ interface CityRepository extends CrudRepository<City,UUID> {
 	@Query("SELECT CASE WHEN COUNT(1) > 0  THEN TRUE ELSE FALSE END FROM cities WHERE name= :name AND province_id= :provinceId")
 	boolean existsByNameAndProvinceId(@Param("name") String name,@Param("provinceId") UUID provinceId);
 
-	@Query("SELECT CASE WHEN COUNT(1) > 1 THEN TRUE ELSE FALSE END FROM cities WHERE id = :iD")
+	@Query("SELECT CASE WHEN COUNT(1) > 0 THEN TRUE ELSE FALSE END FROM cities WHERE id = :id")
 	boolean existsById(@Param("id") UUID id);
 
 	@Query("SELECT name FROM cities WHERE id= :id")
