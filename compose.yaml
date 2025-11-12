@@ -38,14 +38,14 @@ services:
   # NEW: Your React Frontend Service
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+     context: ./frontend
+     dockerfile: Dockerfile
     container_name: frontend
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app/frontend
-      - /app/frontend/node_modules
+      - ./frontend:/app
+      - /app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
     extra_hosts:

@@ -1,16 +1,23 @@
 ###
-POST http://localhost:8080/api/me/advertisements/a912dd5f-39a0-445e-92ac-25b5f64b3683
+POST http://localhost:8080/api/me/advertisements
 Content-Type: application/json
 
 {
-  "title": "test",
-  "description": "test",
+  "title": "new car",
+  "description": "noting",
   "price": "5000000",
-  "type": "",
-  "attributes": "",
-  "locationId": "",
-  "categoryId": "",
-  "ownerId": ""
+  "type": "Car",
+  "attributes": {
+    "color": "red",
+    "year": "2018",
+    "mileage": "100000"
+    },
+  "provinceId": "019a53c4-7578-7a8e-8f86-70795f59e1d0",
+  "cityId": "019a62f7-8b00-795a-a872-381aa0e3d901",
+  "latitude": "35.680272",
+  "longitude": "51.398151",
+  "categoryId": "79e784ec-b22d-456c-807f-300a21bffc2f",
+  "ownerId": "79e784ec-b22d-456c-807f-300a66bffc2f"
 }
 
 ###

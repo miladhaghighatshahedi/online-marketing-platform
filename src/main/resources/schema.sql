@@ -36,7 +36,7 @@ create table if not exists categories
     id              uuid primary key    not null,
     version         integer             not null,
     name            VARCHAR(150)        not null,
-    typedescription text,
+    description     text                not null,
     created_at      timestamp           not null,
     updated_at      timestamp,
     category_status varchar(50)         not null,
@@ -53,19 +53,19 @@ create table if not exists category_closure
     primary key (parent_id,child_id)
 );
 
+create table if not exists provinces
+(
+    id      uuid primary key not null,
+    version int              not null,
+    name    varchar(100)     not null
+);
+
 create table if not exists cities
 (
     id          uuid primary key not null,
     version     int              not null,
     name        varchar(100)     not null,
     province_id uuid             not null references provinces (id)
-);
-
-create table if not exists provinces
-(
-    id      uuid primary key not null,
-    version int              not null,
-    name    varchar(100)     not null
 );
 
 create table if not exists locations
@@ -76,17 +76,6 @@ create table if not exists locations
     longitude   decimal(9, 6)    not null,
     province_id uuid             not null references provinces (id),
     city_id     uuid             not null references cities (id)
-);
-
-create table if not exists advertisement_image_metadata
-(
-    id               uuid primary key not null,
-    version          integer          not null,
-    url              varchar(100),
-    is_main          boolean          not null,
-    status           varchar(50)      not null,
-    inserted_at      timestamp        not null,
-    advertisement_id uuid             not null REFERENCES advertisements (id)
 );
 
 create table if not exists advertisements
@@ -104,6 +93,17 @@ create table if not exists advertisements
     location_id          uuid             not null REFERENCES locations (id),
     category_id          uuid             not null REFERENCES categories (id),
     owner_id             uuid             not null REFERENCES credentials (id)
+);
+
+create table if not exists advertisement_image_metadata
+(
+    id               uuid primary key not null,
+    version          integer          not null,
+    url              varchar(100),
+    is_main          boolean          not null,
+    status           varchar(50)      not null,
+    inserted_at      timestamp        not null,
+    advertisement_id uuid             not null REFERENCES advertisements (id)
 );
 
 
