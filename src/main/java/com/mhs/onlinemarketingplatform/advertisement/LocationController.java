@@ -59,24 +59,27 @@ class LocationController {
 	}
 
 	@PostMapping("/api/location")
-	ResponseEntity<LocationResponse> add(@RequestBody AddLocationRequest addLocationRequest) {
-		return ResponseEntity.ok(this.locationService.add(addLocationRequest));
+	ResponseEntity<LocationApiResponse<LocationResponse>> add(@RequestBody AddLocationRequest addLocationRequest) {
+		LocationResponse addedLocation = this.locationService.add(addLocationRequest);
+		return ResponseEntity.ok(new LocationApiResponse<>(true,"Location added successfully",addedLocation));
 	}
 
 	@PutMapping("/api/location")
-	ResponseEntity<LocationResponse> update(@RequestBody UpdateLocationRequest updateLocationRequest) {
-		return ResponseEntity.ok(this.locationService.update(updateLocationRequest));
+	ResponseEntity<LocationApiResponse<LocationResponse>> update(@RequestBody UpdateLocationRequest updateLocationRequest) {
+		LocationResponse updatedLocation = this.locationService.update(updateLocationRequest);
+		return ResponseEntity.ok(new LocationApiResponse<>(true,"Location updated successfully",updatedLocation));
 	}
 
 	@DeleteMapping("/api/location/{id}")
 	ResponseEntity<?> delete(@PathVariable("id") UUID id) {
 		this.locationService.delete(id);
-		return ResponseEntity.noContent().build();
+		return ResponseEntity.ok(new LocationApiResponse<>(true,"Location deleted successfully",null));
 	}
 
 	@GetMapping("/api/location/{id}")
-	ResponseEntity<LocationResponse> findById(@PathVariable("id") UUID id) {
-		return ResponseEntity.ok(this.locationService.getLocationById(id));
+	ResponseEntity<LocationApiResponse<LocationResponse>> findById(@PathVariable("id") UUID id) {
+		LocationResponse foundLocation = this.locationService.getLocationById(id);
+		return ResponseEntity.ok(new LocationApiResponse<>(true,"Location found successfully",foundLocation));
 	}
 
 }
@@ -122,7 +125,7 @@ class LocationService {
 		if(!this.cityApi.existsById(addLocationRequest.cityId())) {
 			throw new LocationCityNotFoundException(
 					messageSource.getMessage("error.location.city.with.id.not.found",
-							new Object[]{addLocationRequest.provinceId()},
+							new Object[]{addLocationRequest.cityId()},
 							LocaleContextHolder.getLocale()),
 					LocationErrorCode.CITY_NOT_FOUND);
 		}
@@ -209,7 +212,6 @@ class LocationService {
 
 @Repository
 interface LocationRepository extends CrudRepository<Location,UUID> {
-	Optional<Location> findByCityId(UUID cityId);
 }
 
 @Table("locations")
@@ -243,6 +245,12 @@ record LocationResponse(
 	String provinceName,
 	String cityName
 ){}
+
+record LocationApiResponse<T>(
+	boolean success,
+	String message,
+	T data
+) {}
 
 @Mapper( componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class})
 interface LocationMapper {
