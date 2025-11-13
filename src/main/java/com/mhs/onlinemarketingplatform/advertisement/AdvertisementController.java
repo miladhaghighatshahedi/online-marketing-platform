@@ -16,10 +16,10 @@
 package com.mhs.onlinemarketingplatform.advertisement;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.mhs.onlinemarketingplatform.advertisement.dto.AdvertisementAttributes;
 import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.*;
 import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryNotFoundException;
 import com.mhs.onlinemarketingplatform.catalog.api.CategoryApi;
-import com.mhs.onlinemarketingplatform.advertisement.event.AddAdvertisementEvent;
 import com.mhs.onlinemarketingplatform.advertisement.event.UpdateAdvertisementEvent;
 import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryErrorCode;
 import com.mhs.onlinemarketingplatform.common.AuditLogger;
@@ -37,11 +37,13 @@ import org.springframework.data.annotation.Version;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jdbc.repository.query.Query;
+import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
@@ -129,7 +131,8 @@ class AdvertisementService {
 	private static final Logger logger = LoggerFactory.getLogger(AdvertisementService.class);
 	private final AuditLogger auditLogger;
 
-	private final advertisementRepository advertisementRepository;
+	private final AdvertisementRepository advertisementRepository;
+	private final LocationService locationService;
 	private final CategoryApi categoryApi;
 	private final AdvertisementMapper mapper;
 	private final ApplicationEventPublisher publisher;
@@ -137,13 +140,15 @@ class AdvertisementService {
 
 	AdvertisementService(
 			AuditLogger auditLogger,
-			advertisementRepository advertisementRepository,
+			AdvertisementRepository advertisementRepository,
+			LocationService locationService,
 			CategoryApi categoryApi,
 			AdvertisementMapper mapper,
 			ApplicationEventPublisher publisher,
 			MessageSource messageSource) {
 		this.auditLogger = auditLogger;
 		this.advertisementRepository = advertisementRepository;
+		this.locationService = locationService;
 		this.categoryApi = categoryApi;
 		this.mapper = mapper;
 		this.publisher = publisher;
@@ -169,13 +174,21 @@ class AdvertisementService {
 					CategoryErrorCode.CATEGORY_NOT_FOUND);
 		}
 
-		Advertisement mappedAdvertisement = this.mapper.mapAddRequestToAdvertisement(addAdvertisementRequest);
+		Double longitude = addAdvertisementRequest.longitude();
+		Double latitude = addAdvertisementRequest.latitude();
+		UUID cityId = addAdvertisementRequest.cityId();
+		UUID provinceId = addAdvertisementRequest.provinceId();
+
+		AddLocationRequest addLocationRequest = new AddLocationRequest(latitude, longitude, provinceId, cityId);
+		LocationResponse addedLocation = this.locationService.add(addLocationRequest);
+
+		Advertisement mappedAdvertisement = this.mapper.mapAddRequestToAdvertisement(addAdvertisementRequest,addedLocation.id());
+
 		Advertisement storedAdvertisement = this.advertisementRepository.save(mappedAdvertisement);
-
 		this.auditLogger.log("ADVERTISEMENT_CREATED", "ADVERTISEMENT", "Advertisement ID: " + storedAdvertisement.id());
-		this.publisher.publishEvent(new AddAdvertisementEvent(storedAdvertisement.id()));
+//		this.publisher.publishEvent(new AddAdvertisementEvent(storedAdvertisement.id()));
 
-		return this.mapper.mapAdvertisementToResponse(storedAdvertisement);
+		return this.mapper.mapAdvertisementToResponse(null);
 	}
 
 	AdvertisementResponse updateByOwner(UpdateAdvertisementRequest updateAdvertisementRequest, UUID ownerId) {
@@ -308,7 +321,7 @@ class AdvertisementService {
 }
 
 @Repository
-interface advertisementRepository extends ListCrudRepository<Advertisement, UUID> {
+interface AdvertisementRepository extends ListCrudRepository<Advertisement, UUID> {
 
 	Optional<Advertisement> findById(UUID id);
 
@@ -342,7 +355,7 @@ record Advertisement(
 		BigDecimal price,
 		AdvertisementType advertisementType,
 		AdvertisementStatus advertisementStatus,
-		Map<String,Object> attributes,
+		@Column("attributes") AdvertisementAttributes attributes,
 		LocalDateTime insertedAt,
 		LocalDateTime updatedAt,
 		UUID locationId,
@@ -352,8 +365,9 @@ record Advertisement(
 enum AdvertisementType {
 
 	CARS("CARS"),
-	APARTEMENTS("APARTEMENTS"),
-	MOBILES("MOBILES");
+	REALESTATES("REALESTATES"),
+	MOBILES("MOBILES"),
+	OTHER("OTHER");
 
 	final String type;
 
@@ -381,8 +395,11 @@ record AddAdvertisementRequest(
 		@NotBlank String description,
 		@NotNull String price,
 		@NotNull String type,
-		@NotNull Map<String,Object> attributes,
-		@NotNull UUID locationId,
+		@NotNull AdvertisementAttributes attributes,
+		@NotNull UUID provinceId,
+		@NotNull UUID cityId,
+		@NotNull Double latitude,
+		@NotNull Double longitude,
 		@NotNull UUID categoryId,
 		@NotNull UUID ownerId) {}
 
@@ -391,7 +408,7 @@ record UpdateAdvertisementRequest(
 		@NotNull String title,
 		@NotBlank String description,
 		@NotNull String price,
-		@NotNull Map<String,Object> attributes,
+		@NotNull AdvertisementAttributes attributes,
 		@NotNull UUID owner) {}
 
 record AdvertisementResponse(
@@ -401,7 +418,7 @@ record AdvertisementResponse(
 		String price,
 		String type,
 		String status,
-		Map<String,Object> attributes,
+		AdvertisementAttributes attributes,
 		LocalDateTime insertedAt,
 		LocalDateTime updateAt) {}
 
@@ -418,15 +435,17 @@ record AdvertisementApiResponse<T>(
 		T data
 ) {}
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
+@Mapper(componentModel = "spring", uses = AdvertisementTypeMapper.class, unmappedTargetPolicy = ReportingPolicy.IGNORE,imports = {UuidCreator.class, LocalDateTime.class})
 interface AdvertisementMapper {
 
 	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
 	@Mapping(target = "version", ignore = true)
+	@Mapping(target = "advertisementType", source = "addAdvertisementRequest.type")
 	@Mapping(target = "advertisementStatus", constant = "INACTIVE")
 	@Mapping(target = "insertedAt", expression = "java(LocalDateTime.now())")
 	@Mapping(target = "updatedAt", ignore = true)
-	Advertisement mapAddRequestToAdvertisement(AddAdvertisementRequest addAdvertisementRequest);
+	@Mapping(target = "locationId",source = "locationId")
+	Advertisement mapAddRequestToAdvertisement(AddAdvertisementRequest addAdvertisementRequest,UUID locationId);
 
 	@Mapping(target = "id", source = "advertisement.id")
 	@Mapping(target = "version", source = "advertisement.version")
@@ -466,6 +485,19 @@ interface AdvertisementMapper {
 		return status != null ? status.name() : null;
 	}
 
+}
+
+@Component
+class AdvertisementTypeMapper {
+
+	 AdvertisementType toEnum(String type) {
+		if (type == null) return AdvertisementType.OTHER;
+		try {
+			return AdvertisementType.valueOf(type.trim().toUpperCase());
+		} catch (IllegalArgumentException ex) {
+			return AdvertisementType.OTHER;
+		}
+	}
 }
 
 // controller // service // repository // model // enum // dto // mapper // exception
