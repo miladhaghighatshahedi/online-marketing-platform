@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
  */
 @JsonTypeName("mobile")
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-@JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 public record MobileAttributes(
 		String brand,
 		String model,

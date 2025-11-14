@@ -13,25 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.dto;
+package com.mhs.onlinemarketingplatform.advertisement.converter;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jdbc.core.convert.JdbcCustomConversions;
+
+import java.util.List;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-@JsonTypeName("car")
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public record CarAttributes(
-		String brand,
-		String model,
-		int manufacturingYear,
-		String gearboxType,
-		String color,
-        int mileage,
-		int insurance,
-		String bodyCondtion
-) implements AdvertisementAttributes {}
+@Configuration
+public class JdbcConvertersConfig {
+
+	@Bean
+	public JdbcCustomConversions jdbcCustomConversions(
+			AdvertisementAttributesToJsonConverter writeConverter,
+			JsonToAdvertisementAttributesConverter readConverter) {
+		return new JdbcCustomConversions(List.of(writeConverter, readConverter));
+	}
+
+}

@@ -15,7 +15,6 @@
  */
 package com.mhs.onlinemarketingplatform.advertisement.dto;
 
-
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.core.JsonParser;
@@ -33,7 +32,6 @@ import java.math.BigDecimal;
  */
 @JsonTypeName("realestate")
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-@JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 public record RealEstateAttributes(
 		double area,
 		int rooms,

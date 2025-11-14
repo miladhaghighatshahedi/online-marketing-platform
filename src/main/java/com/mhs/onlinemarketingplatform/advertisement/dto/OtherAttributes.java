@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
  */
 @JsonTypeName("other")
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-@JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 public record OtherAttributes(
 		String condition
 ) implements AdvertisementAttributes {}

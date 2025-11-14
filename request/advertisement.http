@@ -3,25 +3,69 @@ POST http://localhost:8080/api/me/advertisements
 Content-Type: application/json
 
 {
-  "title": "new car",
+  "title": "new car 2020",
   "description": "noting",
-  "price": "5000000",
-  "type": "Car",
+  "price": 5000000,
+  "type": "CARS",
   "attributes": {
+    "@type": "car",
+    "brand" : "Toyota",
+    "model" : "Corolla",
+    "manufacturing_year": 2018,
+    "gearbox_type": "unknown",
     "color": "red",
-    "year": "2018",
-    "mileage": "100000"
+    "mileage": 100000,
+    "insurance": 12,
+    "body_condtion": "colored"
+
     },
   "provinceId": "019a53c4-7578-7a8e-8f86-70795f59e1d0",
   "cityId": "019a62f7-8b00-795a-a872-381aa0e3d901",
-  "latitude": "35.680272",
-  "longitude": "51.398151",
+  "latitude": 35.680272,
+  "longitude": 51.398151,
   "categoryId": "79e784ec-b22d-456c-807f-300a21bffc2f",
-  "ownerId": "79e784ec-b22d-456c-807f-300a66bffc2f"
+  "ownerId": "79e784ec-b22d-456c-807f-300a44bffc2c"
 }
 
 ###
-GET http://localhost:8080/api/me/products
+POST http://localhost:8080/api/me/advertisements
+Content-Type: application/json
+
+{
+"title": "apartment 2",
+"description": "noting",
+"price": 50000,
+"type": "REALESTATES",
+"attributes": {
+  "@type": "realestate",
+  "area": 95,
+  "rooms": 3,
+  "floor": 3,
+  "year_of_construction": 2000,
+  "building_type": "apartment",
+  "price_per_squar_meter": 50000.00,
+  "condtion": "renovated",
+  "balcony": true,
+  "storage_unit": true,
+  "elevator": true,
+  "parking": true,
+  "rest_room_type": "asian",
+  "heating_system": "package",
+  "cooling_system": "AC"
+},
+"provinceId": "019a53c4-7578-7a8e-8f86-70795f59e1d0",
+"cityId": "019a62f7-8b00-795a-a872-381aa0e3d901",
+"latitude": 35.680272,
+"longitude": 51.398151,
+"categoryId": "79e784ec-b22d-456c-807f-300a21bffc2f",
+"ownerId": "79e784ec-b22d-456c-807f-300a44bffc2c"
+}
+
+
+
+
+### find all advertisements by Owner
+GET http://localhost:8080/api/me/advertisements
 
 ###
 GET http://localhost:8080/api/me/products/5dd67631-810e-4c60-a706-f665affc93f1

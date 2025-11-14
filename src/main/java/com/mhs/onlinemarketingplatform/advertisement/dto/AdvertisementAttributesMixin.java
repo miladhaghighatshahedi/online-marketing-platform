@@ -15,23 +15,22 @@
  */
 package com.mhs.onlinemarketingplatform.advertisement.dto;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-@JsonTypeName("car")
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public record CarAttributes(
-		String brand,
-		String model,
-		int manufacturingYear,
-		String gearboxType,
-		String color,
-        int mileage,
-		int insurance,
-		String bodyCondtion
-) implements AdvertisementAttributes {}
+
+@JsonTypeInfo(
+		use = JsonTypeInfo.Id.NAME,
+		include = JsonTypeInfo.As.PROPERTY,
+		property = "@type"
+)
+@JsonSubTypes({
+		@JsonSubTypes.Type(value = CarAttributes.class, name = "car"),
+		@JsonSubTypes.Type(value = RealEstateAttributes.class, name = "realestate"),
+		@JsonSubTypes.Type(value = MobileAttributes.class, name = "mobile"),
+		@JsonSubTypes.Type(value = OtherAttributes.class, name = "other")
+})
+public interface AdvertisementAttributesMixin {}

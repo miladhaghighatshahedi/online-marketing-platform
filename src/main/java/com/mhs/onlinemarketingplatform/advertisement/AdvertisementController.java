@@ -62,7 +62,7 @@ import java.util.*;
 class AdvertisementController {
 
 	private final AdvertisementService advertisementService;
-	private final static String OWNER = "26712732-813a-4b3b-8ecf-54e47e428160";
+	private final static String OWNER = "79e784ec-b22d-456c-807f-300a44bffc2c";
 
 	AdvertisementController(AdvertisementService advertisementService) {
 		this.advertisementService = advertisementService;
@@ -477,8 +477,12 @@ interface AdvertisementMapper {
 	AdvertisementResponse mapAdvertisementToResponse(Advertisement advertisement);
 
 	default AdvertisementPagedResponse<AdvertisementResponse> mapAdvertisementToPagedResponse(Page<Advertisement> page) {
-		return new AdvertisementPagedResponse<>(page.getContent().stream().map(this::mapAdvertisementToResponse).toList(), page.getNumber(),
-				page.getSize(), page.getTotalElements(), page.getTotalPages());
+		return new AdvertisementPagedResponse<>(
+				page.getContent().stream().map(this::mapAdvertisementToResponse).toList(),
+				page.getNumber(),
+				page.getSize(),
+				page.getTotalElements(),
+				page.getTotalPages());
 	}
 
 	default String map(AdvertisementStatus status) {
