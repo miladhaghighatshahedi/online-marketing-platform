@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.advertisement.converter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.mhs.onlinemarketingplatform.advertisement.dto.AdvertisementAttributes;
+import com.mhs.onlinemarketingplatform.advertisement.attributes.AdvertisementAttributes;
 import org.postgresql.util.PGobject;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.WritingConverter;
@@ -29,7 +29,7 @@ import org.springframework.stereotype.Component;
  */
 @WritingConverter
 @Component
-public class AdvertisementAttributesToJsonConverter implements Converter<AdvertisementAttributes, Object> {
+public class AdvertisementAttributesToJsonConverter implements Converter<AdvertisementAttributes, PGobject> {
 
 	private final ObjectMapper mapper;
 
@@ -38,7 +38,7 @@ public class AdvertisementAttributesToJsonConverter implements Converter<Adverti
 	}
 
 	@Override
-	public Object  convert(AdvertisementAttributes attributes) {
+	public PGobject convert(AdvertisementAttributes attributes) {
 		try {
 
 			PGobject jsonObject = new PGobject();

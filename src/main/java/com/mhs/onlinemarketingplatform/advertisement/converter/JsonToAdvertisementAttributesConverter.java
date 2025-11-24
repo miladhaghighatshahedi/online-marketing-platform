@@ -15,7 +15,8 @@
  */
 package com.mhs.onlinemarketingplatform.advertisement.converter;
 
-import com.mhs.onlinemarketingplatform.advertisement.dto.AdvertisementAttributes;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.mhs.onlinemarketingplatform.advertisement.attributes.AdvertisementAttributes;
 import org.postgresql.util.PGobject;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;
@@ -23,14 +24,12 @@ import org.springframework.data.convert.ReadingConverter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-
 /**
  * @author Milad Haghighat Shahedi
  */
 @ReadingConverter
 @Component
-public class JsonToAdvertisementAttributesConverter implements Converter<Object, AdvertisementAttributes> {
+public class JsonToAdvertisementAttributesConverter implements Converter<PGobject, AdvertisementAttributes> {
 
 	private final ObjectMapper mapper;
 
@@ -39,19 +38,10 @@ public class JsonToAdvertisementAttributesConverter implements Converter<Object,
 	}
 
 	@Override
-	public AdvertisementAttributes convert(Object source) {
+	public AdvertisementAttributes convert(PGobject source) {
 		try {
-
-			String json;
-
-			if (source instanceof PGobject pg) {
-				json = pg.getValue();
-			} else {
-				json = source.toString();
-			}
-
-			return mapper.readValue(json, AdvertisementAttributes.class);
-		} catch (IOException e) {
+			return mapper.readValue(source.getValue(), AdvertisementAttributes.class);
+		} catch (JsonProcessingException e) {
 			throw new IllegalArgumentException("Failed to read attributes", e);
 		}
 	}
