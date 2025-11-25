@@ -6,6 +6,8 @@ target/
 
 /frontend/
 frontend/
+src/main/resources/certs/
+
 
 ### STS ###
 .apt_generated

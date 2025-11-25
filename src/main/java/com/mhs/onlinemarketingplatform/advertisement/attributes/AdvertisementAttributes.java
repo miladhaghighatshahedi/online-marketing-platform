@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.dto;
+package com.mhs.onlinemarketingplatform.advertisement.attributes;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 )
 @JsonSubTypes({
 		@JsonSubTypes.Type(value = CarAttributes.class, name = "car"),
-		@JsonSubTypes.Type(value = RealEstateAttributes.class, name = "apartment"),
+		@JsonSubTypes.Type(value = RealEstateAttributes.class, name = "realestate"),
 		@JsonSubTypes.Type(value = MobileAttributes.class, name = "mobile"),
 		@JsonSubTypes.Type(value = OtherAttributes.class, name = "other")
 })

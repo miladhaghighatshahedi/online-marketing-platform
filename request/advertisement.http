@@ -3,7 +3,7 @@ POST http://localhost:8080/api/me/advertisements
 Content-Type: application/json
 
 {
-  "title": "new car 2020",
+  "title": "new car 2024",
   "description": "noting",
   "price": 5000000,
   "type": "CARS",
@@ -17,14 +17,13 @@ Content-Type: application/json
     "mileage": 100000,
     "insurance": 12,
     "body_condtion": "colored"
-
     },
-  "provinceId": "019a53c4-7578-7a8e-8f86-70795f59e1d0",
-  "cityId": "019a62f7-8b00-795a-a872-381aa0e3d901",
+  "province_id": "019a53c4-7578-7a8e-8f86-70795f59e1d0",
+  "city_id": "019a62f7-8b00-795a-a872-381aa0e3d901",
   "latitude": 35.680272,
   "longitude": 51.398151,
-  "categoryId": "79e784ec-b22d-456c-807f-300a21bffc2f",
-  "ownerId": "79e784ec-b22d-456c-807f-300a44bffc2c"
+  "category_id": "79e784ec-b22d-456c-807f-300a21bffc2f",
+  "owner_id": "79e784ec-b22d-456c-807f-300a44bffc2c"
 }
 
 ###
@@ -53,20 +52,17 @@ Content-Type: application/json
   "heating_system": "package",
   "cooling_system": "AC"
 },
-"provinceId": "019a53c4-7578-7a8e-8f86-70795f59e1d0",
-"cityId": "019a62f7-8b00-795a-a872-381aa0e3d901",
+"province_id": "019a53c4-7578-7a8e-8f86-70795f59e1d0",
+"city_id": "019a62f7-8b00-795a-a872-381aa0e3d901",
 "latitude": 35.680272,
 "longitude": 51.398151,
-"categoryId": "79e784ec-b22d-456c-807f-300a21bffc2f",
-"ownerId": "79e784ec-b22d-456c-807f-300a44bffc2c"
+"category_id": "79e784ec-b22d-456c-807f-300a21bffc2f",
+"owner_id": "79e784ec-b22d-456c-807f-300a44bffc2c"
 }
 
-
-
-
 ### find all advertisements by Owner
-GET http://localhost:8080/api/me/advertisements
+GET http://localhost:8080/api/me/advertisements?page=0&size=6
 
-###
-GET http://localhost:8080/api/me/products/5dd67631-810e-4c60-a706-f665affc93f1
+### find an advertisement by id
+GET http://localhost:8080/api/me/advertisements/019a836e-0452-7e70-86aa-b58429e6ec8c
 

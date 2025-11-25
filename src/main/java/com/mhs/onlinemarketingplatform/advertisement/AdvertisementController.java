@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.advertisement;
 
 import com.github.f4b6a3.uuid.UuidCreator;
-import com.mhs.onlinemarketingplatform.advertisement.dto.AdvertisementAttributes;
+import com.mhs.onlinemarketingplatform.advertisement.attributes.AdvertisementAttributes;
 import com.mhs.onlinemarketingplatform.advertisement.error.advertisement.*;
 import com.mhs.onlinemarketingplatform.advertisement.error.category.CategoryNotFoundException;
 import com.mhs.onlinemarketingplatform.catalog.api.CategoryApi;
@@ -493,7 +493,6 @@ interface AdvertisementMapper {
 
 @Component
 class AdvertisementTypeMapper {
-
 	 AdvertisementType toEnum(String type) {
 		if (type == null) return AdvertisementType.OTHER;
 		try {
