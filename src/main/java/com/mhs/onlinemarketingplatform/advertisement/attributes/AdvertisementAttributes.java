@@ -21,16 +21,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 /**
  * @author Milad Haghighat Shahedi
  */
-@JsonTypeInfo(
-		use = JsonTypeInfo.Id.NAME,
-		include = JsonTypeInfo.As.PROPERTY,
-		property = "@type"
-)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
 @JsonSubTypes({
 		@JsonSubTypes.Type(value = CarAttributes.class, name = "car"),
 		@JsonSubTypes.Type(value = RealEstateAttributes.class, name = "realestate"),
 		@JsonSubTypes.Type(value = MobileAttributes.class, name = "mobile"),
 		@JsonSubTypes.Type(value = OtherAttributes.class, name = "other")
 })
-public sealed  interface AdvertisementAttributes
-		permits CarAttributes, RealEstateAttributes, MobileAttributes, OtherAttributes{}
+public sealed  interface AdvertisementAttributes permits CarAttributes, RealEstateAttributes, MobileAttributes, OtherAttributes{}

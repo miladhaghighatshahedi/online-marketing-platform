@@ -13,23 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.dto;
+package com.mhs.onlinemarketingplatform.advertisement.attributes;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 /**
  * @author Milad Haghighat Shahedi
  */
-@JsonTypeName("mobile")
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public record MobileAttributes(
+@JsonTypeName("car")
+public record CarAttributes (
 		String brand,
 		String model,
+		int manufacturingYear,
+		String gearboxType,
 		String color,
-		int storage,
-		int ram,
-		String condition,
-        String operatingSystem) implements AdvertisementAttributes {}
+        int mileage,
+		int insurance,
+		String bodyCondtion )implements AdvertisementAttributes {}

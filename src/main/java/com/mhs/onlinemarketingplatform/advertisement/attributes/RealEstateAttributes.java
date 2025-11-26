@@ -13,32 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.dto;
+package com.mhs.onlinemarketingplatform.advertisement.attributes;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 
 /**
  * @author Milad Haghighat Shahedi
  */
 @JsonTypeName("realestate")
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record RealEstateAttributes(
 		double area,
 		int rooms,
 		int floor,
 		int yearOfConstruction,
 		String buildingType,
-		@JsonDeserialize(using = BigDecimalPlainDeserializer.class)
 		BigDecimal pricePerSquarMeter,
 		String condtion,
 		boolean balcony,
@@ -49,11 +39,3 @@ public record RealEstateAttributes(
 		String heatingSystem,
 		String coolingSystem) implements AdvertisementAttributes {}
 
-
-class BigDecimalPlainDeserializer extends JsonDeserializer<BigDecimal> {
-	@Override
-	public BigDecimal deserialize(JsonParser p, DeserializationContext ctxt)
-			throws IOException {
-		return new BigDecimal(p.getText());
-	}
-}
