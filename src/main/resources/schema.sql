@@ -7,6 +7,57 @@ create table if not exists credentials
     enabled  boolean                 not null
 );
 
+create table if not exists auth_users
+(
+    id           uuid unique primary key not null,
+    version      integer                 not null,
+    username     varchar(100)            not null unique,
+    password     varchar(255)            not null,
+    phone_number varchar(11)             not null unique,
+    enabled      boolean                 not null default false
+);
+
+create table if not exists auth_roles
+(
+    id      uuid unique primary key not null,
+    version integer                 not null,
+    name    varchar(50)             not null unique
+);
+
+create table if not exists auth_permissions
+(
+    id      uuid unique primary key not null,
+    version integer                 not null,
+    name    varchar(50)             not null unique
+);
+
+create table if not exists auth_user_roles
+(
+    user_id uuid not null references auth_users(id),
+    role_id uuid not null references auth_roles(id),
+    primary key (user_id,role_id)
+);
+
+create table if not exists auth_role_permissions
+(
+    role_id uuid not null references auth_roles(id),
+    permission_id uuid not null references auth_permissions(id),
+    primary key (role_id,permission_id)
+);
+
+create table if not exists auth_refresh_token
+(
+    id           uuid unique primary key not null,
+    version      integer                 not null,
+    hashed_token char(44)                not null,
+    is_revoked   boolean                 not null,
+    expires_at   timestamp               not null,
+    device_id    varchar(100)            not null,
+    user_id      uuid                    not null references auth_users (id)
+);
+
+
+
 create table if not exists profiles
 (
     id              uuid unique primary key not null,
@@ -18,6 +69,8 @@ create table if not exists profiles
     activation_date timestamp               not null,
     credential      uuid unique references credentials (id)
 );
+
+
 
 create table if not exists catalogs
 (
@@ -53,6 +106,9 @@ create table if not exists category_closure
     primary key (parent_id,child_id)
 );
 
+
+
+
 create table if not exists provinces
 (
     id      uuid primary key not null,
@@ -77,6 +133,9 @@ create table if not exists locations
     province_id uuid             not null references provinces (id),
     city_id     uuid             not null references cities (id)
 );
+
+
+
 
 create table if not exists advertisements
 (
