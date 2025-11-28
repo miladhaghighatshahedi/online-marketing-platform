@@ -11,9 +11,8 @@ create table if not exists auth_users
 (
     id           uuid unique primary key not null,
     version      integer                 not null,
-    username     varchar(100)            not null unique,
-    password     varchar(255)            not null,
     phone_number varchar(11)             not null unique,
+    joined_at      timestamp       not null,
     enabled      boolean                 not null default false
 );
 
@@ -47,15 +46,26 @@ create table if not exists auth_role_permissions
 
 create table if not exists auth_refresh_token
 (
-    id           uuid unique primary key not null,
-    version      integer                 not null,
-    hashed_token char(44)                not null,
-    is_revoked   boolean                 not null,
-    expires_at   timestamp               not null,
-    device_id    varchar(100)            not null,
-    user_id      uuid                    not null references auth_users (id)
+    id             uuid unique primary key not null,
+    version        integer                 not null,
+    hashed_token   char(44)                not null,
+    device_id_hash varchar(100)            not null,
+    expires_at     timestamp               not null,
+    user_id        uuid                    not null references auth_users (id)
 );
 
+create table if not exists auth_device_binding
+(
+    user_id         uuid            not null references auth_users (id),
+    device_id_hash  char(44) unique not null,
+    version         integer         not null,
+    user_agent_hash char(44)        not null,
+    ip_hash         char(44)        not null,
+    jti_hash        char(44)        not null,
+    created_at      timestamp       not null,
+    last_used_at    timestamp       not null,
+    primary key (user_id, device_id_hash)
+);
 
 
 create table if not exists profiles

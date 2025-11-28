@@ -18,9 +18,7 @@ package com.mhs.onlinemarketingplatform.catalog.error;
 /**
  * @author Milad Haghighat Shahedi
  */
-
 public enum CatalogErrorCode {
-
-		CATALOG_NOT_FOUND,
-		CATALOG_ALREADY_EXISTS,
+	CATALOG_NOT_FOUND,
+	CATALOG_ALREADY_EXISTS,
 }
