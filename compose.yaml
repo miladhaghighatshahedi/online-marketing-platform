@@ -11,6 +11,15 @@ services:
       - '5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass "password" --appendonly yes
+    volumes:
+      - redis-data:/data
   rabbitmq:
     image: 'rabbitmq:3.12.6-management'
     container_name: rabbitmq_omp
@@ -53,4 +62,5 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
   elasticsearch-data:
