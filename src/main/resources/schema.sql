@@ -25,9 +25,11 @@ create table if not exists auth_roles
 
 create table if not exists auth_permissions
 (
-    id      uuid unique primary key not null,
-    version integer                 not null,
-    name    varchar(50)             not null unique
+    id              uuid unique primary key not null,
+    version         integer                 not null,
+    name            varchar(50)             not null unique,
+    created_at      timestamp               not null,
+    last_updated_at timestamp               not null
 );
 
 create table if not exists auth_user_roles

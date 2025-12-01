@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.iam.model;
+package com.mhs.onlinemarketingplatform.authentication.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -28,4 +29,6 @@ import java.util.UUID;
 public record Permission(
 		@Id UUID id,
 		@Version int version,
+		LocalDateTime createdAt,
+		LocalDateTime lastUpdatedAt,
 		String name) {}
