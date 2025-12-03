@@ -158,6 +158,11 @@ class PermissionService implements PermissionServiceInternal {
 		return this.permissionRepository.findAll();
 	}
 
+	@Override
+	public Set<Permission> findAllById(Set<UUID> ids) {
+		return this.permissionRepository.findAllById(ids);
+	}
+
 	Set<PermissionResponse> fetchAllMapToSet() {
 		Set<Permission> permissions = this.permissionRepository.findAll();
 		return this.mapper.mapPermissionsToResponse(permissions);
@@ -209,6 +214,8 @@ interface PermissionRepository extends CrudRepository<Permission, UUID> {
 
 	@Query("SELECT * FROM auth_permissions ORDER BY created_at")
 	Set<Permission> findAll();
+
+	Set<Permission> findAllById(Set<UUID> ids);
 
 	Page<Permission> findAllByOrderByCreatedAt(Pageable pageable);
 

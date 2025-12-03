@@ -245,6 +245,52 @@ public class PermissionServiceUnitTest {
 	}
 
 	@Test
+	void shouldReturnPermissions_WhenPermissionsExistByIds() {
+		UUID id_1 = UuidCreator.getTimeOrderedEpoch();
+		UUID id_2 = UuidCreator.getTimeOrderedEpoch();
+		UUID id_3 = UuidCreator.getTimeOrderedEpoch();
+		Set<Permission> permissions = getPermissions(id_1, id_2, id_3);
+		// Arrange
+		when(this.permissionRepository.findAllById(Set.of(id_1,id_2,id_3))).thenReturn(permissions);
+		// Act
+		Set<Permission> results = this.permissionService.findAllById(Set.of(id_1, id_2, id_3));
+		//
+		assertEquals(3,results.size());
+		verify(this.permissionRepository,times(1)).findAllById(any());
+	}
+
+	@Test
+	void shouldReturnEmptySet_WhenPermissionsDoNotExistByIds() {
+		// Arrange
+		when(this.permissionRepository.findAllById(Collections.emptySet())).thenReturn(Collections.emptySet());
+		// Act
+		Set<Permission> result = this.permissionService.findAllById(Collections.emptySet());
+		//
+		assertEquals(0,result.size());
+		assertTrue(result.isEmpty());
+
+		verify(this.permissionRepository,times(1)).findAllById(any());
+	}
+
+	@Test
+	void shouldRetrunPermissions_WhenAnyPermissionExistsByIds() {
+		UUID id_1 = UuidCreator.getTimeOrderedEpoch();
+		UUID id_2 = UuidCreator.getTimeOrderedEpoch();
+		UUID id_3 = UuidCreator.getTimeOrderedEpoch();
+		LocalDateTime fixedTime = LocalDateTime.of(2025,1,1,12,0,0);
+		Permission existing = new Permission(id_1,0,fixedTime,fixedTime,"ADD_ADVERTISEMENT");
+		// Arrange
+		when(this.permissionRepository.findAllById(Set.of(id_1,id_2,id_3))).thenReturn(Set.of(existing));
+		// Act
+		Set<Permission> result = this.permissionService.findAllById(Set.of(id_1, id_2, id_3));
+		// Assert
+		assertEquals(1,result.size());
+		assertTrue(result.contains(existing));
+
+		verify(this.permissionRepository,times(1)).findAllById(any());
+	}
+
+	@Test
 	void shouldReturnSetOfPermissionResponse_WhenPermissionExist() {
 		UUID id_1 = UuidCreator.getTimeOrderedEpoch();
 		UUID id_2 = UuidCreator.getTimeOrderedEpoch();

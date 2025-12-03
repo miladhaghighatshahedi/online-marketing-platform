@@ -17,10 +17,12 @@ package com.mhs.onlinemarketingplatform.authentication.api;
 
 import com.mhs.onlinemarketingplatform.authentication.model.Permission;
 
+import java.util.Set;
 import java.util.UUID;
 /**
  * @author Milad Haghighat Shahedi
  */
 public interface PermissionServiceInternal {
 	Permission findById(UUID id);
+	Set<Permission> findAllById(Set<UUID> ids);
 }
