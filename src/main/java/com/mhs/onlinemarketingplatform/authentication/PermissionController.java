@@ -60,13 +60,13 @@ class PermissionController {
 	}
 
 	@PostMapping("/api/admin/permissions/add")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> add(AddPermissionRequest request) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> add(@RequestBody AddPermissionRequest request) {
 		PermissionResponse addedPermission = this.permissionService.add(request);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission saved successfully!",addedPermission));
 	}
 
 	@PutMapping("/api/admin/permissions/update")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> update(UpdatePermissionRequest request) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> update(@RequestBody UpdatePermissionRequest request) {
 		PermissionResponse updatedPermission = this.permissionService.update(request);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission updated successfully!",updatedPermission));
 	}
@@ -89,7 +89,7 @@ class PermissionController {
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",foundPermission));
 	}
 
-	@GetMapping("/api/admin/permissions/set")
+	@GetMapping("/api/admin/permissions")
 	ResponseEntity<PermissionApiResponse<Set<PermissionResponse>>> fetchAllMapToSet() {
 		Set<PermissionResponse> permissionResponses = this.permissionService.fetchAllMapToSet();
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permissions found successfully!",permissionResponses));
