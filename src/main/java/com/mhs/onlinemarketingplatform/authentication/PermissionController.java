@@ -61,14 +61,14 @@ class PermissionController {
 
 	@PostMapping("/api/admin/permissions/add")
 	ResponseEntity<PermissionApiResponse<PermissionResponse>> add(@RequestBody AddPermissionRequest request) {
-		PermissionResponse addedPermission = this.permissionService.add(request);
-		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission saved successfully!",addedPermission));
+		PermissionResponse response = this.permissionService.add(request);
+		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission saved successfully!",response));
 	}
 
 	@PutMapping("/api/admin/permissions/update")
 	ResponseEntity<PermissionApiResponse<PermissionResponse>> update(@RequestBody UpdatePermissionRequest request) {
-		PermissionResponse updatedPermission = this.permissionService.update(request);
-		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission updated successfully!",updatedPermission));
+		PermissionResponse response = this.permissionService.update(request);
+		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission updated successfully!",response));
 	}
 
 	@DeleteMapping("/api/admin/permissions/{id}")
@@ -77,27 +77,27 @@ class PermissionController {
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission deleted successfully!",null));
 	}
 
+	@GetMapping("/api/admin/permissions/paged")
+	PermissionPageResponse<PermissionResponse> findAllPaged(@PageableDefault(size = 6) Pageable pageable) {
+		return this.permissionService.findAllPaged(pageable);
+	}
+
 	@GetMapping("/api/admin/permissions/{id}")
 	ResponseEntity<PermissionApiResponse<PermissionResponse>> fetchById(@PathVariable("id") UUID id) {
-		PermissionResponse foundPermission = this.permissionService.fetchById(id);
-		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",foundPermission));
+		PermissionResponse response = this.permissionService.fetchById(id);
+		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",response));
 	}
 
 	@GetMapping(value = "/api/admin/permissions",params = "name")
 	ResponseEntity<PermissionApiResponse<PermissionResponse>> findByName(@RequestParam("name") String name) {
-		PermissionResponse foundPermission = this.permissionService.findByName(name);
-		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",foundPermission));
+		PermissionResponse response = this.permissionService.findByName(name);
+		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",response));
 	}
 
 	@GetMapping("/api/admin/permissions")
 	ResponseEntity<PermissionApiResponse<Set<PermissionResponse>>> fetchAllMapToSet() {
-		Set<PermissionResponse> permissionResponses = this.permissionService.fetchAllMapToSet();
-		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permissions found successfully!",permissionResponses));
-	}
-
-	@GetMapping("/api/admin/permissions/paged")
-	PermissionPageResponse<PermissionResponse> findAll(@PageableDefault(size = 6) Pageable pageable) {
-		return this.permissionService.findAllPaged(pageable);
+		Set<PermissionResponse> response = this.permissionService.fetchAllMapToSet();
+		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permissions found successfully!",response));
 	}
 
 }
@@ -109,7 +109,10 @@ class PermissionService implements PermissionServiceInternal {
 	private final PermissionMapper mapper;
 	private final MessageSource messageSource;
 
-	PermissionService(PermissionRepository permissionRepository, PermissionMapper mapper, MessageSource messageSource) {
+	PermissionService(
+			PermissionRepository permissionRepository,
+			PermissionMapper mapper,
+			MessageSource messageSource) {
 		this.permissionRepository = permissionRepository;
 		this.mapper = mapper;
 		this.messageSource = messageSource;
