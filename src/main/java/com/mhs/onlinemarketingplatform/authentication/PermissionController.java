@@ -215,6 +215,7 @@ interface PermissionRepository extends CrudRepository<Permission, UUID> {
 	@Query("SELECT * FROM auth_permissions ORDER BY created_at")
 	Set<Permission> findAll();
 
+	@Query("SELECT * FROM auth_permissions WHERE id IN (:ids)")
 	Set<Permission> findAllById(Set<UUID> ids);
 
 	Page<Permission> findAllByOrderByCreatedAt(Pageable pageable);
@@ -259,22 +260,22 @@ record PermissionPageResponse<T>(
 @Mapper(componentModel = "spring",imports = {UuidCreator.class, LocalDateTime.class})
 interface PermissionMapper {
 
-	@org.mapstruct.Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
-	@org.mapstruct.Mapping(target = "version",ignore = true)
-	@org.mapstruct.Mapping(target = "createdAt",expression = "java(LocalDateTime.now())")
-	@org.mapstruct.Mapping(target = "lastUpdatedAt",expression = "java(LocalDateTime.now())")
+	@Mapping(target = "id", expression = "java(UuidCreator.getTimeOrderedEpoch())")
+	@Mapping(target = "version",ignore = true)
+	@Mapping(target = "createdAt",expression = "java(LocalDateTime.now())")
+	@Mapping(target = "lastUpdatedAt",expression = "java(LocalDateTime.now())")
 	Permission mapAddRequestToPermission(AddPermissionRequest request);
 
-	@org.mapstruct.Mapping(target = "id", source = "permission.id")
-	@org.mapstruct.Mapping(target = "version", source = "permission.version")
-	@org.mapstruct.Mapping(target = "name", source = "request.name")
-	@org.mapstruct.Mapping(target = "createdAt",source = "permission.createdAt")
-	@org.mapstruct.Mapping(target = "lastUpdatedAt",expression = "java(LocalDateTime.now())")
+	@Mapping(target = "id", source = "permission.id")
+	@Mapping(target = "version", source = "permission.version")
+	@Mapping(target = "name", source = "request.name")
+	@Mapping(target = "createdAt",source = "permission.createdAt")
+	@Mapping(target = "lastUpdatedAt",expression = "java(LocalDateTime.now())")
 	Permission mapUpdateRequestToPermission(UpdatePermissionRequest request, Permission permission);
 
-	@org.mapstruct.Mapping(target = "id", source = "permission.id")
-	@org.mapstruct.Mapping(target = "name", source = "permission.name")
-	@org.mapstruct.Mapping(target = "createdAt", source = "permission.createdAt")
+	@Mapping(target = "id", source = "permission.id")
+	@Mapping(target = "name", source = "permission.name")
+	@Mapping(target = "createdAt", source = "permission.createdAt")
 	@Mapping(target = "lastUpdatedAt", source = "permission.lastUpdatedAt")
 	PermissionResponse mapPermissionToResponse(Permission permission);
 
