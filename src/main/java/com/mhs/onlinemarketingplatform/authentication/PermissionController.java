@@ -22,6 +22,7 @@ import com.mhs.onlinemarketingplatform.authentication.error.AuthenticationErrorC
 import com.mhs.onlinemarketingplatform.authentication.error.PermissionAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.authentication.error.PermissionNotFoundException;
 import com.mhs.onlinemarketingplatform.authentication.model.Permission;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.mapstruct.Mapper;
@@ -39,6 +40,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -49,6 +51,7 @@ import java.util.UUID;
 /**
  * @author Milad Haghighat Shahedi
  */
+@Validated
 @Controller
 @ResponseBody
 class PermissionController {
@@ -60,19 +63,19 @@ class PermissionController {
 	}
 
 	@PostMapping("/api/admin/permissions/add")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> add(@RequestBody AddPermissionRequest request) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> add(@Valid @RequestBody AddPermissionRequest request) {
 		PermissionResponse response = this.permissionService.add(request);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission saved successfully!",response));
 	}
 
 	@PutMapping("/api/admin/permissions/update")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> update(@RequestBody UpdatePermissionRequest request) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> update(@Valid @RequestBody UpdatePermissionRequest request) {
 		PermissionResponse response = this.permissionService.update(request);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission updated successfully!",response));
 	}
 
 	@DeleteMapping("/api/admin/permissions/{id}")
-	ResponseEntity<?> delete(@PathVariable("id") UUID id) {
+	ResponseEntity<?> delete(@PathVariable("id") @NotNull UUID id) {
 		this.permissionService.delete(id);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission deleted successfully!",null));
 	}
@@ -83,13 +86,13 @@ class PermissionController {
 	}
 
 	@GetMapping("/api/admin/permissions/{id}")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> fetchById(@PathVariable("id") UUID id) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> fetchById(@PathVariable("id") @NotNull UUID id) {
 		PermissionResponse response = this.permissionService.fetchById(id);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",response));
 	}
 
 	@GetMapping(value = "/api/admin/permissions",params = "name")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> findByName(@RequestParam("name") String name) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> findByName(@RequestParam("name") @NotBlank String name) {
 		PermissionResponse response = this.permissionService.findByName(name);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",response));
 	}
