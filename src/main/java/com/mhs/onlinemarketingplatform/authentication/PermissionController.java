@@ -19,8 +19,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.mhs.onlinemarketingplatform.authentication.api.PermissionServiceInternal;
 import com.mhs.onlinemarketingplatform.authentication.error.AuthenticationErrorCode;
-import com.mhs.onlinemarketingplatform.authentication.error.PermissionAlreadyExistsException;
-import com.mhs.onlinemarketingplatform.authentication.error.PermissionNotFoundException;
+import com.mhs.onlinemarketingplatform.authentication.error.permission.PermissionAlreadyExistsException;
+import com.mhs.onlinemarketingplatform.authentication.error.permission.PermissionNotFoundException;
 import com.mhs.onlinemarketingplatform.authentication.model.Permission;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -63,7 +63,7 @@ class PermissionController {
 	}
 
 	@PostMapping("/api/admin/permissions/add")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> add(@Valid @RequestBody AddPermissionRequest request) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> add(@RequestBody @Valid AddPermissionRequest request) {
 		PermissionResponse response = this.permissionService.add(request);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission saved successfully!",response));
 	}
