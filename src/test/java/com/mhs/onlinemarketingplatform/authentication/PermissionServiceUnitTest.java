@@ -16,8 +16,8 @@
 package com.mhs.onlinemarketingplatform.authentication;
 
 import com.github.f4b6a3.uuid.UuidCreator;
-import com.mhs.onlinemarketingplatform.authentication.error.PermissionAlreadyExistsException;
-import com.mhs.onlinemarketingplatform.authentication.error.PermissionNotFoundException;
+import com.mhs.onlinemarketingplatform.authentication.error.permission.PermissionAlreadyExistsException;
+import com.mhs.onlinemarketingplatform.authentication.error.permission.PermissionNotFoundException;
 import com.mhs.onlinemarketingplatform.authentication.model.Permission;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -336,9 +336,9 @@ public class PermissionServiceUnitTest {
 
 	    int pageSize = pageable.getPageSize();
 
-		List<Permission> pageContent = new ArrayList<>(permissions);
+		List<Permission> permissionList = new ArrayList<>(permissions);
 
-	    Page<Permission> permissionPage = new PageImpl<>(pageContent, pageable, pageContent.size());
+	    Page<Permission> permissionPage = new PageImpl<>(permissionList, pageable, permissionList.size());
 
 		PermissionPageResponse<PermissionResponse> response = new PermissionPageResponse<>(
 				permissions.stream().map(this.mapper::mapPermissionToResponse).collect(Collectors.toList())

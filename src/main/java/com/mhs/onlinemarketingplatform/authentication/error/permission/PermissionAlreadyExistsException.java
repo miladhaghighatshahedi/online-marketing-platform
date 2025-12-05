@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.error;
+package com.mhs.onlinemarketingplatform.authentication.error.permission;
+
+import com.mhs.onlinemarketingplatform.authentication.error.AuthenticationErrorCode;
 
 /**
  * @author Milad Haghighat Shahedi
