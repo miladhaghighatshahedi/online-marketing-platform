@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.config;
+package com.mhs.onlinemarketingplatform;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.cfg.CoercionAction;
+import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
@@ -53,8 +55,14 @@ public class JaksonConfig {
 		mapper.registerModule(bigDecModule);
 
 		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-		mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
-		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
+//		mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+		mapper.coercionConfigDefaults()
+				.setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
+				.setCoercion(CoercionInputShape.Float, CoercionAction.Fail)
+				.setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail)
+				.setCoercion(CoercionInputShape.EmptyString, CoercionAction.Fail);
 
 		return mapper;
 	}
