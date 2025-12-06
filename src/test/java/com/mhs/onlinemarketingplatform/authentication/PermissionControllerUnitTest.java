@@ -16,10 +16,10 @@
 package com.mhs.onlinemarketingplatform.authentication;
 
 import com.github.f4b6a3.uuid.UuidCreator;
-import com.mhs.onlinemarketingplatform.authentication.config.JacksonConfig;
 import com.mhs.onlinemarketingplatform.authentication.config.OtpOncePerRequestfilter;
 import com.mhs.onlinemarketingplatform.authentication.error.AuthenticationExceptionHandler;
 import com.mhs.onlinemarketingplatform.common.ErrorLogger;
+import com.mhs.onlinemarketingplatform.JaksonConfig;
 import org.apache.catalina.security.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,13 +30,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -60,7 +62,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 				)
 		})
 @AutoConfigureMockMvc(addFilters = false)
-@Import({JacksonConfig.class, AuthenticationExceptionHandler.class})
+@Import({JaksonConfig.class, AuthenticationExceptionHandler.class})
 public class PermissionControllerUnitTest {
 
 	@Autowired
@@ -70,9 +72,6 @@ public class PermissionControllerUnitTest {
 	private PermissionService permissionService;
 
 	@MockitoBean
-	private PermissionController permissionController;
-
-	@MockitoBean
 	private ErrorLogger errorLogger;
 
 	private UUID id;
@@ -80,11 +79,6 @@ public class PermissionControllerUnitTest {
 
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders
-				.standaloneSetup(permissionController)
-				.setControllerAdvice(new AuthenticationExceptionHandler(errorLogger))
-				.build();
-
 		id = UuidCreator.getTimeOrderedEpoch();
 		fixedTime = LocalDateTime.of(2025,1,1,12,0,0);
 	}
@@ -108,8 +102,8 @@ public class PermissionControllerUnitTest {
 				.andExpect(jsonPath("$.message").value("Permission saved successfully!"))
 				.andExpect(jsonPath("$.data.id").value(id.toString()))
 				.andExpect(jsonPath("$.data.name").value("ADD_ADVERTISEMENT_PERM"))
-				.andExpect(jsonPath("$.data.createdAt").value(fixedTime.toString()))
-				.andExpect(jsonPath("$.data.lastUpdatedAt").value(fixedTime.toString()));
+				.andExpect(jsonPath("$.data.createdAt").value("2025-01-01 12:00"))
+				.andExpect(jsonPath("$.data.lastUpdatedAt").value("2025-01-01 12:00"));
 	}
 
 	@Test
@@ -191,8 +185,8 @@ public class PermissionControllerUnitTest {
 				.andExpect(jsonPath("$.message").value("Permission updated successfully!"))
 				.andExpect(jsonPath("$.data.id").value(id.toString()))
 				.andExpect(jsonPath("$.data.name").value("ADD_ADVERTISEMENT_PERM_UPDATED"))
-				.andExpect(jsonPath("$.data.createdAt").value(fixedTime.toString()))
-				.andExpect(jsonPath("$.data.lastUpdatedAt").value(fixedTime.toString()));
+				.andExpect(jsonPath("$.data.createdAt").value("2025-01-01 12:00"))
+				.andExpect(jsonPath("$.data.lastUpdatedAt").value("2025-01-01 12:00"));
 
 	}
 
@@ -209,8 +203,7 @@ public class PermissionControllerUnitTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.status").value(HttpStatus.BAD_REQUEST.value()))
 				.andExpect(jsonPath("$.message").value("VALIDATION_FAILED"))
-				.andExpect(jsonPath("$.code").value("PATH_VARIABLE_INVALID"))
-				.andExpect(jsonPath("$.error.id").value("must not be null"));
+				.andExpect(jsonPath("$.code").value("EMPTY_REQUEST_BODY"));
 	}
 
 	@Test
@@ -226,8 +219,7 @@ public class PermissionControllerUnitTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.status").value(HttpStatus.BAD_REQUEST.value()))
 				.andExpect(jsonPath("$.message").value("VALIDATION_FAILED"))
-				.andExpect(jsonPath("$.code").value("PATH_VARIABLE_INVALID"))
-				.andExpect(jsonPath("$.error.id").value("must not be null"));
+				.andExpect(jsonPath("$.code").value("EMPTY_REQUEST_BODY"));
 	}
 
 	@Test
@@ -360,10 +352,8 @@ public class PermissionControllerUnitTest {
 		this.mockMvc.perform(delete("/api/admin/permissions/{id}",123))
 				.andDo(print())
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(HttpStatus.BAD_REQUEST.value()))
-				.andExpect(jsonPath("$.message").value("VALIDATION_FAILED"))
-				.andExpect(jsonPath("$.code").value("PATH_VARIABLE_TYPE_MISMATCH"))
-				.andExpect(jsonPath("$.error.id").value("Expected type: UUID"));
+				.andExpect(jsonPath("$.error").value("Bad Request"))
+				.andExpect(jsonPath("$.message").value("Invalid path variable 'id': 123"));
 	}
 
 	@Test
@@ -371,21 +361,18 @@ public class PermissionControllerUnitTest {
 		this.mockMvc.perform(delete("/api/admin/permissions/{id}","xxxx"))
 				.andDo(print())
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(HttpStatus.BAD_REQUEST.value()))
-				.andExpect(jsonPath("$.message").value("VALIDATION_FAILED"))
-				.andExpect(jsonPath("$.code").value("PATH_VARIABLE_TYPE_MISMATCH"))
-				.andExpect(jsonPath("$.error.id").value("Expected type: UUID"));
+				.andExpect(jsonPath("$.error").value("Bad Request"))
+				.andExpect(jsonPath("$.message").value("Invalid path variable 'id': xxxx"));
 	}
 
 	@Test
-	void delete_method_ThrowMissingPathVariableException_WhenWhiteSpace_1() throws Exception {
+	void delete_method_MethodArgumentTypeMismatchException_WhenWhiteSpace_1() throws Exception {
 		this.mockMvc.perform(delete("/api/admin/permissions/{id}"," "))
 				.andDo(print())
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.status").value(HttpStatus.BAD_REQUEST.value()))
 				.andExpect(jsonPath("$.message").value("VALIDATION_FAILED"))
-				.andExpect(jsonPath("$.code").value("PATH_VARIABLE_TYPE_MISMATCH"))
-				.andExpect(jsonPath("$.error.id").value("Expected type: UUID"));
+				.andExpect(jsonPath("$.code").value("MISSING_PATH_VARIABLE"));
 	}
 
 	@Test
@@ -411,5 +398,82 @@ public class PermissionControllerUnitTest {
 				.andExpect(jsonPath("$.code").value("HTTP_METHOD_NOT_SUPPORTED"));
 	}
 
+
+
+
+	@Test
+	void findAllPaged_method_ReturnResponse_WhenSuccessfull() throws Exception {
+
+		PermissionResponse permissionResponse1 = new PermissionResponse(id,"ADD_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+		PermissionResponse permissionResponse2 = new PermissionResponse(id,"UPDATE_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+		PermissionResponse permissionResponse3 = new PermissionResponse(id,"DELETE_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+
+		PermissionPageResponse<PermissionResponse> permissionPageResponse = new PermissionPageResponse<>(
+				List.of(permissionResponse1, permissionResponse2, permissionResponse3), 0, 6, 3, 2);
+
+		PageRequest expected = PageRequest.of(0, 6);
+
+		when(this.permissionService.findAllPaged(expected)).thenReturn(permissionPageResponse);
+
+		this.mockMvc.perform(get("/api/admin/permissions/paged").param("page", "0").param("size", "6"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content").isArray())
+				.andExpect(jsonPath("$.content[0].name").value("ADD_ADVERTISEMENT_PERM"))
+				.andExpect(jsonPath("$.page").value(0))
+				.andExpect(jsonPath("$.size").value(6))
+				.andExpect(jsonPath("$.totalElements").value(3))
+				.andExpect(jsonPath("$.totalPage").value(2));
+	}
+
+	@Test
+	void fetchById_method_ReturnResponse_WhenSuccessfull() throws Exception {
+
+		PermissionResponse response = new PermissionResponse(id,"ADD_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+
+		when(this.permissionService.fetchById(id)).thenReturn(response);
+
+		this.mockMvc.perform(get("/api/admin/permissions/{id}",id))
+				.andDo(print())
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.response").value(true))
+				.andExpect(jsonPath("$.message").value("Permission found successfully!"))
+				.andExpect(jsonPath("$.data.name").value("ADD_ADVERTISEMENT_PERM"));
+	}
+
+	@Test
+	void findByName_method_ReturnResponse_WhenSuccessfull() throws Exception {
+
+		PermissionResponse response = new PermissionResponse(id,"ADD_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+
+		when(this.permissionService.findByName("ADD_ADVERTISEMENT_PERM")).thenReturn(response);
+
+		this.mockMvc.perform(get("/api/admin/permissions").param("name","ADD_ADVERTISEMENT_PERM"))
+				.andDo(print())
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.response").value(true))
+				.andExpect(jsonPath("$.message").value("Permission found successfully!"))
+				.andExpect(jsonPath("$.data.name").value("ADD_ADVERTISEMENT_PERM"));
+	}
+
+	@Test
+	void fetchAllMapToSet_method_ReturnResponse_WhenSuccessfull() throws Exception {
+
+		PermissionResponse p1 = new PermissionResponse(id,"ADD_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+		PermissionResponse p2 = new PermissionResponse(id,"UPDATE_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+		PermissionResponse p3 = new PermissionResponse(id,"DELETE_ADVERTISEMENT_PERM",fixedTime,fixedTime);
+		Set<PermissionResponse> responses = Set.of(p1,p2,p3);
+
+		when(this.permissionService.fetchAllMapToSet()).thenReturn(responses);
+
+		this.mockMvc.perform(get("/api/admin/permissions"))
+				.andDo(print())
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.response").value(true))
+				.andExpect(jsonPath("$.message").value("Permissions found successfully!"))
+				.andExpect(jsonPath("$.data").isArray())
+				.andExpect(jsonPath("$.data.size()").value(3))
+				.andExpect(jsonPath("$.data[0].name").value("ADD_ADVERTISEMENT_PERM"));
+
+	}
 
 }
