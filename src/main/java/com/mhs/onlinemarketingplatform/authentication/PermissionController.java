@@ -92,7 +92,7 @@ class PermissionController {
 	}
 
 	@GetMapping(value = "/api/admin/permissions",params = "name")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> findByName(@RequestParam("name") @NotBlank String name) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> fetchByName(@RequestParam("name") @NotBlank String name) {
 		PermissionResponse response = this.permissionService.findByName(name);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",response));
 	}

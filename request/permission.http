@@ -1,0 +1,38 @@
+### add a new permission
+POST http://localhost:8080/api/admin/permissions/add
+Content-Type: application/json
+
+{
+  "name": "CHECK_NOTIFICATION_FROM_ADMIN_PERM_22"
+}
+
+### update an existing permission
+PUT http://localhost:8080/api/admin/permissions/update
+Content-Type: application/json
+
+{
+  "id": "019af949-ef5c-799a-a677-1d7e19c2e453",
+  "name": "CHECK_NOTIFICATION_FROM_ADMIN_PERM_updated"
+}
+
+### delete an existing permission by id
+DELETE http://localhost:8080/api/admin/permissions/019af961-a4e5-7b83-8808-ca7ab5481fd6
+Content-Type: application/json
+
+### fetch existing permission - paged
+GET http://localhost:8080/api/admin/permissions/paged
+Content-Type: application/json
+
+### fetch an existing permission by id
+GET http://localhost:8080/api/admin/permissions/019af7e8-1ddf-73c7-9f6c-121f0f190b6b
+Content-Type: application/json
+
+### fetch an existing permission by name
+GET http://localhost:8080/api/admin/permissions?name=ADD_ADVERTISEMENT_PERM
+Content-Type: application/json
+
+### fetch existing permissions - fetchAllMapToSet without permission data
+GET http://localhost:8080/api/admin/permissions
+Content-Type: application/json
+
+
