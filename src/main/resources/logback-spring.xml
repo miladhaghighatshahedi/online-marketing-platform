@@ -57,13 +57,19 @@
 
         <logger name="org.springframework.jdbc.core.JdbcTemplate"  level="DEBUG"/>
 
-        <logger name="com.mhs.onlinemarketingplatform.catalog" level="INFO" additivity="false">
-            <appender-ref ref="APPLICATION-MAIN"/>
-        </logger>
         <logger name="com.mhs.onlinemarketingplatform.advertisement" level="INFO" additivity="false">
             <appender-ref ref="APPLICATION-MAIN"/>
         </logger>
+        <logger name="com.mhs.onlinemarketingplatform.authentication" level="INFO" additivity="false">
+            <appender-ref ref="APPLICATION-MAIN"/>
+        </logger>
+        <logger name="com.mhs.onlinemarketingplatform.catalog" level="INFO" additivity="false">
+            <appender-ref ref="APPLICATION-MAIN"/>
+        </logger>
         <logger name="com.mhs.onlinemarketingplatform.profile" level="INFO" additivity="false">
+            <appender-ref ref="APPLICATION-MAIN"/>
+        </logger>
+        <logger name="com.mhs.onlinemarketingplatform.region" level="INFO" additivity="false">
             <appender-ref ref="APPLICATION-MAIN"/>
         </logger>
 

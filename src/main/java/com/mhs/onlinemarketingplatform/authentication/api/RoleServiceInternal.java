@@ -13,24 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.advertisement.dto;
+package com.mhs.onlinemarketingplatform.authentication.api;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.mhs.onlinemarketingplatform.authentication.model.Permission;
+import com.mhs.onlinemarketingplatform.authentication.model.Role;
 
+import java.util.Set;
+import java.util.UUID;
 /**
  * @author Milad Haghighat Shahedi
  */
-
-@JsonTypeInfo(
-		use = JsonTypeInfo.Id.NAME,
-		include = JsonTypeInfo.As.PROPERTY,
-		property = "@type"
-)
-@JsonSubTypes({
-		@JsonSubTypes.Type(value = CarAttributes.class, name = "car"),
-		@JsonSubTypes.Type(value = RealEstateAttributes.class, name = "realestate"),
-		@JsonSubTypes.Type(value = MobileAttributes.class, name = "mobile"),
-		@JsonSubTypes.Type(value = OtherAttributes.class, name = "other")
-})
-public interface AdvertisementAttributesMixin {}
+public interface RoleServiceInternal {
+	Role findByName(String name);
+	Role findById(UUID id);
+	Set<Role> findAll();
+	Set<Role> findAllById(Set<UUID> ids);
+	Set<Permission> findPermissionsByRoleId(UUID roleId);
+}

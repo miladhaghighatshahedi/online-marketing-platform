@@ -18,9 +18,11 @@ create table if not exists auth_users
 
 create table if not exists auth_roles
 (
-    id      uuid unique primary key not null,
-    version integer                 not null,
-    name    varchar(50)             not null unique
+    id              uuid unique primary key not null,
+    version         integer                 not null,
+    name            varchar(50)             not null unique,
+    created_at      timestamp               not null,
+    last_updated_at timestamp               not null
 );
 
 create table if not exists auth_permissions
@@ -41,9 +43,9 @@ create table if not exists auth_user_roles
 
 create table if not exists auth_role_permissions
 (
-    role_id uuid not null references auth_roles(id),
-    permission_id uuid not null references auth_permissions(id),
-    primary key (role_id,permission_id)
+    role_id       uuid not null references auth_roles (id),
+    permission_id uuid not null references auth_permissions (id),
+    primary key (role_id, permission_id)
 );
 
 create table if not exists auth_refresh_token
