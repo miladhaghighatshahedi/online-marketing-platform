@@ -214,7 +214,7 @@ class RoleService implements RoleServiceInternal {
 
 		for(UUID permissionId : newPermissionIds) {
 	       this.rolePermissionsRepository.insert(existingRole.id(),permissionId);
-       }
+        }
 
 		Set<RolePermissions> updatedRolePermissions = this.rolePermissionsRepository.findByRoleId(request.roleId());
 
