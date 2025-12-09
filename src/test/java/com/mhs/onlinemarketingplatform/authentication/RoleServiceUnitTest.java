@@ -280,9 +280,8 @@ public class RoleServiceUnitTest {
 		// Act
 	    RoleResponse result = this.roleService.addPermissionsToARole(request);
 		// Assert
-
 	    assertNotNull(result);
-	    assertNotEquals("USER_ROLE",result.name());
+	    assertEquals("ROLE_USER",result.name());
 		assertEquals(6,result.permissions().size());
 
 	    verify(this.roleRepository,times(1)).findById(any());
@@ -358,6 +357,122 @@ public class RoleServiceUnitTest {
 
 
 
+
+    @Test
+    void removePermissionsFromARole_method_shouldReturnResponse() {
+	    UUID id_1 = UUID.fromString("019afe7f-0f4a-71eb-98ab-e653ae61b76d");
+	    UUID id_2 = UUID.fromString("019afe7f-0f4a-71eb-98ac-4573f991db0b");
+	    UUID id_3 = UUID.fromString("019afe7f-0f4a-71eb-98ad-5136149f8da8");
+
+	    UUID id_4 = UUID.fromString("019afe7f-0f4a-71eb-98ab-e653ae61c76d");
+	    UUID id_5 = UUID.fromString("019afe7f-0f4a-71eb-98ac-4573f991ab0b");
+	    UUID id_6 = UUID.fromString("019afe7f-0f4a-71eb-98ad-513614938da8");
+
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		LocalDateTime createAt = LocalDateTime.of(2025,1,1,12,0,0);
+	    LocalDateTime lastUpdatedAt = LocalDateTime.of(2025,1,1,12,1,0);
+		Role mockedRole = new Role(id,0,createAt,lastUpdatedAt,"ROLE_USER");
+
+	    Set<UUID> permissionIds = Set.of(id_1,id_2,id_3);
+	    RemovePermissionsFromARoleRequest request = new RemovePermissionsFromARoleRequest(id,permissionIds);
+	    Set<Permission> mockedExistingPermissionInDBByRequest = buildPermissions(request.permissionIds());
+
+	    Set<UUID> existingPermissionIds = Set.of(id_4,id_5,id_6);
+		Set<RolePermissions> mockedUpdateRolePermissions = buildRolePermissions(id,existingPermissionIds);
+
+	    Set<Permission> mockRolePermissionsAfterUpdate = buildPermissions(existingPermissionIds);
+	    RoleResponse mockedRoleResponse = buildRoleResponse(mockedRole,mockRolePermissionsAfterUpdate);
+		// Arrange
+	    when(this.roleRepository.findById(id)).thenReturn(Optional.of(mockedRole));
+		when(this.permissionServiceInternal.findAllById(request.permissionIds())).thenReturn(mockedExistingPermissionInDBByRequest);
+
+		when(this.rolePermissionsRepository.findByRoleId(id)).thenReturn(mockedUpdateRolePermissions);
+	    when(this.mapper.mapRoleToResponse(any(),any())).thenReturn(mockedRoleResponse);
+
+	    // Act
+	    RoleResponse result = this.roleService.removePermissionsFromARole(request);
+		// Assert
+	    assertNotNull(result);
+	    assertEquals("ROLE_USER",result.name());
+	    assertEquals(3,result.permissions().size());
+
+	    verify(this.roleRepository,times(1)).findById(any());
+	    verify(this.permissionServiceInternal,times(1)).findAllById(any());
+	    verify(this.rolePermissionsRepository,times(3)).delete(any(),any());
+	    verify(this.rolePermissionsRepository,times(1)).findByRoleId(any());
+	    verify(this.mapper,times(1)).mapRoleToResponse(any(),any());
+    }
+
+	@Test
+	void removePermissionsFromARole_method_shouldThrowRoleNotFoundException_WhenRoleByIdDoesNotExist() {
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		UUID id_1 = UUID.fromString("019afe7f-0f4a-71eb-98ab-e653ae61b76d");
+		UUID id_2 = UUID.fromString("019afe7f-0f4a-71eb-98ac-4573f991db0b");
+		UUID id_3 = UUID.fromString("019afe7f-0f4a-71eb-98ad-5136149f8da8");
+		Set<UUID> permissionIds = Set.of(id_1,id_2,id_3);
+		RemovePermissionsFromARoleRequest request = new RemovePermissionsFromARoleRequest(id,permissionIds);
+		// Arrange
+		when(this.roleRepository.findById(any())).thenReturn(Optional.empty());
+		when(this.messageSource.getMessage(
+				eq("error.authentication.role.not.found.with.id"),
+				eq(new Object[]{request.roleId()}),
+				any(Locale.class))
+		).thenReturn("Role with the id "+request.roleId()+" not found.");
+		// Act
+		RoleNotFoundException exception = assertThrows(RoleNotFoundException.class,
+				() -> this.roleService.removePermissionsFromARole(request));
+		// Assert
+		assertEquals("Role with the id "+request.roleId()+" not found.",exception.getMessage());
+		verify(this.roleRepository,times(1)).findById(any());
+		verify(this.roleRepository,never()).findAllById(any());
+		verify(this.rolePermissionsRepository,never()).delete(any(),any());
+		verify(this.rolePermissionsRepository,never()).findByRoleId(any());
+		verify(this.mapper,never()).mapRoleToResponse(any(),any());
+	}
+
+	@Test
+	void removePermissionsFromARole_method_shouldThrowPermissionNotFoundException_WhenNumberOfRequestAndExsitingRolesNotEqual() {
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		UUID id_1 = UUID.fromString("019afe7f-0f4a-71eb-98ab-e653ae61b76d");
+		UUID id_2 = UUID.fromString("019afe7f-0f4a-71eb-98ac-4573f991db0b");
+		UUID id_3 = UUID.fromString("019afe7f-0f4a-71eb-98ad-5136149f8da8");
+		Set<UUID> permissionIds = Set.of(id_1,id_2,id_3);
+		LocalDateTime createdAt = LocalDateTime.of(2025,1,1,12,0,0);
+		LocalDateTime lastUpdatedAt = LocalDateTime.of(2025,1,1,12,0,0);
+		Role existingRole = new Role(id,0,createdAt,lastUpdatedAt,"ROLE_USER");
+
+		Set<UUID> requestPermissionIds = Set.of(id_1,id_2,id_3);
+		Set<UUID> mockSmallerList = Set.of(id_1,id_2);
+		Set<Permission> foundPermissions = buildPermissions(mockSmallerList);
+
+		// Arrange
+		RemovePermissionsFromARoleRequest request = new RemovePermissionsFromARoleRequest(id,requestPermissionIds);
+		when(this.roleRepository.findById(request.roleId())).thenReturn(Optional.of(existingRole));
+		when(this.permissionServiceInternal.findAllById(request.permissionIds())).thenReturn(foundPermissions);
+		// Act
+		when(this.messageSource.getMessage(
+				eq("error.authentication.permission.not.found.with.ids"),
+				eq(new Object[]{request.permissionIds().size()}),
+				any(Locale.class)
+		)).thenReturn("Permission with the ids length of 3 not found.");
+		// Act
+		PermissionNotFoundException exception = assertThrows(
+				PermissionNotFoundException.class,
+				() -> this.roleService.removePermissionsFromARole(request));
+		// Assert
+		verify(this.roleRepository,times(1)).findById(any());
+		verify(this.permissionServiceInternal,times(1)).findAllById(request.permissionIds());
+		verify(this.rolePermissionsRepository,never()).delete(any(),any());
+		verify(this.rolePermissionsRepository,never()).findByRoleId(request.roleId());
+		verify(mapper,never()).mapRoleToResponse(any(),any());
+	}
+
+
+
+
+	Role buildANewRole(UUID id,int version, LocalDateTime createAt,LocalDateTime lastUpdatedAt, String name) {
+		return new Role(id,version,createAt,lastUpdatedAt,name);
+	}
 
 	Set<UUID> buildPermissionIds(int size) {
 		Set<UUID> pemissionIds = new HashSet<>();
