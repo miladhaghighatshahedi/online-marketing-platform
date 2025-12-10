@@ -69,7 +69,7 @@ class PermissionController {
 	}
 
 	@PutMapping("/api/admin/permissions/update")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> update(@Valid @RequestBody UpdatePermissionRequest request) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> update(@RequestBody @Valid UpdatePermissionRequest request) {
 		PermissionResponse response = this.permissionService.update(request);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission updated successfully!",response));
 	}
@@ -86,7 +86,7 @@ class PermissionController {
 	}
 
 	@GetMapping("/api/admin/permissions/{id}")
-	ResponseEntity<PermissionApiResponse<PermissionResponse>> fetchById(@PathVariable("id") @NotNull UUID id) {
+	ResponseEntity<PermissionApiResponse<PermissionResponse>> fetchById(@PathVariable("id") UUID id) {
 		PermissionResponse response = this.permissionService.fetchById(id);
 		return ResponseEntity.ok(new PermissionApiResponse<>(true,"Permission found successfully!",response));
 	}

@@ -26,6 +26,7 @@ import com.mhs.onlinemarketingplatform.authentication.error.role.RoleNotFoundExc
 import com.mhs.onlinemarketingplatform.authentication.model.Permission;
 import com.mhs.onlinemarketingplatform.authentication.model.Role;
 import com.mhs.onlinemarketingplatform.authentication.model.RolePermissions;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -43,6 +44,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -53,6 +55,7 @@ import java.util.stream.Collectors;
  */
 @Controller
 @ResponseBody
+@Validated
 class RollController {
 
 	private final RoleService roleService;
@@ -62,19 +65,19 @@ class RollController {
 	}
 
 	@PostMapping("/api/admin/roles/add")
-	ResponseEntity<RoleApiResponse<RoleResponse>> add(@RequestBody AddRoleRequest request) {
+	ResponseEntity<RoleApiResponse<RoleResponse>> add(@RequestBody @Valid AddRoleRequest request) {
 		RoleResponse response = this.roleService.add(request);
 		return ResponseEntity.ok(new RoleApiResponse<>(true,"Role added successfully!",response));
 	}
 
 	@PutMapping("/api/admin/roles/update")
-	ResponseEntity<RoleApiResponse<RoleResponse>> add(@RequestBody UpdateRoleRequest request) {
+	ResponseEntity<RoleApiResponse<RoleResponse>> add(@RequestBody @Valid UpdateRoleRequest request) {
 		RoleResponse response = this.roleService.update(request);
 		return ResponseEntity.ok(new RoleApiResponse<>(true,"Role updated successfully!",response));
 	}
 
 	@PutMapping("/api/admin/roles/{id}/permissions")
-	ResponseEntity<RoleApiResponse<RoleResponse>> addPermissionsToARole(@RequestBody AddPermissionsToARoleRequest request, @PathVariable("id") UUID id) {
+	ResponseEntity<RoleApiResponse<RoleResponse>> addPermissionsToARole(@RequestBody @Valid AddPermissionsToARoleRequest request, @PathVariable("id") UUID id) {
 		if (!id.equals(request.roleId())) {
 			throw new IllegalArgumentException("Role ID mismatch between path and body.");
 		}
@@ -83,7 +86,7 @@ class RollController {
 	}
 
 	@DeleteMapping("/api/admin/roles/{id}/permissions")
-	ResponseEntity<RoleApiResponse<RoleResponse>> removePermissionsFromARole(@RequestBody RemovePermissionsFromARoleRequest request, @PathVariable UUID id) {
+	ResponseEntity<RoleApiResponse<RoleResponse>> removePermissionsFromARole(@RequestBody @Valid RemovePermissionsFromARoleRequest request, @PathVariable UUID id) {
 		if (!id.equals(request.roleId())) {
 			throw new IllegalArgumentException("Role ID mismatch between path and body.");
 		}
@@ -104,7 +107,7 @@ class RollController {
 	}
 
 	@GetMapping(value = "/api/admin/roles",params = "name")
-	ResponseEntity<RoleApiResponse<RoleResponse>> fetchByName(@RequestParam("name") String name) {
+	ResponseEntity<RoleApiResponse<RoleResponse>> fetchByName(@RequestParam("name") @NotBlank String name) {
 		RoleResponse response = this.roleService.fetchByName(name);
 		return ResponseEntity.ok(new RoleApiResponse<>(true,"Role found successfully!",response));
 	}
