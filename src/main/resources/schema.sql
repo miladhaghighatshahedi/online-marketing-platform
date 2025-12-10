@@ -11,8 +11,9 @@ create table if not exists auth_users
 (
     id           uuid unique primary key not null,
     version      integer                 not null,
-    phone_number varchar(11)             not null unique,
-    joined_at      timestamp       not null,
+    phone_number varchar(13)             not null unique,
+    joined_at    timestamp               not null,
+    disabledA_at timestamp               not null,
     enabled      boolean                 not null default false
 );
 
