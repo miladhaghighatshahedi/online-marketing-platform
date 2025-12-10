@@ -258,10 +258,8 @@ class RoleService implements RoleServiceInternal {
 								LocaleContextHolder.getLocale()),
 						AuthenticationErrorCode.ROLE_NOT_FOUND));
 
-
 		this.rolePermissionsRepository.deleteByRoleId(foundRole.id());
 		this.roleRepository.delete(foundRole);
-
 	}
 
 	public Set<Role> findAll() {
@@ -274,15 +272,16 @@ class RoleService implements RoleServiceInternal {
 
 	Set<RoleResponse> fetchAllMapToSet() {
 		Set<Role> roles = this.roleRepository.findAll();
-		Set<UUID> roleIds = roles.stream().map(Role::id).collect(Collectors.toSet());
 
-		Set<Permission> permissions = new HashSet<>();
+		Set<RoleResponse> roleResponses = new HashSet<>();
 
-		for(UUID id: roleIds) {
-			permissions = findPermissionsByRoleId(id);
+		for(Role role:roles) {
+			Set<RolePermissions> rolePermissions = this.rolePermissionsRepository.findByRoleId(role.id());
+			RoleResponse response = this.mapper.mapRoleToResponse(role, rolePermissions);
+			roleResponses.add(response);
 		}
 
-		return this.mapper.mapRolesToResponse(roles);
+        return roleResponses;
 	}
 
 	public Role findById(UUID id) {
@@ -444,8 +443,6 @@ interface RoleMapper {
     @Mapping(target = "lastUpdatedAt", source = "role.lastUpdatedAt")
     @Mapping(target = "permissions", source = "rolePermissions")
 	RoleResponse mapRoleToResponse(Role role,Set<RolePermissions> rolePermissions);
-
-	Set<RoleResponse> mapRolesToResponse(Set<Role> roles);
 
 }
 

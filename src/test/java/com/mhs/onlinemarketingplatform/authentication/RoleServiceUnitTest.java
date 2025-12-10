@@ -160,9 +160,6 @@ public class RoleServiceUnitTest {
 		verify(mapper,never()).mapRoleToResponse(any(),any());
 	}
 
-
-
-
 	@Test
 	void update_method_shouldSaveRole_ReturnResponse() {
 		UUID roleId = UuidCreator.getTimeOrderedEpoch();
@@ -223,9 +220,6 @@ public class RoleServiceUnitTest {
 		verify(this.rolePermissionsRepository,never()).findByRoleId(any());
 		verify(this.mapper,never()).mapRoleToResponse(any(),any());
 	}
-
-
-
 
     @Test
 	void addPermissionsToARole_method_shouldReturnResponse() {
@@ -355,9 +349,6 @@ public class RoleServiceUnitTest {
 		verify(mapper,never()).mapRoleToResponse(any(),any());
 	}
 
-
-
-
     @Test
     void removePermissionsFromARole_method_shouldReturnResponse() {
 	    UUID id_1 = UUID.fromString("019afe7f-0f4a-71eb-98ab-e653ae61b76d");
@@ -467,6 +458,190 @@ public class RoleServiceUnitTest {
 		verify(mapper,never()).mapRoleToResponse(any(),any());
 	}
 
+	@Test
+	void delete_method_shouldDelete() {
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		LocalDateTime createAt = LocalDateTime.of(2025,1,1,12,0,0);
+		LocalDateTime lastUpdatedAt = LocalDateTime.of(2025,1,1,12,1,0);
+		Role mockedRole = new Role(id,0,createAt,lastUpdatedAt,"ROLE_USER");
+		// Arrange
+		when(this.roleRepository.findById(any())).thenReturn(Optional.of(mockedRole));
+		doNothing().when(this.rolePermissionsRepository).deleteByRoleId(id);
+		doNothing().when(this.roleRepository).delete(mockedRole);
+		// Act
+		this.roleService.delete(id);
+		// Assert
+		verify(this.roleRepository,times(1)).findById(any());
+		verify(this.rolePermissionsRepository,times(1)).deleteByRoleId(any());
+		verify(this.roleRepository,times(1)).delete(any(Role.class));
+	}
+
+	@Test
+	void delete_method_shouldThrowRoleNotFoundException_WhenRoleByIdDoesNotExist() {
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		// Arrange
+		when(this.roleRepository.findById(any())).thenReturn(Optional.empty());
+		when(this.messageSource.getMessage(
+				eq("error.authentication.role.not.found.with.id"),
+				eq(new Object[]{id}),
+				any(Locale.class))).thenReturn("Role with the id "+id+" not found.");
+		// Act
+		RoleNotFoundException exception = assertThrows(
+				RoleNotFoundException.class,
+				() -> this.roleService.delete(id));
+		// Assert
+		assertEquals("Role with the id "+id+" not found.",exception.getMessage());
+		verify(this.roleRepository,times(1)).findById(any());
+		verify(this.rolePermissionsRepository,never()).deleteByRoleId(any());
+		verify(this.rolePermissionsRepository,never()).delete(any());
+	}
+
+	@Test
+	void findAll_method_shouldRetrunRoles() {
+		UUID id1 = UuidCreator.getTimeOrderedEpoch();
+		UUID id2 = UuidCreator.getTimeOrderedEpoch();
+		UUID id3 = UuidCreator.getTimeOrderedEpoch();
+		// Arrange
+		Role userRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"USER_ROLE");
+		Role adminRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"ADMIN_ROLE");
+		Role managementRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"Management_ROLE");
+
+		when(this.roleRepository.findAll()).thenReturn(Set.of(userRole,adminRole,managementRole));
+		// Act
+		Set<Role> roles = this.roleService.findAll();
+		// Assert
+		assertEquals(3,roles.size());
+	}
+
+	@Test
+	void findAllByIds_method_shouldRetrunRoles() {
+		UUID id1 = UuidCreator.getTimeOrderedEpoch();
+		UUID id2 = UuidCreator.getTimeOrderedEpoch();
+		UUID id3 = UuidCreator.getTimeOrderedEpoch();
+		Set<UUID> ids = Set.of(id1,id2,id3);
+		// Arrange
+		Role userRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"USER_ROLE");
+		Role adminRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"ADMIN_ROLE");
+		Role managementRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"Management_ROLE");
+		Set<Role> mockedRoles = Set.of(userRole,adminRole,managementRole);
+		when(this.roleRepository.findAllById(ids)).thenReturn(mockedRoles);
+		// Act
+		Set<Role> roles = this.roleService.findAllById(ids);
+		// Assert
+		assertEquals(3,roles.size());
+	}
+
+	@Test
+	void findAllByIds_method_shouldNotThrowException() {
+		UUID id1 = UuidCreator.getTimeOrderedEpoch();
+		UUID id2 = UuidCreator.getTimeOrderedEpoch();
+		UUID id3 = UuidCreator.getTimeOrderedEpoch();
+		Set<UUID> ids = Set.of(id1,id2,id3);
+		// Arrange
+		Role userRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"USER_ROLE");
+		Role adminRole = new Role(id1,0,LocalDateTime.now(),LocalDateTime.now(),"ADMIN_ROLE");
+		Set<Role> mockedRoles = Set.of(userRole,adminRole);
+		when(this.roleRepository.findAllById(ids)).thenReturn(mockedRoles);
+		// Act
+		Set<Role> roles = this.roleService.findAllById(ids);
+		// Assert
+		assertEquals(2,roles.size());
+	}
+
+	@Test
+	void fetchAllMapToSet_method_shouldReturnSetOfRoleResponse() {
+		UUID roleId1 = UuidCreator.getTimeOrderedEpoch();
+		UUID roleId2 = UuidCreator.getTimeOrderedEpoch();
+		UUID roleId3 = UuidCreator.getTimeOrderedEpoch();
+
+		UUID permissionId1 = UuidCreator.getTimeOrderedEpoch();
+		UUID permissionId2 = UuidCreator.getTimeOrderedEpoch();
+		UUID permissionId3 = UuidCreator.getTimeOrderedEpoch();
+		Set<UUID> permissionIds = Set.of(permissionId1, permissionId2, permissionId3);
+
+		Set<RolePermissions> rolePermissions1 = buildRolePermissions(roleId1, permissionIds);
+		Set<RolePermissions> rolePermissions2 = buildRolePermissions(roleId2, permissionIds);
+		Set<RolePermissions> rolePermissions3 = buildRolePermissions(roleId3, permissionIds);
+
+		Role userRole = new Role(roleId1,0,LocalDateTime.now(),LocalDateTime.now(),"USER_ROLE");
+		Role adminRole = new Role(roleId2,0,LocalDateTime.now(),LocalDateTime.now(),"ADMIN_ROLE");
+		Role managementRole = new Role(roleId3,0,LocalDateTime.now(),LocalDateTime.now(),"Management_ROLE");
+
+		Set<Role> mockedRoles = Set.of(userRole, adminRole, managementRole);
+
+		// Arrange
+		when(this.roleRepository.findAll()).thenReturn(mockedRoles);
+		// Act
+		Set<RoleResponse> responses = this.roleService.fetchAllMapToSet();
+		// Assert
+		verify(this.roleRepository,times(1)).findAll();
+		System.out.println(responses);
+		verify(this.rolePermissionsRepository, times(3)).findByRoleId(any());
+		verify(this.mapper, times(3)).mapRoleToResponse(any(),any());
+	}
+
+	@Test
+	void findById_method_returnRole() {
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		Role mockedRole = new Role(id,0,LocalDateTime.now(),LocalDateTime.now(),"ROLE_USER");
+		// Arrange
+		when(this.roleRepository.findById(any())).thenReturn(Optional.of(mockedRole));
+		// Act
+		Role result = this.roleService.findById(any());
+		// Assert
+		assertNotNull(result);
+		assertEquals("ROLE_USER",result.name());
+		verify(this.roleRepository,times(1)).findById(any());
+	}
+
+	@Test
+	void findById_method_shouldThrowRoleNotFoundException_WhenRoleByIdDoesNotExist() {
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		// Arrange
+		when(this.roleRepository.findById(any())).thenReturn(Optional.empty());
+		when(this.messageSource.getMessage(
+				eq("error.authentication.role.not.found.with.id"),
+				eq(new Object[]{id}),
+				any(Locale.class))).thenReturn("Role with the id "+id+" not found.");
+		// Act
+		RoleNotFoundException exception = assertThrows(
+				RoleNotFoundException.class,
+				() -> this.roleService.delete(id));
+		// Assert
+		assertEquals("Role with the id "+id+" not found.",exception.getMessage());
+		verify(this.roleRepository,times(1)).findById(any());
+	}
+
+	@Test
+	void fetchById_method_returnRole() {
+		UUID id = UuidCreator.getTimeOrderedEpoch();
+		LocalDateTime createdAt = LocalDateTime.of(2025,1,1,12,0,0);
+		LocalDateTime lastUpdatedAt = LocalDateTime.of(2025,1,1,12,0,0);
+
+		Role mockedRole = new Role(id,0,LocalDateTime.now(),LocalDateTime.now(),"ROLE_USER");
+		Set<UUID> permissionsIds = buildPermissionIds(3);
+		Set<RolePermissions> mockedRolePermissions = buildRolePermissions(mockedRole.id(),permissionsIds);
+
+		PermissionResponse permissionResponse1 = new PermissionResponse(id,"x",LocalDateTime.now(),LocalDateTime.now());
+		PermissionResponse permissionResponse2 = new PermissionResponse(id,"y",LocalDateTime.now(),LocalDateTime.now());
+		PermissionResponse permissionResponse3 = new PermissionResponse(id,"z",LocalDateTime.now(),LocalDateTime.now());
+		Set<PermissionResponse> prs = Set.of(permissionResponse1,permissionResponse2,permissionResponse3);
+
+		RoleResponse mockcedRoleResponse = new RoleResponse(id,"ROLE_USER",createdAt,lastUpdatedAt,prs);
+		// Arrange
+		when(this.roleRepository.findById(any())).thenReturn(Optional.of(mockedRole));
+		when(this.rolePermissionsRepository.findByRoleId(mockedRole.id())).thenReturn(mockedRolePermissions);
+		when(this.mapper.mapRoleToResponse(any(),any())).thenReturn(mockcedRoleResponse);
+		// Act
+		RoleResponse result = this.roleService.fetchById(mockedRole.id());
+		// Assert
+		assertNotNull(result);
+		assertEquals("ROLE_USER",result.name());
+		assertEquals(3,result.permissions().size());
+		verify(this.roleRepository,times(1)).findById(any());
+		verify(this.rolePermissionsRepository,times(1)).findByRoleId(any());
+		verify(this.mapper,times(1)).mapRoleToResponse(any(),any());
+	}
 
 
 
@@ -510,6 +685,15 @@ public class RoleServiceUnitTest {
 				role.lastUpdatedAt(),
 				permissionResponses
 				);
+	}
+
+	Set<PermissionResponse> buildPermissionResponse(UUID id,String name,LocalDateTime created,LocalDateTime lastUpdatedAt,int size) {
+		Set<PermissionResponse> permissionResponses = new HashSet<>();
+		for(int i= 1 ; i <= size ; i++) {
+			PermissionResponse permissionResponse = new PermissionResponse(id,name,created,lastUpdatedAt);
+			permissionResponses.add(permissionResponse);
+		}
+		return permissionResponses;
 	}
 
 }
