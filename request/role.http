@@ -1,0 +1,60 @@
+### add a new role with permissions
+POST http://localhost:8080/api/admin/roles/add
+Content-Type: application/json
+
+{
+  "name": "ROLE_TEST_USER",
+  "permissionIds": [
+    "019af7e8-1ddf-73c7-9f6c-121f0f190b6b",
+    "019af7e8-5235-74ce-9614-0f72095b2043",
+    "019af7e8-7c8c-747b-9b0d-e07ba6903628",
+    "019af7e8-9c01-7a1c-bbf6-ad0fac87f405"
+  ]
+}
+
+### update an existing role
+PUT http://localhost:8080/api/admin/roles/update
+Content-Type: application/json
+
+{
+  "id" : "019af944-0c10-7c41-bd2b-4169bb020b69",
+  "name": "ROLE_SUPER_USER_UPDATED"
+}
+
+### update an existing role - add a new list of permissions to an existing role
+PUT http://localhost:8080/api/admin/roles/019af944-0c10-7c41-bd2b-4169bb020b69/permissions
+Content-Type: application/json
+
+{
+  "roleId" : "019af944-0c10-7c41-bd2b-4169bb020b69",
+  "permissionIds": [
+    "019af949-ef5c-799a-a677-1d7e19c2e453"
+  ]
+}
+
+### update an existing role - remove a list of permissions from an existing role
+DELETE http://localhost:8080/api/admin/roles/019af944-0c10-7c41-bd2b-4169bb020b69/permissions
+Content-Type: application/json
+
+{
+  "roleId" : "019af944-0c10-7c41-bd2b-4169bb020b69",
+  "permissionIds": [
+    "019af949-ef5c-799a-a677-1d7e19c2e453"
+  ]
+}
+
+### delete an existing role by id
+DELETE http://localhost:8080/api/admin/roles/019af955-6ab2-7d9d-b66f-910a0586e78a
+Content-Type: application/json
+
+### fetch an existing role by id
+GET http://localhost:8080/api/admin/roles/019af943-3ac9-797e-8b1e-e7ecfd130db0
+Content-Type: application/json
+
+### fetch an existing role by name
+GET http://localhost:8080/api/admin/roles?name=ROLE_USER
+Content-Type: application/json
+
+### fetch existing roles - fetchAllMapToSet without permission data
+GET http://localhost:8080/api/admin/roles
+Content-Type: application/json
