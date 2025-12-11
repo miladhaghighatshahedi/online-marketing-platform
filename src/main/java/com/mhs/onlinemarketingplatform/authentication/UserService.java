@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 /**
  * @author Milad Haghighat Shahedi
  */
@@ -54,7 +53,9 @@ public class UserService {
 	private final UserMapper mapper;
 
 	UserService(
-			UserRepository userRepository, UserRoleRepository userRoleRepository, RoleServiceInternal roleServiceInternal,
+			UserRepository userRepository,
+			UserRoleRepository userRoleRepository,
+			RoleServiceInternal roleServiceInternal,
 			MessageSource messageSource,
 			UserMapper mapper) {
 		this.userRepository = userRepository;
@@ -72,7 +73,6 @@ public class UserService {
 		}
 		return this.userRepository.findByPhoneNumber(addUserRequest.phoneNumber()).get();
 	}
-
 
 	public User findByPhoneNumber(String phoneNumber) {
 		return this.userRepository.findByPhoneNumber(phoneNumber).orElseThrow(() ->
