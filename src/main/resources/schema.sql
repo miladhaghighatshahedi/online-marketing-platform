@@ -49,6 +49,29 @@ create table if not exists auth_role_permissions
     primary key (role_id, permission_id)
 );
 
+create table if not exists auth_admin
+(
+    id            uuid unique primary key not null,
+    version       integer                 not null,
+    email         varchar(100) unique     not null,
+    password      varchar(255)            not null,
+    enabled       boolean default false,
+    joinAt        timestamp               not null,
+    enabledAt     timestamp,
+    disableAt     timestamp,
+    lastLoginAt   timestamp,
+    lastUpdatedAt timestamp
+);
+
+create table if not exists auth_admin_roles
+(
+    admin_id uuid not null references auth_admin(id),
+    role_id uuid not null references auth_roles(id),
+    primary key (admin_id,role_id)
+);
+
+
+
 create table if not exists auth_refresh_token
 (
     id             uuid unique primary key not null,
@@ -73,6 +96,9 @@ create table if not exists auth_device_binding
 );
 
 
+
+
+
 create table if not exists profiles
 (
     id              uuid unique primary key not null,
@@ -84,8 +110,6 @@ create table if not exists profiles
     activation_date timestamp               not null,
     credential      uuid unique references credentials (id)
 );
-
-
 
 create table if not exists catalogs
 (
@@ -121,9 +145,6 @@ create table if not exists category_closure
     primary key (parent_id,child_id)
 );
 
-
-
-
 create table if not exists provinces
 (
     id      uuid primary key not null,
@@ -148,9 +169,6 @@ create table if not exists locations
     province_id uuid             not null references provinces (id),
     city_id     uuid             not null references cities (id)
 );
-
-
-
 
 create table if not exists advertisements
 (
@@ -180,6 +198,18 @@ create table if not exists advertisement_image_metadata
     advertisement_id uuid             not null REFERENCES advertisements (id)
 );
 
+
+create index if not exists index_users_phone_number on auth_users (phone_number);
+create index if not exists index_users_phone_number_enabled on auth_users (phone_number,enabled);
+create index if not exists index_roles_name on auth_roles(name);
+create index if not exists index_permissions_name on auth_permissions(name);
+create index if not exists index_user_roles_roles on auth_user_roles(role_id);
+create index if not exists index_user_roles_users on auth_user_roles(user_id);
+create index if not exists index_role_permissions_roles on auth_role_permissions(role_id);
+create index if not exists index_role_permissions_permissions on auth_role_permissions(permission_id);
+create index if not exists index_admins_email on auth_admin(email);
+create index if not exists index_admins_roles_roles on auth_admin_roles(role_id);
+create index if not exists index_admins_roles_admins on auth_admin_roles(admin_id);
 
 create index if not exists index_catalog_name on catalogs (name);
 create index if not exists index_catalog_slug on catalogs (slug);
