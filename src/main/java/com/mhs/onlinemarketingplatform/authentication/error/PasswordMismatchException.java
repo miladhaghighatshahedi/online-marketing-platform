@@ -18,22 +18,16 @@ package com.mhs.onlinemarketingplatform.authentication.error;
 /**
  * @author Milad Haghighat Shahedi
  */
-public enum AuthenticationErrorCode {
-	USER_NOT_FOUND,
-	USER_ALREADY_EXISTS,
-	ROLE_NOT_FOUND,
-	ROLE_ALREADY_EXISTS,
-	PERMISSION_NOT_FOUND,
-	PERMISSION_ALREADY_EXISTS,
-	USER_IS_BLOCKED,
-	USER_IS_NOT_ENABLED,
-	INVALID_PHONE_NUUMBER,
-	PHONE_NUMBER_REQUIRED,
-	ADMIN_ALREADY_REGISTERED,
-	ADMIN_NOT_FOUND,
-	ADMIN_UNAUTHORIZED_DOMAIN,
-	UNKNOWN_ERROR_WHILE_UPDATE_ADMIN,
-	INVALID_DATA_WHILE_HASHING,
-	UKNOWN_ERROR_WHILE_HASHINH,
-	PASSWORD_MISMATCH_ERROR
+public class PasswordMismatchException extends RuntimeException{
+
+	private final AuthenticationErrorCode code;
+
+	public PasswordMismatchException(String message, AuthenticationErrorCode code) {
+		super(message);
+		this.code = code;
+	}
+
+	public AuthenticationErrorCode getCode() {
+		return code;
+	}
 }
