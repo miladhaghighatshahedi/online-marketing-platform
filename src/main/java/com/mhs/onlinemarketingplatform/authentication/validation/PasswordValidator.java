@@ -16,6 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
+import com.mhs.onlinemarketingplatform.authentication.props.ApplicationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -33,7 +34,7 @@ public class PasswordValidator  {
 		this.passValidationStrategies = passValidationStrategies;
 	}
 
-	public Optional<ValidationError> passwordIsValid(String password) {
+	public Optional<ValidationError> validate(String password) {
 		return passValidationStrategies.stream()
 				.map(strategy -> strategy.isValid(password))
 				.filter(Optional::isPresent)
@@ -86,14 +87,18 @@ class PasswordComplexity implements PasswordValidationStrategy {
 @Component
 class PasswordLength implements PasswordValidationStrategy {
 
-	private static final int PASSWORD_MIN_LENGTH = 8;
+	private final ApplicationProperties properties;
+
+	public PasswordLength(ApplicationProperties properties) {
+		this.properties = properties;
+	}
 
 	@Override
 	public Optional<ValidationError> isValid(String password) {
-		if (password.length() < PASSWORD_MIN_LENGTH) {
+		if (password.length() < properties.passwordMinLength()) {
 			return Optional.of(
 					new ValidationError(
-							"Password must be min 8 characters long!",
+							String.format("Password must be min % characters long!",properties.passwordMinLength()),
 							"PASSWORD",
 							"PASSWORD_INVALID_LENGTH"));}
 		return Optional.empty();
