@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.error.otp;
+package com.mhs.onlinemarketingplatform.authentication.error.admin;
 
 import com.mhs.onlinemarketingplatform.authentication.error.AuthenticationErrorCode;
-
 /**
  * @author Milad Haghighat Shahedi
  */
-public class PhoneNumberRequiredException extends RuntimeException{
+public class AdminAlreadyRegisteredException extends RuntimeException {
 
 	private final AuthenticationErrorCode code;
 
-	public PhoneNumberRequiredException(String message, AuthenticationErrorCode code) {
+	public AdminAlreadyRegisteredException(String message, AuthenticationErrorCode code) {
 		super(message);
 		this.code = code;
 	}
