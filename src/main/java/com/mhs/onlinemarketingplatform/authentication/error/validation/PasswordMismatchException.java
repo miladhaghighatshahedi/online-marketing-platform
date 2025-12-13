@@ -13,21 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.error;
+package com.mhs.onlinemarketingplatform.authentication.error.validation;
 
 /**
  * @author Milad Haghighat Shahedi
  */
 public class PasswordMismatchException extends RuntimeException{
 
-	private final AuthenticationErrorCode code;
+	private final ValidationErrorCode code;
 
-	public PasswordMismatchException(String message, AuthenticationErrorCode code) {
+	public PasswordMismatchException(String message, ValidationErrorCode code) {
 		super(message);
 		this.code = code;
 	}
 
-	public AuthenticationErrorCode getCode() {
+	public ValidationErrorCode getCode() {
 		return code;
 	}
+
 }
