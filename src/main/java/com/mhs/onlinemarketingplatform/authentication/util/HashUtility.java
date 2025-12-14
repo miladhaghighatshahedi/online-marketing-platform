@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.util;
 
 import com.mhs.onlinemarketingplatform.authentication.error.hash.HashErrorCode;
-import com.mhs.onlinemarketingplatform.authentication.error.hash.HashMechanismInavlidDataException;
+import com.mhs.onlinemarketingplatform.authentication.error.hash.HashMechanismInvalidDataException;
 import io.micrometer.common.util.StringUtils;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
@@ -48,7 +48,7 @@ class SHA256TokenHash implements HashUtility {
 	@Override
 	public String sha256Base64(String data) {
 		if (data == null || StringUtils.isBlank(data)) {
-			throw new HashMechanismInavlidDataException(
+			throw new HashMechanismInvalidDataException(
 					messageSource.getMessage("error.hash.mechanism.data.invalid",
 							new Object[] {},
 							Locale.getDefault()),
@@ -60,7 +60,7 @@ class SHA256TokenHash implements HashUtility {
 			byte[] digest = messageDigest.digest(data.getBytes(StandardCharsets.UTF_8));
 			return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
 		} catch (Exception e) {
-			throw new HashMechanismInavlidDataException(
+			throw new HashMechanismInvalidDataException(
 					messageSource.getMessage("error.hash.mechanism.unknown.error"+e,
 							new Object[] {},
 							Locale.getDefault()),
