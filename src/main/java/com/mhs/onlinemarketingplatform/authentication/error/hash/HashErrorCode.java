@@ -19,6 +19,6 @@ package com.mhs.onlinemarketingplatform.authentication.error.hash;
  * @author Milad Haghighat Shahedi
  */
 public enum HashErrorCode {
-	HASHING_INVALID_DATA,
-	HASHING_UKNOWN_ERROR
+	HASH_INVALID_DATA,
+	HASH_UNKNOWN_ERROR
 }

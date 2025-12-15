@@ -52,7 +52,7 @@ class SHA256TokenHash implements HashUtility {
 					messageSource.getMessage("error.hash.mechanism.data.invalid",
 							new Object[] {},
 							Locale.getDefault()),
-					HashErrorCode.HASHING_INVALID_DATA);
+					HashErrorCode.HASH_INVALID_DATA);
 		}
 
 		try {
@@ -64,7 +64,7 @@ class SHA256TokenHash implements HashUtility {
 					messageSource.getMessage("error.hash.mechanism.unknown.error"+e,
 							new Object[] {},
 							Locale.getDefault()),
-					HashErrorCode.HASHING_UKNOWN_ERROR);}
+					HashErrorCode.HASH_UNKNOWN_ERROR);}
 	}
 
 	@Override
