@@ -16,7 +16,6 @@
 package com.mhs.onlinemarketingplatform.authentication.error.role;
 
 import com.mhs.onlinemarketingplatform.authentication.error.AuthenticationErrorCode;
-
 /**
  * @author Milad Haghighat Shahedi
  */

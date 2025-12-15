@@ -18,12 +18,12 @@ package com.mhs.onlinemarketingplatform.authentication.error.validation;
 /**
  * @author Milad Haghighat Shahedi
  */
-public class ValidationException extends RuntimeException {
+public class CustomValidationException extends RuntimeException {
 
 	private final String field;
 	private final String code;
 
-	public ValidationException(String message, String field, String code) {
+	public CustomValidationException(String message, String field, String code) {
 		super(message);
 		this.field = field;
 		this.code = code;
