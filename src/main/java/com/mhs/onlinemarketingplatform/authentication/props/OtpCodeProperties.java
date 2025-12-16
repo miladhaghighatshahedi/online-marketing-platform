@@ -16,26 +16,19 @@
 package com.mhs.onlinemarketingplatform.authentication.props;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
 /**
  * @author Milad Haghighat Shahedi
  */
-@ConfigurationProperties(prefix = "app")
-public record ApplicationProperties(
-		RSAPublicKey jwtRsaPublicKey,
-		RSAPrivateKey jwtRsaPrivateKey,
-		String jwtIssuer,
-		int jwtAccessTokenExpirySec,
-		int jwtRefreshTokenExpirySec,
-		String jwtAccessTokenClaimType,
-		String jwtRefreshTokenClaimType,
-		String corporateDomain,
-		int corporateEmailMinLength,
-		int corporateEmailMaxLength,
-		int userMobileNumberLength,
-		String userMobileNumberRegion,
-		int passwordMinLength
+@ConfigurationProperties(prefix = "otp")
+public record OtpCodeProperties(
+		String otpPrefixKey,
+		String otpSendCountPrefixKey,
+		String otpFailedCountPrefixKey,
+		String otpBlockedPrefixKey,
+		int otpTtlSec,
+		int otpLength,
+		int otpMaxSendPerHour,
+		int otpMaxVerifyAttempts,
+		int otpMaxFailedAttempts,
+		int otpBlockDurationSec
 ) {}
-
