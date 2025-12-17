@@ -19,16 +19,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * @author Milad Haghighat Shahedi
  */
-@ConfigurationProperties(prefix = "otp")
-public record OtpCodeProperties(
-		String otpPrefixKey,
-		String otpSendCountPrefixKey,
-		String otpFailedCountPrefixKey,
-		String otpBlockedPrefixKey,
-		int otpTtlSec,
-		int otpLength,
-		int otpMaxSendPerHour,
-		int otpMaxVerifyAttempts,
-		int otpMaxFailedAttempts,
-		int otpBlockDurationSec
+@ConfigurationProperties(prefix = "otp.core")
+public record OtpCoreProperties(
+		int length,
+		int ttlInSec
 ) {}
+
+
