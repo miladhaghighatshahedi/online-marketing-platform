@@ -17,7 +17,10 @@ package com.mhs.onlinemarketingplatform.authentication.config;
 
 import com.mhs.onlinemarketingplatform.authentication.props.*;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.security.SecureRandom;
 /**
  * @author Milad Haghighat Shahedi
  */
@@ -28,4 +31,11 @@ import org.springframework.context.annotation.Configuration;
 		OtpCoreProperties.class,
 		OtpRateLimitProperties.class,
 		OtpRedisProperties.class})
-public class AuthenticationConfig {}
+public class AuthenticationConfig {
+
+	@Bean
+	public SecureRandom secureRandom() {
+		return new SecureRandom();
+	}
+
+}

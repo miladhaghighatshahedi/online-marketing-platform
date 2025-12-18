@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
-import com.mhs.onlinemarketingplatform.authentication.props.ApplicationProperties;
+import com.mhs.onlinemarketingplatform.authentication.props.OtpCoreProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -68,18 +68,18 @@ class OtpBlank implements OtpValidationStrategy {
 @Component
 class OtpLength implements OtpValidationStrategy {
 
-	private final ApplicationProperties properties;
+	private final OtpCoreProperties properties;
 
-	public OtpLength(ApplicationProperties properties) {
+	public OtpLength(OtpCoreProperties properties) {
 		this.properties = properties;
 	}
 
 	@Override
 	public Optional<ValidationError> isValid(String otpCode) {
-		if (otpCode.length() < properties.otpLength()) {
+		if (otpCode.length() < this.properties.length()) {
 			return Optional.of(
 					new ValidationError(
-							String.format("OTP_CODE must be exactly % characters long!",properties.otpLength()),
+							String.format("OTP_CODE must be exactly % characters long!",properties.length()),
 							"OTP_CODE",
 							"OTP_CODE_INVALID_LENGTH"));}
 		return Optional.empty();
