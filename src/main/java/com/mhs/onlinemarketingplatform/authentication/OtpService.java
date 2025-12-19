@@ -15,9 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.authentication;
 
-import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpConfigurationException;
-import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpErrorCode;
-import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpRateLimitExceededException;
+import com.mhs.onlinemarketingplatform.authentication.error.otp.*;
 import com.mhs.onlinemarketingplatform.authentication.props.OtpCoreProperties;
 import com.mhs.onlinemarketingplatform.authentication.props.OtpRateLimitProperties;
 import com.mhs.onlinemarketingplatform.authentication.props.OtpRedisProperties;
@@ -53,9 +51,11 @@ interface OtpStore {
 }
 
 interface OtpRateLimiter {
+	void validateSendCoolDown(String key);
 	void validateCanSend(String key);
-	void validateCanVerify(String key);
-	void recordSend(String key);
+	void recordSendAttempts(String key);
+	void validateNotBlocked(String key);
+	void recordVerifyAttempts(String key);
 	void recordFailure(String key);
 	void recordSuccess(String key);
 }
@@ -91,25 +91,31 @@ class OtpServiceImpl implements OtpService {
 		 this.messageSource = messageSource;
 	}
 
-	public void sendOtp(String phoneNumber) {
-		this.otpRateLimiter.validateCanSend(phoneNumber);
-		String otp = this.otpGenerator.generate(this.otpCoreProperties.length());
-		String hashedOtp = this.hashUtility.sha256Base64(otp);
-		this.otpStore.saveOtp(phoneNumber, hashedOtp);
-		this.otpSmsSender.sendOtpSms(phoneNumber, otp);
-		this.otpRateLimiter.recordSend(phoneNumber);
+	public void sendOtp(String mobileNumber) {
+		 this.otpRateLimiter.validateSendCoolDown(mobileNumber);
+		 this.otpRateLimiter.validateCanSend(mobileNumber);
+		 String otp = this.otpGenerator.generate(this.otpCoreProperties.length());
+		 String hashedOtp = this.hashUtility.sha256Base64(otp);
+		 this.otpStore.saveOtp(mobileNumber, hashedOtp);
+		 this.otpSmsSender.sendOtpSms(mobileNumber, otp);
+		 this.otpRateLimiter.recordSendAttempts(mobileNumber);
 	}
 
 	public void verifyOtp(String mobileNumber, String otp) {
+		this.otpRateLimiter.validateNotBlocked(mobileNumber);
 		this.otpValidator.validate(otp);
-		this.otpRateLimiter.validateCanVerify(mobileNumber);
-		String storedOtpHash = this.otpStore.getOtp(mobileNumber).orElseThrow(
-				() -> new OtpConfigurationException(
-						messageSource.getMessage("error.otp.code.invalid.otp",
-								new Objects[]{}, Locale.getDefault()),
-						OtpErrorCode.OTP_INVALID));
+		this.otpRateLimiter.recordVerifyAttempts(mobileNumber);
 
-		if(!hashUtility.verfiyToken(otp,storedOtpHash)) {
+		String storedOtpHash = this.otpStore.getOtp(mobileNumber).orElseThrow(
+				() -> {
+					this.otpRateLimiter.recordFailure(mobileNumber);
+					return new OtpConfigurationException(
+							messageSource.getMessage("error.otp.code.invalid.otp",
+									new Objects[]{}, Locale.getDefault()),
+							OtpErrorCode.OTP_INVALID);
+				      });
+
+		if(!this.hashUtility.verfiyToken(otp,storedOtpHash)) {
 			this.otpRateLimiter.recordFailure(mobileNumber);
 			throw new OtpConfigurationException(
 					messageSource.getMessage("error.otp.code.invalid.otp",
@@ -185,7 +191,7 @@ class RedisOtpStore implements OtpStore {
 	@Override
 	public Optional<String> getOtp(String key) {
 		String otpKey = this.redisProperties.prefixKey() + key;
-		return Optional.of(this.redis.opsForValue().get(otpKey));
+		return Optional.ofNullable(this.redis.opsForValue().get(otpKey));
 	}
 
 	@Override
@@ -202,24 +208,44 @@ class RedisRateLimiter implements OtpRateLimiter {
 	private final RedisTemplate<String, String> redis;
 	private final OtpKeyBuilder keyBuilder;
 	private final OtpRateLimitProperties rateLimitProperties;
+	private final OtpRedisProperties otpRedisProperties;
 	private final MessageSource messageSource;
 
 	RedisRateLimiter(
 			RedisTemplate<String, String> redis,
 			OtpKeyBuilder keyBuilder,
 			OtpRateLimitProperties rateLimitProperties,
+			OtpRedisProperties otpRedisProperties,
 			MessageSource messageSource) {
 		this.redis = redis;
 		this.keyBuilder = keyBuilder;
 		this.rateLimitProperties = rateLimitProperties;
+		this.otpRedisProperties = otpRedisProperties;
 		this.messageSource = messageSource;
 	}
 
 	@Override
+	public void validateSendCoolDown(String key) {
+		String sendCoolDownKey = this.keyBuilder.buildSendCoolDownKey(key);
+		if(Boolean.TRUE.equals(this.redis.hasKey(sendCoolDownKey))) {
+			throw new OtpRateLimitExceededException(
+					messageSource.getMessage("error.otp.code.cooldown.too.many.attempts",
+							new Objects[] {},
+							Locale.getDefault()),
+					OtpErrorCode.OTP_COOLDOWN);
+		}
+	}
+
+	@Override
 	public void validateCanSend(String key) {
-		Integer attempts = Optional.ofNullable(
-				this.redis.opsForValue().get(this.keyBuilder.buildSendKey(key))).map(Integer::parseInt).orElse(0);
-		if(attempts >= this.rateLimitProperties.maxSendAttemptsPerHour()) {
+		String sendKey = this.keyBuilder.buildSendKey(key);
+
+		Long attempts = this.redis.opsForValue().increment(sendKey);
+        if(attempts != null && attempts == 1) {
+			this.redis.expire(sendKey,Duration.ofSeconds(this.otpRedisProperties.sendTtlInSec()));
+        }
+
+		if(attempts != null && attempts > this.rateLimitProperties.maxSendAttemptsPerHour()) {
 			throw new OtpRateLimitExceededException(messageSource.getMessage("error.otp.code.too.many.failed.attempts",
 					new Objects[] {},
 					Locale.getDefault()),
@@ -228,10 +254,35 @@ class RedisRateLimiter implements OtpRateLimiter {
 	}
 
 	@Override
-	public void validateCanVerify(String key) {
-		Long attempts = this.redis.opsForValue().increment(this.keyBuilder.buildVerifyKey(key));
-		if(attempts != null && attempts >= this.rateLimitProperties.maxVerifyAttemptsPerHour()) {
-			throw new OtpRateLimitExceededException(messageSource.getMessage("error.otp.code.too.many.verify.attempts",
+	public void recordSendAttempts(String key) {
+		String cooldownKey = this.keyBuilder.buildSendCoolDownKey(key);
+		this.redis.opsForValue().set(cooldownKey,"1",Duration.ofSeconds(this.otpRedisProperties.coolDownTtlInSec()));
+	}
+
+	@Override
+	public void validateNotBlocked(String key) {
+		String blockKey = this.keyBuilder.buildBlockKey(key);
+		if(Boolean.TRUE.equals(this.redis.hasKey(blockKey))) {
+			throw new OtpBlockedException(
+					messageSource.getMessage("error.otp.code.blocked",
+							new Objects[] {},
+							Locale.getDefault()),
+					OtpErrorCode.OTP_BLOCKED);
+		}
+	}
+
+	@Override
+	public void recordVerifyAttempts(String key) {
+		String verifyKey = this.keyBuilder.buildVerifyKey(key);
+
+		Long attempts = this.redis.opsForValue().increment(verifyKey);
+		if(attempts != null && attempts == 1) {
+			this.redis.expire(verifyKey,Duration.ofSeconds(this.otpRedisProperties.verifyTtlInSec()));
+		}
+
+		if(attempts != null && attempts > this.rateLimitProperties.maxVerifyAttemptsPerHour()) {
+			block(key);
+			throw new OtpRateLimitExceededException(messageSource.getMessage("error.otp.code.too.many.failed.attempts",
 					new Objects[] {},
 					Locale.getDefault()),
 					OtpErrorCode.OTP_RATELIMIT_EXCEEDED);
@@ -239,29 +290,30 @@ class RedisRateLimiter implements OtpRateLimiter {
 	}
 
 	@Override
-	public void recordSend(String key) {
-		Long count = this.redis.opsForValue().increment(this.keyBuilder.buildSendKey(key));
-		if(count != null && count == 1) {
-			this.redis.expire(this.keyBuilder.buildSendKey(key),Duration.ofSeconds(this.keyBuilder.getSendTtlInSec()));
-		}
-	}
-
-	@Override
 	public void recordFailure(String key) {
-		Long count = this.redis.opsForValue().increment(this.keyBuilder.buildVerifyKey(key));
-		if (count != null && count == 1) {
-			this.redis.expire(this.keyBuilder.buildVerifyKey(key),Duration.ofSeconds(this.keyBuilder.getVerifyTtlInSec()));
+		String failureKey = this.keyBuilder.buildFailureKey(key);
+		Long failure = this.redis.opsForValue().increment(failureKey);
+		if (failure != null && failure == 1) {
+			this.redis.expire(failureKey,Duration.ofSeconds(this.otpRedisProperties.verifyTtlInSec()));
 		}
 
-		if (count != null && count >= this.rateLimitProperties.maxVerifyAttemptsPerHour()) {
-			this.redis.opsForValue().set(this.keyBuilder.buildBlockKey(key), "1", this.rateLimitProperties.blockDurationInSec());
+		if (failure != null && failure >= this.rateLimitProperties.maxFailedAttemptsPerHour()) {
+			block(key);
 		}
 	}
 
 	@Override
 	public void recordSuccess(String key) {
 		this.redis.delete(this.keyBuilder.buildVerifyKey(key));
+		this.redis.delete(this.keyBuilder.buildFailureKey(key));
 		this.redis.delete(this.keyBuilder.buildBlockKey(key));
+		this.redis.delete(this.keyBuilder.buildSendKey(key));
+		this.redis.delete(this.keyBuilder.buildSendCoolDownKey(key));
+	}
+
+	private void block(String key) {
+		String blockKey = this.keyBuilder.buildBlockKey(key);
+		this.redis.opsForValue().set(blockKey, "1", Duration.ofSeconds(this.rateLimitProperties.blockDurationInSec()));
 	}
 
 }
@@ -279,6 +331,17 @@ class OtpKeyBuilder {
 		this.otpRedisProperties = otpRedisProperties;
 	}
 
+	String buildSendCoolDownKey(String key) {
+		validateKey(key);
+		return this.otpRedisProperties.sendCoolDownPrefixKey() + key;
+	}
+
+	String buildVerifyCoolDownKey(String key) {
+		validateKey(key);
+		return this.otpRedisProperties.verifyCoolDownPrefixKey() + key;
+	}
+
+
 	String buildSendKey(String key) {
 		validateKey(key);
 		return this.otpRedisProperties.sendCountPrefixKey() + key;
@@ -289,17 +352,14 @@ class OtpKeyBuilder {
 		return this.otpRedisProperties.verifyCountPrefixKey() + key;
 	}
 
+	String buildFailureKey(String key) {
+		validateKey(key);
+		return this.otpRedisProperties.failurePrefixKey() + key;
+	}
+
 	String buildBlockKey(String key) {
 		validateKey(key);
-		return this.otpRedisProperties.blockedPrefixKey() + key;
-	}
-
-	int getSendTtlInSec() {
-		return this.otpRedisProperties.sendTtlInSec();
-	}
-
-	int getVerifyTtlInSec() {
-		return this.otpRedisProperties.verifyTtlInSec();
+		return this.otpRedisProperties.blockPrefixKey() + key;
 	}
 
 	private void validateKey(String key) {
