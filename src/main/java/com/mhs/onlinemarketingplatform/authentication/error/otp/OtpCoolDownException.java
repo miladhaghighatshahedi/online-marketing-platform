@@ -18,12 +18,17 @@ package com.mhs.onlinemarketingplatform.authentication.error.otp;
 /**
  * @author Milad Haghighat Shahedi
  */
-public enum OtpErrorCode {
-	OTP_RATELIMIT_EXCEEDED,
-	OTP_NO_INDENTIFIER_PROVIDED,
-	OTP_MISSING_PROPERTY,
-	OTP_LENGTH_NOT_SUPPORTED,
-	OTP_COOLDOWN,
-	OTP_BLOCKED,
-	OTP_INVALID
+public class OtpCoolDownException extends RuntimeException{
+
+	private final OtpErrorCode code;
+
+	public OtpCoolDownException(String message, OtpErrorCode code) {
+		super(message);
+		this.code = code;
+	}
+
+	public OtpErrorCode getCode() {
+		return code;
+	}
+
 }

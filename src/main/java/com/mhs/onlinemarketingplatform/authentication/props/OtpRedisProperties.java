@@ -22,9 +22,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "otp.redis")
 public record OtpRedisProperties(
 		String prefixKey,
+		String sendCoolDownPrefixKey,
+		String verifyCoolDownPrefixKey,
 		String sendCountPrefixKey,
 		String verifyCountPrefixKey,
-		String blockedPrefixKey,
+		String failurePrefixKey,
+		String blockPrefixKey,
+		int coolDownTtlInSec,
 		int sendTtlInSec,
 		int verifyTtlInSec,
 		int failureTtl
