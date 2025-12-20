@@ -23,7 +23,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record OtpRedisProperties(
 		String prefixKey,
 		String sendCoolDownPrefixKey,
-		String verifyCoolDownPrefixKey,
 		String sendCountPrefixKey,
 		String verifyCountPrefixKey,
 		String failurePrefixKey,
@@ -31,5 +30,5 @@ public record OtpRedisProperties(
 		int coolDownTtlInSec,
 		int sendTtlInSec,
 		int verifyTtlInSec,
-		int failureTtl
+		int failureTtlInSec
 ) {}

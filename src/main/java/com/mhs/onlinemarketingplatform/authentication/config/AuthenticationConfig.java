@@ -27,7 +27,6 @@ import java.security.SecureRandom;
 @Configuration
 @EnableConfigurationProperties({
 		ApplicationProperties.class,
-		OtpBruteForceProperties.class,
 		OtpCoreProperties.class,
 		OtpRateLimitProperties.class,
 		OtpRedisProperties.class})
