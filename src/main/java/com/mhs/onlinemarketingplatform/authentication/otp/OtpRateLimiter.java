@@ -20,6 +20,7 @@ import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpErrorCode;
 import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpRateLimitExceededException;
 import com.mhs.onlinemarketingplatform.authentication.props.OtpRateLimitProperties;
 import com.mhs.onlinemarketingplatform.authentication.props.OtpRedisProperties;
+import com.mhs.onlinemarketingplatform.authentication.util.HashUtility;
 import org.springframework.context.MessageSource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -37,6 +38,7 @@ public interface OtpRateLimiter {
 	void recordVerifyAttempts(String key);
 	void recordFailure(String key);
 	void recordSuccess(String key);
+	void validateCardinality(String ip,String key);
 }
 
 @Component
@@ -46,6 +48,7 @@ class RedisRateLimiter implements OtpRateLimiter {
 	private final OtpKeyBuilder keyBuilder;
 	private final OtpRateLimitProperties rateLimitProperties;
 	private final OtpRedisProperties otpRedisProperties;
+	private final HashUtility hashUtility;
 	private final MessageSource messageSource;
 
 	RedisRateLimiter(
@@ -53,11 +56,13 @@ class RedisRateLimiter implements OtpRateLimiter {
 			OtpKeyBuilder keyBuilder,
 			OtpRateLimitProperties rateLimitProperties,
 			OtpRedisProperties otpRedisProperties,
+			HashUtility hashUtility,
 			MessageSource messageSource) {
 		this.redis = redis;
 		this.keyBuilder = keyBuilder;
 		this.rateLimitProperties = rateLimitProperties;
 		this.otpRedisProperties = otpRedisProperties;
+		this.hashUtility = hashUtility;
 		this.messageSource = messageSource;
 	}
 
@@ -147,6 +152,32 @@ class RedisRateLimiter implements OtpRateLimiter {
 		this.redis.delete(this.keyBuilder.buildBlockKey(key));
 		this.redis.delete(this.keyBuilder.buildSendKey(key));
 		this.redis.delete(this.keyBuilder.buildSendCoolDownKey(key));
+	}
+
+	@Override
+	public void validateCardinality(String key,String ip) {
+		String cardinalityKey = this.keyBuilder.buildCardinalityKey(ip);
+
+		String hashedKey = this.hashUtility.sha256Base64(key);
+		Long cardinality = this.redis.opsForSet().add(cardinalityKey, hashedKey);
+		if(cardinality != null && cardinality == 1) {
+			Long expirey = this.redis.getExpire(cardinalityKey);
+			if(expirey == null || expirey == -1) {
+				this.redis.expire(cardinalityKey,Duration.ofSeconds(this.otpRedisProperties.cardinalityInSec()));
+			}
+		}
+
+		Long size = this.redis.opsForSet().size(cardinalityKey);
+		if(size != null && size > this.rateLimitProperties.maxSendAttemptsPerIp()) {
+			throw new OtpRateLimitExceededException(
+					this.messageSource.getMessage(
+							"error.otp.code.too.many.distinct.targets",
+							new Object[] {},
+							Locale.getDefault()
+					),
+					OtpErrorCode.OTP_RATELIMIT_EXCEEDED
+			);
+		}
 	}
 
 	private void block(String key) {

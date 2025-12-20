@@ -28,8 +28,8 @@ import java.util.Locale;
  * @author Milad Haghighat Shahedi
  */
 public interface OtpService {
-	void sendOtp(String phoneNumber);
-	void verifyOtp(String phoneNumber,String otp);
+	void sendOtp(String mobileNumber,String ip);
+	void verifyOtp(String mobileNumber,String otp);
 }
 
 @Service
@@ -63,7 +63,9 @@ class OtpServiceImpl implements OtpService {
 		 this.messageSource = messageSource;
 	}
 
-	public void sendOtp(String mobileNumber) {
+	public void sendOtp(String mobileNumber,String ip) {
+
+		 this.otpRateLimiter.validateCardinality(mobileNumber,ip);
 		 this.otpRateLimiter.validateSendCoolDown(mobileNumber);
 		 this.otpRateLimiter.validateCanSend(mobileNumber);
 		 String otp = this.otpGenerator.generate(this.otpCoreProperties.length());

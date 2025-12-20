@@ -27,8 +27,10 @@ public record OtpRedisProperties(
 		String verifyCountPrefixKey,
 		String failurePrefixKey,
 		String blockPrefixKey,
+		String cardinalityPrefixKey,
 		int coolDownTtlInSec,
 		int sendTtlInSec,
 		int verifyTtlInSec,
-		int failureTtlInSec
+		int failureTtlInSec,
+		int cardinalityInSec
 ) {}

@@ -24,5 +24,6 @@ public record OtpRateLimitProperties(
 		int maxSendAttemptsPerHour,
 		int maxVerifyAttemptsPerHour,
 		int maxFailedAttemptsPerHour,
+		int maxSendAttemptsPerIp,
 		int blockDurationInSec
 ) {}

@@ -66,6 +66,11 @@ public class OtpKeyBuilder {
 		return this.otpRedisProperties.blockPrefixKey() + key;
 	}
 
+	String buildCardinalityKey(String key) {
+		validateKey(key);
+		return this.otpRedisProperties.cardinalityPrefixKey() + key;
+	}
+
 	private void validateKey(String key) {
 		if (key == null || key.isBlank()) {
 			throw new OtpConfigurationException(messageSource.getMessage("error.otp.validation.key.missing.property",
