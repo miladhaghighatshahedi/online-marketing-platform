@@ -23,7 +23,9 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 /**
  * @author Milad Haghighat Shahedi
@@ -33,6 +35,8 @@ public interface HashUtility {
 	String sha256Base64(String data);
 
 	boolean verfiyToken(String rawData,String hashedData);
+
+	List<String> preservedOrderHashing(List<String> inputs);
 
 }
 
@@ -70,6 +74,15 @@ class SHA256TokenHash implements HashUtility {
 	@Override
 	public boolean verfiyToken(String rawData,String hashedData) {
 		return sha256Base64(rawData).equals(hashedData);
+	}
+
+	@Override
+	public List<String> preservedOrderHashing(List<String> inputs) {
+		List<String> hashList = new ArrayList<>(inputs.size());
+		for (String input : inputs) {
+			hashList.add(sha256Base64(input));
+		}
+		return hashList;
 	}
 
 }
