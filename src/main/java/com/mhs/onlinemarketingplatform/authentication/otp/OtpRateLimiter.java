@@ -171,7 +171,7 @@ class RedisRateLimiter implements OtpRateLimiter {
 		if(size != null && size > this.rateLimitProperties.maxSendAttemptsPerIp()) {
 			throw new OtpRateLimitExceededException(
 					this.messageSource.getMessage(
-							"error.otp.code.too.many.distinct.targets",
+							"error.otp.code.too.many.distinct.requets.from.same.ip",
 							new Object[] {},
 							Locale.getDefault()
 					),
@@ -182,7 +182,7 @@ class RedisRateLimiter implements OtpRateLimiter {
 
 	private void block(String key) {
 		String blockKey = this.keyBuilder.buildBlockKey(key);
-		this.redis.opsForValue().set(blockKey, "1", Duration.ofSeconds(this.rateLimitProperties.blockDurationInSec()));
+		this.redis.opsForValue().setIfAbsent(blockKey, "1", Duration.ofSeconds(this.rateLimitProperties.blockDurationInSec()));
 	}
 
 }

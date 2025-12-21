@@ -1,38 +1,38 @@
 create table if not exists credentials
 (
-    id       uuid unique primary key not null,
-    version  integer                 not null,
-    username varchar(100) unique     not null,
-    password varchar(100)            not null,
-    enabled  boolean                 not null
+    id       uuid primary key    not null,
+    version  integer             not null,
+    username varchar(100) unique not null,
+    password varchar(100)        not null,
+    enabled  boolean             not null
 );
 
 create table if not exists auth_users
 (
-    id           uuid unique primary key not null,
-    version      integer                 not null,
-    phone_number varchar(13)             not null unique,
-    joined_at    timestamp               not null,
-    disabledA_at timestamp               not null,
-    enabled      boolean                 not null default false
+    id           uuid primary key not null,
+    version      integer          not null,
+    phone_number varchar(13)      not null unique,
+    joined_at    timestamp        not null,
+    disabled_at  timestamp        not null,
+    enabled      boolean          not null default false
 );
 
 create table if not exists auth_roles
 (
-    id              uuid unique primary key not null,
-    version         integer                 not null,
-    name            varchar(50)             not null unique,
-    created_at      timestamp               not null,
-    last_updated_at timestamp               not null
+    id              uuid primary key not null,
+    version         integer          not null,
+    name            varchar(50)      not null unique,
+    created_at      timestamp        not null,
+    last_updated_at timestamp        not null
 );
 
 create table if not exists auth_permissions
 (
-    id              uuid unique primary key not null,
-    version         integer                 not null,
-    name            varchar(50)             not null unique,
-    created_at      timestamp               not null,
-    last_updated_at timestamp               not null
+    id              uuid primary key not null,
+    version         integer          not null,
+    name            varchar(50)      not null unique,
+    created_at      timestamp        not null,
+    last_updated_at timestamp        not null
 );
 
 create table if not exists auth_user_roles
@@ -51,16 +51,16 @@ create table if not exists auth_role_permissions
 
 create table if not exists auth_admin
 (
-    id            uuid unique primary key not null,
-    version       integer                 not null,
-    email         varchar(100) unique     not null,
-    password      varchar(255)            not null,
-    enabled       boolean default false,
-    joinAt        timestamp               not null,
-    enabledAt     timestamp,
-    disableAt     timestamp,
-    lastLoginAt   timestamp,
-    lastUpdatedAt timestamp
+    id                uuid primary key    not null,
+    version           integer             not null,
+    email             varchar(100) unique not null,
+    password          varchar(255)        not null,
+    enabled           boolean default false,
+    join_at           timestamp           not null,
+    enabled_at        timestamp,
+    disable_at        timestamp,
+    last_logged_in_at timestamp,
+    last_updated_at   timestamp
 );
 
 create table if not exists auth_admin_roles
@@ -74,12 +74,12 @@ create table if not exists auth_admin_roles
 
 create table if not exists auth_refresh_token
 (
-    id             uuid unique primary key not null,
-    version        integer                 not null,
-    hashed_token   char(44)                not null,
-    device_id_hash varchar(100)            not null,
-    expires_at     timestamp               not null,
-    user_id        uuid                    not null references auth_users (id)
+    id             uuid primary key not null,
+    version        integer          not null,
+    hashed_token   char(44)         not null,
+    device_id_hash varchar(100)     not null,
+    expires_at     timestamp        not null,
+    user_id        uuid             not null references auth_users (id)
 );
 
 create table if not exists auth_device_binding
@@ -101,13 +101,13 @@ create table if not exists auth_device_binding
 
 create table if not exists profiles
 (
-    id              uuid unique primary key not null,
-    version         integer                 not null,
-    name            varchar(100) unique     not null,
+    id              uuid primary key    not null,
+    version         integer             not null,
+    name            varchar(100) unique not null,
     about           text,
-    profile_type    varchar(50)             not null,
-    profile_status  varchar(50)             not null,
-    activation_date timestamp               not null,
+    profile_type    varchar(50)         not null,
+    profile_status  varchar(50)         not null,
+    activation_date timestamp           not null,
     credential      uuid unique references credentials (id)
 );
 
@@ -231,7 +231,6 @@ create index if not exists index_location_province_id on locations (province_id)
 create index if not exists index_location_city_id on locations (city_id);
 
 create index if not exists index_image_advertisement_id on advertisement_image_metadata (advertisement_id);
--- create unique index if not exists one_main_image_per_ad  ON advertisement_image_metadata (advertisement_id) WHERE is_main = true;
 
 create index if not exists index_advertisement_title on advertisements (title);
 create index if not exists index_advertisement_price on advertisements (price);
