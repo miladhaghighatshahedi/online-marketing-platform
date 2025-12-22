@@ -90,7 +90,7 @@ class OtpServiceImpl implements OtpService {
 							OtpErrorCode.OTP_INVALID);
 				});
 
-		if(!this.hashUtility.verfiyToken(otp,storedOtpHash)) {
+		if(!this.hashUtility.verify(otp,storedOtpHash)) {
 			this.otpRateLimiter.recordFailure(mobileNumber);
 			throw new OtpConfigurationException(
 					messageSource.getMessage("error.otp.code.invalid.otp",
