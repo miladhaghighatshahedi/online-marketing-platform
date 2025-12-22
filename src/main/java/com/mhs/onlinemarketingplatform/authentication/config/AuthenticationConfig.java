@@ -15,6 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.authentication.config;
 
+import com.mhs.onlinemarketingplatform.authentication.password.Argon2PasswordEncoderProperties;
 import com.mhs.onlinemarketingplatform.authentication.props.*;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +30,8 @@ import java.security.SecureRandom;
 		ApplicationProperties.class,
 		OtpCoreProperties.class,
 		OtpRateLimitProperties.class,
-		OtpRedisProperties.class})
+		OtpRedisProperties.class,
+		Argon2PasswordEncoderProperties.class})
 public class AuthenticationConfig {
 
 	@Bean
