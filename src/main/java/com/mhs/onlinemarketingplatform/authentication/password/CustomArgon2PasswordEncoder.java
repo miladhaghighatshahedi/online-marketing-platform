@@ -37,12 +37,15 @@ public class CustomArgon2PasswordEncoder implements PasswordEncoder {
 
 	@Override
 	public String encode(CharSequence rawPassword) {
-		return passwordEncoder.encode(rawPassword);
+		return this.passwordEncoder.encode(rawPassword);
 	}
 
 	@Override
 	public boolean matches(CharSequence rawPassword, String encodedPassword) {
-		return passwordEncoder.matches(rawPassword,encodedPassword);
+		if (rawPassword == null || rawPassword.isEmpty()) return false;
+		if (encodedPassword == null || encodedPassword.isBlank()) return false;
+
+		return this.passwordEncoder.matches(rawPassword,encodedPassword);
 	}
 
 }
