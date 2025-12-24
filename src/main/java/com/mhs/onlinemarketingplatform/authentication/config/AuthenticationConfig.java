@@ -15,6 +15,10 @@
  */
 package com.mhs.onlinemarketingplatform.authentication.config;
 
+import com.mhs.onlinemarketingplatform.authentication.jwt.JwtRsaKeyProperties;
+import com.mhs.onlinemarketingplatform.authentication.otp.OtpCoreProperties;
+import com.mhs.onlinemarketingplatform.authentication.otp.OtpRateLimitProperties;
+import com.mhs.onlinemarketingplatform.authentication.otp.OtpRedisProperties;
 import com.mhs.onlinemarketingplatform.authentication.password.Argon2PasswordEncoderProperties;
 import com.mhs.onlinemarketingplatform.authentication.props.*;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,6 +35,7 @@ import java.security.SecureRandom;
 		OtpCoreProperties.class,
 		OtpRateLimitProperties.class,
 		OtpRedisProperties.class,
+		JwtRsaKeyProperties.class,
 		Argon2PasswordEncoderProperties.class})
 public class AuthenticationConfig {
 
