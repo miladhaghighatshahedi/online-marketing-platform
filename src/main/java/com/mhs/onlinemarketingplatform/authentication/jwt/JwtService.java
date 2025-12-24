@@ -20,7 +20,6 @@ import com.mhs.onlinemarketingplatform.authentication.error.token.InvalidAccessT
 import com.mhs.onlinemarketingplatform.authentication.error.token.InvalidRefreshTokenException;
 import com.mhs.onlinemarketingplatform.authentication.error.token.TokenDecodingException;
 import com.mhs.onlinemarketingplatform.authentication.error.token.TokenErrorCode;
-import com.mhs.onlinemarketingplatform.authentication.props.ApplicationProperties;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -43,14 +42,14 @@ import java.util.stream.Collectors;
 @Component
 public class JwtService {
 
-	private final ApplicationProperties properties;
+	private final JwtTokenProperties properties;
 	private final JwtEncoder jwtEncoder;
 	private final JwtDecoder jwtDecoder;
 	private final MessageSource messageSource;
 	private final DeviceBindingService deviceService;
 
 	public JwtService(
-			ApplicationProperties properties,
+			JwtTokenProperties properties,
 			JwtEncoder jwtEncoder,
 			JwtDecoder jwtDecoder,
 			MessageSource messageSource,
@@ -65,7 +64,7 @@ public class JwtService {
 
 	public String generateAccessToken(Authentication authentication, String deviceIdHash, String userAgentHash, String ipAddressHash,String jtiHash) {
 		Instant now = Instant.now();
-		Instant accessTokenExpiry = now.plus(this.properties.jwtAccessTokenExpirySec(), ChronoUnit.SECONDS);
+		Instant accessTokenExpiry = now.plus(this.properties.jwtAccessTokenExpiryInSec(), ChronoUnit.SECONDS);
 
 		String scope = authentication.getAuthorities().stream()
 				.map(GrantedAuthority::getAuthority)
@@ -119,7 +118,7 @@ public class JwtService {
 	public String generateRefreshToken(Authentication authentication, String deviceIdHash, String userAgentHash, String ipAddressHash,String jtiHash) {
 
 		Instant now = Instant.now();
-		Instant refreshTokenExpiry = now.plus(this.properties.jwtRefreshTokenExpirySec(),ChronoUnit.SECONDS);
+		Instant refreshTokenExpiry = now.plus(this.properties.jwtRefreshTokenExpiryInSec(),ChronoUnit.SECONDS);
 
 		String scope = authentication.getAuthorities().stream()
 				.map(GrantedAuthority::getAuthority)
