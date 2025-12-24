@@ -16,6 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.config;
 
 import com.mhs.onlinemarketingplatform.authentication.jwt.JwtRsaKeyProperties;
+import com.mhs.onlinemarketingplatform.authentication.jwt.JwtTokenProperties;
 import com.mhs.onlinemarketingplatform.authentication.otp.OtpCoreProperties;
 import com.mhs.onlinemarketingplatform.authentication.otp.OtpRateLimitProperties;
 import com.mhs.onlinemarketingplatform.authentication.otp.OtpRedisProperties;
@@ -36,6 +37,7 @@ import java.security.SecureRandom;
 		OtpRateLimitProperties.class,
 		OtpRedisProperties.class,
 		JwtRsaKeyProperties.class,
+		JwtTokenProperties.class,
 		Argon2PasswordEncoderProperties.class})
 public class AuthenticationConfig {
 

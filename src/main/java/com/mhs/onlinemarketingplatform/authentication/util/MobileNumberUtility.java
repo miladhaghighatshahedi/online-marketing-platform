@@ -35,13 +35,13 @@ public interface MobileNumberUtility {
 }
 
 @Component
-class googlePhoneNumberNormalizer implements MobileNumberUtility {
+class GooglePhoneNumberNormalizer implements MobileNumberUtility {
 
 	private final PhoneNumberUtil util = PhoneNumberUtil.getInstance();
 	private final ApplicationProperties properties;
 	private final MessageSource messageSource;
 
-	public googlePhoneNumberNormalizer(
+	public GooglePhoneNumberNormalizer(
 			ApplicationProperties properties,
 			MessageSource messageSource) {
 		this.properties = properties;
