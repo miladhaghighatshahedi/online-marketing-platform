@@ -13,24 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.props;
+package com.mhs.onlinemarketingplatform.authentication.otp;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * @author Milad Haghighat Shahedi
  */
-@ConfigurationProperties(prefix = "otp.redis")
-public record OtpRedisProperties(
-		String prefixKey,
-		String sendCoolDownPrefixKey,
-		String sendCountPrefixKey,
-		String verifyCountPrefixKey,
-		String failurePrefixKey,
-		String blockPrefixKey,
-		String cardinalityPrefixKey,
-		int coolDownTtlInSec,
-		int sendTtlInSec,
-		int verifyTtlInSec,
-		int failureTtlInSec,
-		int cardinalityInSec
+@ConfigurationProperties(prefix = "otp.core")
+public record OtpCoreProperties(
+		int length,
+		int ttlInSec
 ) {}
+
+

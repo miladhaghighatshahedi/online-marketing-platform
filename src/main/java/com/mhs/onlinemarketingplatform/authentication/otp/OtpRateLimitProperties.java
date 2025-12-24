@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.props;
+package com.mhs.onlinemarketingplatform.authentication.otp;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * @author Milad Haghighat Shahedi
  */
-@ConfigurationProperties(prefix = "otp.core")
-public record OtpCoreProperties(
-		int length,
-		int ttlInSec
+@ConfigurationProperties(prefix = "otp.rate-limit")
+public record OtpRateLimitProperties(
+		int maxSendAttemptsPerHour,
+		int maxVerifyAttemptsPerHour,
+		int maxFailedAttemptsPerHour,
+		int maxSendAttemptsPerIp,
+		int blockDurationInSec
 ) {}
-
-
