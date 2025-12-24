@@ -13,17 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.iam.dto;
+package com.mhs.onlinemarketingplatform.authentication.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-
-import java.util.UUID;
-
 /**
  * @author Milad Haghighat Shahedi
  */
-public record UpdatePermissionRequest(
-	@NotNull UUID id,
-	@NotBlank String name
-) {}
+public record VerifyOtpDto(
+		@NotBlank String phoneNumber,
+		@NotBlank String otpCode,
+		@NotBlank String deviceId) {}
