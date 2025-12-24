@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
-import com.mhs.onlinemarketingplatform.authentication.props.OtpCoreProperties;
+import com.mhs.onlinemarketingplatform.authentication.otp.OtpCoreProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

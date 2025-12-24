@@ -18,8 +18,6 @@ package com.mhs.onlinemarketingplatform.authentication.otp;
 import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpBlockedException;
 import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpErrorCode;
 import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpRateLimitExceededException;
-import com.mhs.onlinemarketingplatform.authentication.props.OtpRateLimitProperties;
-import com.mhs.onlinemarketingplatform.authentication.props.OtpRedisProperties;
 import com.mhs.onlinemarketingplatform.authentication.util.HashUtility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

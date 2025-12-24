@@ -16,7 +16,6 @@
 package com.mhs.onlinemarketingplatform.authentication.otp;
 
 import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpConfigurationException;
-import com.mhs.onlinemarketingplatform.authentication.props.OtpRedisProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
