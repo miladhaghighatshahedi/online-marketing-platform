@@ -15,11 +15,11 @@
  */
 package com.mhs.onlinemarketingplatform.authentication.dto;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 /**
  * @author Milad Haghighat Shahedi
  */
 public record UpdateDeviceBindingRequest(
-		@NotNull String userAgentHash,
-		@NotNull String ipHash,
-        @NotNull String jtiHash) {}
+		@NotBlank String userAgentHash,
+		@NotBlank String ipHash,
+        @NotBlank String jtiHash) {}

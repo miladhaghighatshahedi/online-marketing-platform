@@ -15,6 +15,7 @@
  */
 package com.mhs.onlinemarketingplatform.authentication.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
@@ -23,7 +24,7 @@ import java.util.UUID;
  */
 public record AddDeviceBindingRequest(
 		@NotNull UUID userId,
-		@NotNull String deviceIdHash,
-		@NotNull String userAgentHash,
-        @NotNull String ipHash,
-		@NotNull String jtiHash) {}
+		@NotBlank String deviceIdHash,
+		@NotBlank String userAgentHash,
+        @NotBlank String ipHash,
+		@NotBlank String jtiHash) {}

@@ -17,10 +17,13 @@ package com.mhs.onlinemarketingplatform.authentication.device;
 
 import com.mhs.onlinemarketingplatform.authentication.dto.AddDeviceBindingRequest;
 import com.mhs.onlinemarketingplatform.authentication.dto.UpdateDeviceBindingRequest;
+import com.mhs.onlinemarketingplatform.authentication.error.devicebinding.DeviceBindingErrorCode;
+import com.mhs.onlinemarketingplatform.authentication.error.devicebinding.UnauthorizedDeviceException;
 import com.mhs.onlinemarketingplatform.authentication.model.DeviceBinding;
 import com.mhs.onlinemarketingplatform.authentication.model.DeviceBindingId;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.springframework.context.MessageSource;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -29,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 /**
@@ -38,48 +42,66 @@ import java.util.UUID;
 public class DeviceBindingService {
 
     private final DeviceBindingRepository repository;
+	private final MessageSource messageSource;
 	private final DeviceBindingMapper mapper;
 
-	DeviceBindingService(DeviceBindingRepository repository, DeviceBindingMapper mapper) {
+	DeviceBindingService(
+			DeviceBindingRepository repository,
+			MessageSource messageSource,
+			DeviceBindingMapper mapper) {
 		this.repository = repository;
+		this.messageSource = messageSource;
 		this.mapper = mapper;
 	}
 
 	@Transactional
-	public DeviceBinding save(AddDeviceBindingRequest addDeviceBindingRequest) {
-		DeviceBinding device = this.mapper.mapAddRequestToDeviceBinding(addDeviceBindingRequest);
-		return this.repository.save(device);
+	public DeviceBinding saveOrUpdate(AddDeviceBindingRequest addDeviceBindingRequest) {
+		UUID userId = addDeviceBindingRequest.userId();
+		String deviceIdHash = addDeviceBindingRequest.deviceIdHash();
+		String userAgentHash = addDeviceBindingRequest.userAgentHash();
+		String ipHash = addDeviceBindingRequest.ipHash();
+		String jtiHash = addDeviceBindingRequest.jtiHash();
+
+		if(existsForDifferentUser(userId,deviceIdHash)) {
+			throw new UnauthorizedDeviceException(
+					messageSource.getMessage("error.otp.validation.device.unauthorized.for.current.user",
+							new Object[] {},
+							Locale.getDefault()), DeviceBindingErrorCode.UNAUTHORIZED_DEVICE);}
+
+		DeviceBinding deviceBinding = findByUserIdAndDeviceIdHash(userId, deviceIdHash);
+		if (deviceBinding == null) {
+			DeviceBinding mappedDeviceBindingToAdd = this.mapper.mapAddRequestToDeviceBinding(addDeviceBindingRequest);
+			return this.repository.save(mappedDeviceBindingToAdd);
+		} else {
+			UpdateDeviceBindingRequest updateDeviceBindingRequest = new UpdateDeviceBindingRequest(userAgentHash, ipHash, jtiHash);
+			DeviceBinding mappedDeviceBindingtoUpdate = this.mapper.mapUpdateRequestToDeviceBinding(updateDeviceBindingRequest, deviceBinding);
+			return this.repository.save(mappedDeviceBindingtoUpdate);
+		}
 	}
 
-	@Transactional
-	public DeviceBinding update(UpdateDeviceBindingRequest updateDeviceBindingRequest, DeviceBinding deviceBinding) {
-		DeviceBinding mappedDeviceBinding = this.mapper.mapUpdateRequestToDeviceBinding(updateDeviceBindingRequest,deviceBinding);
-		return this.repository.save(mappedDeviceBinding);
-	}
-
-	public boolean existsForDifferentUser(UUID userId, String deviceIdHash) {
+	private boolean existsForDifferentUser(UUID userId, String deviceIdHash) {
 		return this.repository.findByDeviceIdHash(deviceIdHash)
 				.filter(deviceBinding -> !deviceBinding.id().userId().equals(userId))
 				.isPresent();
 	}
 
-	public DeviceBinding findByUserIdAndDeviceIdHash(UUID userId, String deviceIdHash) {
+	private DeviceBinding findByUserIdAndDeviceIdHash(UUID userId, String deviceIdHash) {
 		return this.repository.findByUserIdAndDeviceIdHash(userId,deviceIdHash).orElse(null);
 	}
 
-	public boolean existsByDeviceIdHash(String deviceId) {
+	private boolean existsByDeviceIdHash(String deviceId) {
 		return this.repository.existsByDeviceIdHash(deviceId);
 	}
 
-	public boolean existsByUserAgentHash(String userAgentHash) {
+	private boolean existsByUserAgentHash(String userAgentHash) {
 		return this.repository.existsByUserAgentHash(userAgentHash);
 	}
 
-	public boolean existsByIpHash(String ipHash) {
+	private boolean existsByIpHash(String ipHash) {
 		return this.repository.existsByIpHash(ipHash);
 	}
 
-	public boolean isReplay(String jtiHash) {
+	private boolean isReplay(String jtiHash) {
 		return this.repository.isReplay(jtiHash);
 	}
 
