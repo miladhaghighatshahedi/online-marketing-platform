@@ -89,19 +89,19 @@ public class DeviceBindingService {
 		return this.repository.findByUserIdAndDeviceIdHash(userId,deviceIdHash).orElse(null);
 	}
 
-	private boolean existsByDeviceIdHash(String deviceId) {
+	public boolean existsByDeviceIdHash(String deviceId) {
 		return this.repository.existsByDeviceIdHash(deviceId);
 	}
 
-	private boolean existsByUserAgentHash(String userAgentHash) {
+	public boolean existsByUserAgentHash(String userAgentHash) {
 		return this.repository.existsByUserAgentHash(userAgentHash);
 	}
 
-	private boolean existsByIpHash(String ipHash) {
+	public boolean existsByIpHash(String ipHash) {
 		return this.repository.existsByIpHash(ipHash);
 	}
 
-	private boolean isReplay(String jtiHash) {
+	public boolean isReplay(String jtiHash) {
 		return this.repository.isReplay(jtiHash);
 	}
 
