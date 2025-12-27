@@ -68,15 +68,15 @@ public class DeviceBindingService {
 							new Object[] {},
 							Locale.getDefault()), DeviceBindingErrorCode.UNAUTHORIZED_DEVICE);}
 
-		DeviceBinding deviceBinding = findByUserIdAndDeviceIdHash(userId, deviceIdHash);
-		if (deviceBinding == null) {
+		Optional<DeviceBinding> deviceBinding = findByUserIdAndDeviceIdHash(userId, deviceIdHash);
+		if (deviceBinding.isEmpty()) {
 			DeviceBinding mappedDeviceBindingToAdd = this.mapper.mapAddRequestToDeviceBinding(addDeviceBindingRequest);
 			return this.repository.save(mappedDeviceBindingToAdd);
-		} else {
-			UpdateDeviceBindingRequest updateDeviceBindingRequest = new UpdateDeviceBindingRequest(userAgentHash, ipHash, jtiHash);
-			DeviceBinding mappedDeviceBindingtoUpdate = this.mapper.mapUpdateRequestToDeviceBinding(updateDeviceBindingRequest, deviceBinding);
-			return this.repository.save(mappedDeviceBindingtoUpdate);
 		}
+
+		UpdateDeviceBindingRequest updateDeviceBindingRequest = new UpdateDeviceBindingRequest(userAgentHash, ipHash, jtiHash);
+		DeviceBinding mappedDeviceBindingtoUpdate = this.mapper.mapUpdateRequestToDeviceBinding(updateDeviceBindingRequest, deviceBinding.get());
+		return this.repository.save(mappedDeviceBindingtoUpdate);
 	}
 
 	private boolean existsForDifferentUser(UUID userId, String deviceIdHash) {
@@ -85,8 +85,8 @@ public class DeviceBindingService {
 				.isPresent();
 	}
 
-	private DeviceBinding findByUserIdAndDeviceIdHash(UUID userId, String deviceIdHash) {
-		return this.repository.findByUserIdAndDeviceIdHash(userId,deviceIdHash).orElse(null);
+	private Optional<DeviceBinding> findByUserIdAndDeviceIdHash(UUID userId, String deviceIdHash) {
+		return this.repository.findByUserIdAndDeviceIdHash(userId,deviceIdHash);
 	}
 
 	public boolean existsByDeviceIdHash(String deviceId) {
