@@ -34,7 +34,7 @@ public interface HashUtility {
 
 	String sha256Base64(String data);
 
-	boolean verify(String rawData, String hashedData);
+	boolean match(String rawData, String hashedData);
 
 	List<String> preservedOrderHashing(List<String> inputs);
 
@@ -72,7 +72,7 @@ class SHA256TokenHash implements HashUtility {
 	}
 
 	@Override
-	public boolean verify(String rawData, String hashedData) {
+	public boolean match(String rawData, String hashedData) {
 		if (rawData == null || hashedData == null) return false;
 		if (rawData.isBlank()|| hashedData.isBlank()) return false;
 
