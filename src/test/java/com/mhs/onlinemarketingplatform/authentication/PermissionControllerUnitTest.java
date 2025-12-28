@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication;
 
 import com.github.f4b6a3.uuid.UuidCreator;
-import com.mhs.onlinemarketingplatform.authentication.config.OtpOncePerRequestFilter;
+import com.mhs.onlinemarketingplatform.authentication.config.JwtAuthenticationFilter;
 import com.mhs.onlinemarketingplatform.authentication.error.AuthenticationExceptionHandler;
 import com.mhs.onlinemarketingplatform.common.ErrorLogger;
 import com.mhs.onlinemarketingplatform.JaksonConfig;
@@ -57,7 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 						type = FilterType.ASSIGNABLE_TYPE,
 						classes = {
 								SecurityConfig.class,
-								OtpOncePerRequestFilter.class,
+								JwtAuthenticationFilter.class,
 						}
 				)
 		})

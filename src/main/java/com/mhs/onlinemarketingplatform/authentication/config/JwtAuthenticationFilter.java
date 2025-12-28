@@ -35,11 +35,11 @@ import java.util.Map;
  * @author Milad Haghighat Shahedi
  */
 @Component
-public class OtpOncePerRequestFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtService jwtService;
 
-	public OtpOncePerRequestFilter(JwtService jwtService) {
+	public JwtAuthenticationFilter(JwtService jwtService) {
 		this.jwtService = jwtService;
 	}
 
