@@ -39,67 +39,103 @@ public class OtpService {
 	private final RedisRateLimiter redisRateLimiter;
 	private final NumericOtpGenerator numericOtpGenerator;
 	private final OtpCoreProperties otpCoreProperties;
+	private final OtpRedisProperties otpRedisProperties;
 	private final HashUtility hashUtility;
 	private final OtpValidator otpValidator;
 	private final MessageSource messageSource;
 
 	OtpService(
-			 RedisOtpStore redisOtpStore,
-			 SmsSender otpSmsSender,
-			 RedisRateLimiter redisRateLimiter,
-			 NumericOtpGenerator numericOtpGenerator,
-			 OtpCoreProperties otpCoreProperties,
-			 HashUtility hashUtility,
-			 OtpValidator otpValidator,
-			 MessageSource messageSource) {
+			RedisOtpStore redisOtpStore,
+			SmsSender otpSmsSender,
+			RedisRateLimiter redisRateLimiter,
+			NumericOtpGenerator numericOtpGenerator,
+			OtpCoreProperties otpCoreProperties,
+			OtpRedisProperties otpRedisProperties,
+			HashUtility hashUtility,
+			OtpValidator otpValidator,
+			MessageSource messageSource) {
 		 this.redisOtpStore = redisOtpStore;
 		 this.otpSmsSender = otpSmsSender;
 		 this.redisRateLimiter = redisRateLimiter;
 		 this.numericOtpGenerator = numericOtpGenerator;
 		 this.otpCoreProperties = otpCoreProperties;
-		 this.hashUtility = hashUtility;
+		this.otpRedisProperties = otpRedisProperties;
+		this.hashUtility = hashUtility;
 		 this.otpValidator = otpValidator;
 		 this.messageSource = messageSource;
 	}
 
 	public void sendOtp(String mobileNumber,String ip) {
-		 this.redisRateLimiter.validateCardinality(mobileNumber,ip);
-		 this.redisRateLimiter.validateSendCoolDown(mobileNumber);
-		 this.redisRateLimiter.validateCanSend(mobileNumber);
+		 validateSendOtp(mobileNumber,ip);
 		 String otp = this.numericOtpGenerator.generate(this.otpCoreProperties.length());
-		 String hashedOtp = this.hashUtility.sha256Base64(otp);
-		 this.redisOtpStore.saveOtp(mobileNumber, hashedOtp);
+		 String otpHash = this.hashUtility.sha256Base64(otp);
+		 this.redisOtpStore.saveOtp(mobileNumber, otpHash);
 		 this.otpSmsSender.sendOtpSms(mobileNumber, otp);
-		 this.redisRateLimiter.recordSendAttempts(mobileNumber);
+		 this.redisRateLimiter.startSendCoolDown(mobileNumber);
 	}
 
 	public void verifyOtp(String mobileNumber, String otp) {
-		this.redisRateLimiter.validateNotBlocked(mobileNumber);
-		this.otpValidator.validate(otp);
-		this.redisRateLimiter.recordVerifyAttempts(mobileNumber);
-
-		String storedOtpHash = this.redisOtpStore.getOtp(mobileNumber)
-				.orElseThrow(() -> {
-					this.redisRateLimiter.recordFailure(mobileNumber);
-					return new OtpConfigurationException(
-							messageSource.getMessage("error.otp.code.invalid.otp",
-									new Object[]{},
-									Locale.getDefault()),
-							OtpErrorCode.OTP_INVALID);
-				});
-
-		if(!this.hashUtility.verify(otp,storedOtpHash)) {
+		validateVerifyOtp(mobileNumber, otp);
+		String storedOtpHash = this.redisOtpStore.getOtp(mobileNumber).orElseThrow(() -> {
 			this.redisRateLimiter.recordFailure(mobileNumber);
-			throw new OtpConfigurationException(
-					messageSource.getMessage("error.otp.code.invalid.otp",
+			return new OtpNotFoundException(
+					messageSource.getMessage("error.otp.code.missing.or.expired",
+							new Object[]{},
+							Locale.getDefault()),
+					OtpErrorCode.OTP_MISSING_OR_EXPIRED);
+		});
+		if(!this.hashUtility.match(otp,storedOtpHash)) {
+			this.redisRateLimiter.recordFailure(mobileNumber);
+			throw new InvalidOtpException(
+					messageSource.getMessage("error.otp.code.invalid",
 							new Object[]{}, Locale.getDefault()),
 					OtpErrorCode.OTP_INVALID);
 		}
-
 		this.redisOtpStore.deleteOtp(mobileNumber);
 		this.redisRateLimiter.recordSuccess(mobileNumber);
 	}
 
+	private void validateSendOtp(String mobileNumber,String ip) {
+		if(this.redisRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip)) {
+			throw new OtpRateLimitExceededException(
+					messageSource.getMessage("error.otp.code.too.many.attempts.failed",
+							new Object[] {},
+							Locale.getDefault()),
+					OtpErrorCode.OTP_RATELIMIT_EXCEEDED);
+		}
+		if(this.redisRateLimiter.isInSendCoolDown(mobileNumber)) {
+			throw new OtpCoolDownException(
+					this.messageSource.getMessage(
+							"error.otp.code.too.many.attempts.cooldown",
+							new Object[] {this.otpRedisProperties.coolDownTtlInSec()},
+							Locale.getDefault()
+					),
+					OtpErrorCode.OTP_COOLDOWN
+			);
+		}
+		if(this.redisRateLimiter.recordSendAttemptAndIsLimited(mobileNumber)) {
+			throw new OtpRateLimitExceededException(
+					this.messageSource.getMessage(
+							"error.otp.code.too.many.attempts.exceeded",
+							new Object[] {},
+							Locale.getDefault()
+					),
+					OtpErrorCode.OTP_RATELIMIT_EXCEEDED
+			);
+		}
+	}
+
+	private void validateVerifyOtp(String mobileNumber,String otp) {
+		if (this.redisRateLimiter.isBlocked(mobileNumber)) {
+			throw new OtpBlockedException(
+					messageSource.getMessage("error.otp.code.blocked",
+							new Object[]{}, Locale.getDefault()),
+					OtpErrorCode.OTP_BLOCKED);
+		}
+		this.otpValidator.validate(otp);
+		this.redisRateLimiter.recordVerifyAttempts(mobileNumber);
+
+	}
 }
 
 @Component
@@ -110,35 +146,32 @@ class RedisRateLimiter {
 	private final OtpRateLimitProperties rateLimitProperties;
 	private final OtpRedisProperties otpRedisProperties;
 	private final HashUtility hashUtility;
-	private final MessageSource messageSource;
 
 	RedisRateLimiter(
 			RedisTemplate<String, String> redis,
 			OtpKeyBuilder keyBuilder,
 			OtpRateLimitProperties rateLimitProperties,
 			OtpRedisProperties otpRedisProperties,
-			HashUtility hashUtility,
-			MessageSource messageSource) {
+			HashUtility hashUtility) {
 		this.redis = redis;
 		this.keyBuilder = keyBuilder;
 		this.rateLimitProperties = rateLimitProperties;
 		this.otpRedisProperties = otpRedisProperties;
 		this.hashUtility = hashUtility;
-		this.messageSource = messageSource;
 	}
 
-	public void validateSendCoolDown(String key) {
+	public boolean isBlocked(String key) {
+		String blockKey = this.keyBuilder.buildBlockKey(key);
+		return Boolean.TRUE.equals(this.redis.hasKey(blockKey));
+
+	}
+
+	public boolean isInSendCoolDown(String key) {
 		String sendCoolDownKey = this.keyBuilder.buildSendCoolDownKey(key);
-		if(Boolean.TRUE.equals(this.redis.hasKey(sendCoolDownKey))) {
-			throw new OtpRateLimitExceededException(
-					messageSource.getMessage("error.otp.code.cooldown.too.many.attempts",
-							new Object[] {this.otpRedisProperties.coolDownTtlInSec()},
-							Locale.getDefault()),
-					OtpErrorCode.OTP_COOLDOWN);
-		}
+		return Boolean.TRUE.equals(this.redis.hasKey(sendCoolDownKey));
 	}
 
-	public void validateCanSend(String key) {
+	public boolean recordSendAttemptAndIsLimited(String key) {
 		String sendKey = this.keyBuilder.buildSendKey(key);
 
 		Long attempts = this.redis.opsForValue().increment(sendKey);
@@ -146,28 +179,12 @@ class RedisRateLimiter {
 			this.redis.expire(sendKey, Duration.ofSeconds(this.otpRedisProperties.sendTtlInSec()));
 		}
 
-		if(attempts != null && attempts > this.rateLimitProperties.maxSendAttemptsPerHour()) {
-			throw new OtpRateLimitExceededException(messageSource.getMessage("error.otp.code.too.many.failed.attempts",
-					new Object[] {},
-					Locale.getDefault()),
-					OtpErrorCode.OTP_RATELIMIT_EXCEEDED);
-		}
+		return attempts != null && attempts > this.rateLimitProperties.maxSendAttemptsPerHour();
 	}
 
-	public void recordSendAttempts(String key) {
+	public void startSendCoolDown(String key) {
 		String cooldownKey = this.keyBuilder.buildSendCoolDownKey(key);
 		this.redis.opsForValue().set(cooldownKey,"1",Duration.ofSeconds(this.otpRedisProperties.coolDownTtlInSec()));
-	}
-
-	public void validateNotBlocked(String key) {
-		String blockKey = this.keyBuilder.buildBlockKey(key);
-		if(Boolean.TRUE.equals(this.redis.hasKey(blockKey))) {
-			throw new OtpBlockedException(
-					messageSource.getMessage("error.otp.code.blocked",
-							new Object[] {},
-							Locale.getDefault()),
-					OtpErrorCode.OTP_BLOCKED);
-		}
 	}
 
 	public void recordVerifyAttempts(String key) {
@@ -180,11 +197,6 @@ class RedisRateLimiter {
 
 		if(attempts != null && attempts > this.rateLimitProperties.maxVerifyAttemptsPerHour()) {
 			block(key);
-			throw new OtpRateLimitExceededException(
-					messageSource.getMessage("error.otp.code.too.many.failed.attempts",
-							new Object[] {},
-							Locale.getDefault()),
-					OtpErrorCode.OTP_RATELIMIT_EXCEEDED);
 		}
 	}
 
@@ -208,7 +220,7 @@ class RedisRateLimiter {
 		this.redis.delete(this.keyBuilder.buildSendCoolDownKey(key));
 	}
 
-	public void validateCardinality(String key,String ip) {
+	public boolean recordCardinalityAndIsExceeded(String key,String ip) {
 		String cardinalityKey = this.keyBuilder.buildCardinalityKey(ip);
 
 		String hashedKey = this.hashUtility.sha256Base64(key);
@@ -221,16 +233,7 @@ class RedisRateLimiter {
 		}
 
 		Long size = this.redis.opsForSet().size(cardinalityKey);
-		if(size != null && size > this.rateLimitProperties.maxSendAttemptsPerIp()) {
-			throw new OtpRateLimitExceededException(
-					this.messageSource.getMessage(
-							"error.otp.code.too.many.distinct.requets.from.same.ip",
-							new Object[] {},
-							Locale.getDefault()
-					),
-					OtpErrorCode.OTP_RATELIMIT_EXCEEDED
-			);
-		}
+		return size != null && size > this.rateLimitProperties.maxSendAttemptsPerIp();
 	}
 
 	private void block(String key) {
@@ -364,7 +367,3 @@ class OtpKeyBuilder {
 	}
 
 }
-
-
-
-
