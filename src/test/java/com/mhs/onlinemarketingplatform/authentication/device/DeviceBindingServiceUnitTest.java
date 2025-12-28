@@ -129,7 +129,7 @@ public class DeviceBindingServiceUnitTest {
 		when(this.deviceBindingRepository.findByDeviceIdHash("deviceIdHash")).thenReturn(Optional.of(existingDeviceBinding));
 
 		when(this.messageSource.getMessage(
-				eq("error.otp.validation.device.unauthorized.for.current.user"),
+				eq("error.authentication.device.binding.unauthorized.device"),
 				eq(new Object[] {}),
 				any(Locale.class)
 		)).thenReturn("Unauthorized device for the current user");
@@ -145,5 +145,5 @@ public class DeviceBindingServiceUnitTest {
 		verify(this.deviceBindingMapper, never()).mapUpdateRequestToDeviceBinding(any(), any());
 		verify(this.deviceBindingRepository, never()).save(any());
 	}
-	
+
 }

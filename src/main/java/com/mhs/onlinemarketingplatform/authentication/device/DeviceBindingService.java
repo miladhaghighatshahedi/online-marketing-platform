@@ -64,7 +64,7 @@ public class DeviceBindingService {
 
 		if(existsForDifferentUser(userId,deviceIdHash)) {
 			throw new UnauthorizedDeviceException(
-					messageSource.getMessage("error.otp.validation.device.unauthorized.for.current.user",
+					messageSource.getMessage("error.authentication.device.binding.unauthorized.device",
 							new Object[] {},
 							Locale.getDefault()), DeviceBindingErrorCode.UNAUTHORIZED_DEVICE);}
 
