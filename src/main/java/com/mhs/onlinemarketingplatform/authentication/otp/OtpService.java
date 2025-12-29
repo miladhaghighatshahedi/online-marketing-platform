@@ -78,11 +78,11 @@ public class OtpService {
 		validateVerifyOtp(mobileNumber, otp);
 		String storedOtpHash = this.redisOtpStore.getOtp(mobileNumber).orElseThrow(() -> {
 			this.redisRateLimiter.recordFailure(mobileNumber);
-			return new OtpNotFoundException(
-					messageSource.getMessage("error.otp.code.missing.or.expired",
+			return new InvalidOtpException(
+					messageSource.getMessage("error.otp.code.invalid",
 							new Object[]{},
 							Locale.getDefault()),
-					OtpErrorCode.OTP_MISSING_OR_EXPIRED);
+					OtpErrorCode.OTP_INVALID);
 		});
 		if(!this.hashUtility.match(otp,storedOtpHash)) {
 			this.redisRateLimiter.recordFailure(mobileNumber);
@@ -163,7 +163,6 @@ class RedisRateLimiter {
 	public boolean isBlocked(String key) {
 		String blockKey = this.keyBuilder.buildBlockKey(key);
 		return Boolean.TRUE.equals(this.redis.hasKey(blockKey));
-
 	}
 
 	public boolean isInSendCoolDown(String key) {
