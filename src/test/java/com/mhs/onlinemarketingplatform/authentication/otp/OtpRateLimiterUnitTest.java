@@ -15,9 +15,6 @@
  */
 package com.mhs.onlinemarketingplatform.authentication.otp;
 
-import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpBlockedException;
-import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpErrorCode;
-import com.mhs.onlinemarketingplatform.authentication.error.otp.OtpRateLimitExceededException;
 import com.mhs.onlinemarketingplatform.authentication.util.HashUtility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,13 +23,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.MessageSource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
-import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -55,9 +50,6 @@ public class OtpRateLimiterUnitTest {
 	private HashUtility hashUtility;
 
 	@Mock
-	private MessageSource messageSource;
-
-	@Mock
     private RedisTemplate<String,String> redis;
 
     @Mock
@@ -70,46 +62,39 @@ public class OtpRateLimiterUnitTest {
 	private RedisRateLimiter otpRateLimiter ;
 
 	@Test
-	void validateSendCoolDown_method_shouldValidateSendCoolDown() {
+	void isBlocked_method_shouldReturnFalse() {
+		// Arrange
+		String key = "09439562343";
+		String blockKey = "OTP_BLOCKED_"+key;
+		when(this.keyBuilder.buildBlockKey(key)).thenReturn(blockKey);
+		when(this.redis.hasKey(blockKey)).thenReturn(Boolean.FALSE);
+		// Act
+		boolean result = this.otpRateLimiter.isBlocked(key);
+		// Assert
+		assertFalse(result);
+		verify(this.keyBuilder,times(1)).buildBlockKey(anyString());
+		verify(this.redis,times(1)).hasKey(anyString());
+
+		assertDoesNotThrow(() -> this.otpRateLimiter.isBlocked(key));
+	}
+
+	@Test
+	void isInSendCoolDown_method() {
 		// Arrange
 		String key = "09439562343";
 		String coolDownKey = "OTP_SEND_COOLDOWN_"+key;
 		when(this.keyBuilder.buildSendCoolDownKey(key)).thenReturn(coolDownKey);
 		when(this.redis.hasKey(coolDownKey)).thenReturn(Boolean.FALSE);
 		// Act
-		this.otpRateLimiter.validateSendCoolDown(key);
+		this.otpRateLimiter.isInSendCoolDown(key);
 		// Assert
 		verify(this.keyBuilder,times(1)).buildSendCoolDownKey(anyString());
 		verify(this.redis,times(1)).hasKey(anyString());
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateSendCoolDown(key));
+		assertDoesNotThrow(() -> this.otpRateLimiter.isInSendCoolDown(key));
 	}
 
 	@Test
-	void validateSendCoolDown_method_shouldThrowOtpRateLimitExceededException() {
-		// Arrange
-		String key = "09439562343";
-		String coolDownKey = "OTP_SEND_COOLDOWN_"+key;
-		when(this.keyBuilder.buildSendCoolDownKey(key)).thenReturn(coolDownKey);
-		when(this.redis.hasKey(coolDownKey)).thenReturn(Boolean.TRUE);
-		when(this.otpRedisProperties.coolDownTtlInSec()).thenReturn(60);
-		when(this.messageSource.getMessage(
-				eq("error.otp.code.cooldown.too.many.attempts"),
-				any(),
-		        any(Locale.class))).thenReturn("Otp cooldown, Please waint for 60 seconds.");
-		// Act
-		OtpRateLimitExceededException exception = assertThrows(OtpRateLimitExceededException.class,
-				() -> this.otpRateLimiter.validateSendCoolDown(key));
-		// Assert
-		assertNotNull(exception);
-		assertEquals("Otp cooldown, Please waint for 60 seconds.",exception.getMessage());
-		assertEquals(OtpErrorCode.OTP_COOLDOWN,exception.getCode());
-
-		verify(this.keyBuilder,times(1)).buildSendCoolDownKey(anyString());
-		verify(this.redis,times(1)).hasKey(anyString());
-	}
-
-	@Test
-	void validateCanSend_method_shouldValidateCanSend() {
+	void recordSendAttemptAndIsLimited_method_shouldReturnFalse() {
 		// Arrange
 		String key = "09439562343";
 		String sendKey = "OTP_SEND_COUNT_"+key;
@@ -119,18 +104,19 @@ public class OtpRateLimiterUnitTest {
 		when(this.otpRedisProperties.sendTtlInSec()).thenReturn(3600);
 		when(this.otpRateLimitProperties.maxSendAttemptsPerHour()).thenReturn(10);
 		// Act
-		this.otpRateLimiter.validateCanSend(key);
-		// Asser
+		boolean result = this.otpRateLimiter.recordSendAttemptAndIsLimited(key);
+		// Assert
+		assertFalse(result);
 		verify(this.keyBuilder,times(1)).buildSendKey(anyString());
         verify(this.redis.opsForValue(),times(1)).increment(anyString());
 		verify(this.otpRedisProperties,times(1)).sendTtlInSec();
 		verify(this.otpRateLimitProperties,times(1)).maxSendAttemptsPerHour();
 
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateCanSend(key));
+		assertDoesNotThrow(() -> this.otpRateLimiter.recordSendAttemptAndIsLimited(key));
 	}
 
 	@Test
-	void validateCanSend_method_shouldValidateCanSend_shouldNotCallExpire() {
+	void recordSendAttemptAndIsLimited_method_shouldReturnFalse_shouldNotCallExpire() {
 		// Arrange
 		String key = "09439562343";
 		String sendKey = "OTP_SEND_COUNT_"+key;
@@ -139,8 +125,9 @@ public class OtpRateLimiterUnitTest {
 		when(this.valueOperations.increment(sendKey)).thenReturn(3L);
 		when(this.otpRateLimitProperties.maxSendAttemptsPerHour()).thenReturn(10);
 		// Act
-		this.otpRateLimiter.validateCanSend(key);
+		boolean result = this.otpRateLimiter.recordSendAttemptAndIsLimited(key);
 		// Asser
+		assertFalse(result);
 		verify(this.redis,never()).expire(anyString(),any());
 
 		verify(this.keyBuilder,times(1)).buildSendKey(anyString());
@@ -148,94 +135,25 @@ public class OtpRateLimiterUnitTest {
 		verify(this.otpRedisProperties,never()).sendTtlInSec();
 		verify(this.otpRateLimitProperties,times(1)).maxSendAttemptsPerHour();
 
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateCanSend(key));
+		assertDoesNotThrow(() -> this.otpRateLimiter.recordSendAttemptAndIsLimited(key));
 	}
 
-	@Test
-	void validateCanSend_method_shouldThrowOtpRateLimitExceededException() {
-		// Arrange
-		String key = "09439562343";
-		String sendKey = "OTP_SEND_COUNT_"+key;
-		when(this.keyBuilder.buildSendKey(key)).thenReturn(sendKey);
-		when(this.redis.opsForValue()).thenReturn(valueOperations);
-		when(this.valueOperations.increment(sendKey)).thenReturn(11L);
-		when(this.otpRateLimitProperties.maxSendAttemptsPerHour()).thenReturn(10);
-		// Act
-		when(this.messageSource.getMessage(
-				eq("error.otp.code.too.many.failed.attempts"),
-				any(),
-				any(Locale.class))).thenReturn("Otp request too many failed attempts [Temporarily blocked].");
-		// Act
-		OtpRateLimitExceededException exception = assertThrows(OtpRateLimitExceededException.class,
-				() -> this.otpRateLimiter.validateCanSend(key));
-		// Asser
-		assertNotNull(exception);
-		assertEquals("Otp request too many failed attempts [Temporarily blocked].",exception.getMessage());
-		assertEquals(OtpErrorCode.OTP_RATELIMIT_EXCEEDED,exception.getCode());
-
-		verify(this.keyBuilder,times(1)).buildSendKey(anyString());
-		verify(this.redis.opsForValue(),times(1)).increment(anyString());
-		verify(this.otpRedisProperties,never()).sendTtlInSec();
-		verify(this.otpRateLimitProperties,times(1)).maxSendAttemptsPerHour();
-	}
-
-	@Test
-	void recordSendAttempts_shouldRecordSendAttempts() {
-		// Arrange
-		String key = "09439562343";
-		String coolDownKey = "OTP_SEND_COOLDOWN_"+key;
-		when(this.keyBuilder.buildSendCoolDownKey(key)).thenReturn(coolDownKey);
-		when(this.redis.opsForValue()).thenReturn(valueOperations);
-		when(this.otpRedisProperties.coolDownTtlInSec()).thenReturn(60);
-		// Act
-		this.otpRateLimiter.recordSendAttempts(key);
-		// Assert
-		verify(this.keyBuilder,times(1)).buildSendCoolDownKey(anyString());
-		verify(this.otpRedisProperties,times(1)).coolDownTtlInSec();
-		verify(this.valueOperations).set(coolDownKey,"1",Duration.ofSeconds(60));
-
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateCanSend(key));
-	}
-
-	@Test
-	void validateNotBlocked_method() {
-		// Arrange
-		String key = "09439562343";
-		String blockKey = "OTP_BLOCKED_"+key;
-		when(this.keyBuilder.buildBlockKey(key)).thenReturn(blockKey);
-		when(this.redis.hasKey(blockKey)).thenReturn(Boolean.FALSE);
-		// Act
-		this.otpRateLimiter.validateNotBlocked(key);
-		// Assert
-		verify(this.keyBuilder,times(1)).buildBlockKey(anyString());
-		verify(this.redis,times(1)).hasKey(anyString());
-
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateNotBlocked(key));
-	}
-
-	@Test
-	void validateNotBlocked_method_shouldThrowOtpBlockedException() {
-		// Arrange
-		String key = "09439562343";
-		String blockKey = "OTP_BLOCKED_"+key;
-		when(this.keyBuilder.buildBlockKey(key)).thenReturn(blockKey);
-		when(this.redis.hasKey(blockKey)).thenReturn(Boolean.TRUE);
-		// Act
-		when(this.messageSource.getMessage(
-				eq("error.otp.code.blocked"),
-				any(),
-				any(Locale.class))).thenReturn("Otp request blocked [Temporarily blocked].");
-		// Act
-		OtpBlockedException exception = assertThrows(OtpBlockedException.class,
-				() -> this.otpRateLimiter.validateNotBlocked(key));
-		// Assert
-		assertNotNull(exception);
-		assertEquals("Otp request blocked [Temporarily blocked].",exception.getMessage());
-		assertEquals(OtpErrorCode.OTP_BLOCKED,exception.getCode());
-
-		verify(this.keyBuilder,times(1)).buildBlockKey(anyString());
-		verify(this.redis,times(1)).hasKey(anyString());
-	}
+    @Test
+    void startSendCoolDown_method() {
+	    // Arrange
+	    String key = "09439562343";
+	    String coolDownkey = "OTP_SEND_COOLDOWN_"+key;
+	    when(this.keyBuilder.buildSendCoolDownKey(key)).thenReturn(coolDownkey);
+		when(this.otpRedisProperties.coolDownTtlInSec()).thenReturn(3600);
+	    when(this.redis.opsForValue()).thenReturn(valueOperations);
+	    // Act
+	    this.otpRateLimiter.startSendCoolDown(key);
+	    // Asser
+	    verify(this.keyBuilder,times(1)).buildSendCoolDownKey(anyString());
+	    verify(this.otpRedisProperties,times(1)).coolDownTtlInSec();
+	    verify(this.valueOperations,times(1)).set(anyString(), anyString(), any(Duration.class));
+	    assertDoesNotThrow(() -> this.otpRateLimiter.startSendCoolDown(key));
+    }
 
 	@Test
 	void recordVerifyAttempts_method_shouldRecordVerifyAttempts() {
@@ -285,7 +203,7 @@ public class OtpRateLimiterUnitTest {
 	}
 
 	@Test
-	void recordVerifyAttempts_method_shouldThrowOtpRateLimitExceededException() {
+	void recordVerifyAttempts_method_shouldBlock() {
 		// Arrange
 		String key = "09439562343";
 		String verifyKey = "OTP_VERIFY_COUNT_"+key;
@@ -297,17 +215,9 @@ public class OtpRateLimiterUnitTest {
 
 		when(this.keyBuilder.buildBlockKey(key)).thenReturn(blockKey);
 
-		when(this.messageSource.getMessage(
-				eq("error.otp.code.too.many.failed.attempts"),
-				eq(new Object[] {}),
-				any(Locale.class))).thenReturn("Otp request too many failed attempts [Temporarily blocked].");
 		// Act
-		OtpRateLimitExceededException exception = assertThrows(OtpRateLimitExceededException.class,
-				()-> this.otpRateLimiter.recordVerifyAttempts(key));
+		this.otpRateLimiter.recordVerifyAttempts(key);
 		// Assert
-		assertNotNull(exception);
-		assertEquals("Otp request too many failed attempts [Temporarily blocked].",exception.getMessage());
-		assertEquals(OtpErrorCode.OTP_RATELIMIT_EXCEEDED,exception.getCode());
 
 		verify(this.redis,never()).expire(eq(verifyKey),eq(Duration.ofSeconds(3600)));
 		verify(this.keyBuilder,times(1)).buildVerifyKey(anyString());
@@ -418,7 +328,7 @@ public class OtpRateLimiterUnitTest {
 	}
 
 	@Test
-	void validateCardinality() {
+	void recordCardinalityAndIsExceeded() {
 		// Arrange
 		String ip = "192.168.1.1";
 		String cardinalityKey = "OTP_CARDINALITY_" + ip;
@@ -435,7 +345,7 @@ public class OtpRateLimiterUnitTest {
 		when(this.setOperations.size(cardinalityKey)).thenReturn(1L);
 		when(this.otpRateLimitProperties.maxSendAttemptsPerIp()).thenReturn(10);
 		// Act
-		this.otpRateLimiter.validateCardinality(mobileNumber,ip);
+		this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip);
 		// Assert
 		verify(this.keyBuilder,times(1)).buildCardinalityKey(anyString());
 		verify(this.hashUtility,times(1)).sha256Base64(anyString());
@@ -446,11 +356,11 @@ public class OtpRateLimiterUnitTest {
 		verify(this.setOperations,times(1)).size(anyString());
 		verify(this.otpRateLimitProperties,times(1)).maxSendAttemptsPerIp();
 
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateCardinality(mobileNumber,ip));
+		assertDoesNotThrow(() -> this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip));
 	}
 
 	@Test
-	void validateCardinality_method_shouldNotCallGetExpire_WhenAddedCardinalityIsNullOrOne() {
+	void recordCardinalityAndIsExceeded_method_shouldNotCallGetExpire_WhenAddedCardinalityIsNullOrOne() {
 		// Arrange
 		String ip = "192.168.1.1";
 		String cardinalityKey = "OTP_CARDINALITY_" + ip;
@@ -466,7 +376,7 @@ public class OtpRateLimiterUnitTest {
 		when(this.setOperations.size(cardinalityKey)).thenReturn(1L);
 		when(this.otpRateLimitProperties.maxSendAttemptsPerIp()).thenReturn(10);
         // Act
-		this.otpRateLimiter.validateCardinality(mobileNumber,ip);
+		this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip);
 		//Assert
 		verify(this.redis,never()).getExpire(anyString());
 		verify(this.redis,never()).expire(anyString(),any(Duration.class));
@@ -479,11 +389,11 @@ public class OtpRateLimiterUnitTest {
 		verify(this.setOperations,times(1)).size(anyString());
 		verify(this.otpRateLimitProperties,times(1)).maxSendAttemptsPerIp();
 
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateCardinality(mobileNumber,ip));
+		assertDoesNotThrow(() -> this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip));
 	}
 
 	@Test
-	void validateCardinality_method_shouldNotCallGetExpire_whenExpiryIsNotNullOrIsNotMinusOne() {
+	void recordCardinalityAndIsExceeded_method_shouldNotCallGetExpire_whenExpiryIsNotNullOrIsNotMinusOne() {
 		// Arrange
 		// Arrange
 		String ip = "192.168.1.1";
@@ -501,7 +411,7 @@ public class OtpRateLimiterUnitTest {
 		when(this.setOperations.size(cardinalityKey)).thenReturn(9L);
 		when(this.otpRateLimitProperties.maxSendAttemptsPerIp()).thenReturn(10);
         // Act
-		this.otpRateLimiter.validateCardinality(mobileNumber,ip);
+		this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip);
 		// Assert
 		verify(this.redis,never()).expire(anyString(),any(Duration.class));
 		verify(this.otpRedisProperties,never()).cardinalityInSec();
@@ -515,12 +425,12 @@ public class OtpRateLimiterUnitTest {
 		verify(this.setOperations,times(1)).size(anyString());
 		verify(this.otpRateLimitProperties,times(1)).maxSendAttemptsPerIp();
 
-		assertDoesNotThrow(() -> this.otpRateLimiter.validateCardinality(mobileNumber,ip));
+		assertDoesNotThrow(() -> this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip));
 
 	}
 
 	@Test
-	void validateCardinality_method_shouldThrowOtpRateLimitExceededException() {
+	void recordCardinalityAndIsExceeded_method_shouldBlock() {
 		// Arrange
 		String ip = "192.168.1.1";
 		String cardinalityKey = "OTP_CARDINALITY_" + ip;
@@ -536,18 +446,11 @@ public class OtpRateLimiterUnitTest {
 		when(this.otpRedisProperties.cardinalityInSec()).thenReturn(3600);
 		when(this.setOperations.size(cardinalityKey)).thenReturn(11L);
 		when(this.otpRateLimitProperties.maxSendAttemptsPerIp()).thenReturn(10);
-		when(this.messageSource.getMessage(
-				eq("error.otp.code.too.many.distinct.requets.from.same.ip"),
-				eq(new Object[] {}),
-				any(Locale.class))).thenReturn("Otp rquest too many attemps from same ip.");
 		// Act
-		OtpRateLimitExceededException exception = assertThrows(OtpRateLimitExceededException.class,
-				() -> this.otpRateLimiter.validateCardinality(mobileNumber,ip));
+		boolean result = this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber, ip);
 
 		// Assert
-		assertNotNull(exception);
-		assertEquals("Otp rquest too many attemps from same ip.",exception.getMessage());
-		assertEquals(OtpErrorCode.OTP_RATELIMIT_EXCEEDED,exception.getCode());
+		assertTrue(result);
 
 		verify(this.keyBuilder,times(1)).buildCardinalityKey(anyString());
 		verify(this.hashUtility,times(1)).sha256Base64(anyString());
@@ -558,6 +461,7 @@ public class OtpRateLimiterUnitTest {
 		verify(this.setOperations,times(1)).size(anyString());
 		verify(this.otpRateLimitProperties,times(1)).maxSendAttemptsPerIp();
 
+		assertDoesNotThrow(() -> this.otpRateLimiter.recordCardinalityAndIsExceeded(mobileNumber,ip));
 	}
 
 	@ParameterizedTest
@@ -587,8 +491,7 @@ public class OtpRateLimiterUnitTest {
 		if(shouldBlock) {
 			when(this.keyBuilder.buildBlockKey(key)).thenReturn(blockKey);
 			when(this.otpRateLimitProperties.blockDurationInSec()).thenReturn(3600);
-			assertThrows(OtpRateLimitExceededException.class,
-					() -> this.otpRateLimiter.recordVerifyAttempts(key));
+			assertDoesNotThrow(() -> this.otpRateLimiter.recordVerifyAttempts(key));
 		} else {
 			assertDoesNotThrow(() -> this.otpRateLimiter.recordVerifyAttempts(key));
 		}
