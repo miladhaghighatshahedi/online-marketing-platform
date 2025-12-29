@@ -18,11 +18,11 @@ package com.mhs.onlinemarketingplatform.authentication.error.validation;
 /**
  * @author Milad Haghighat Shahedi
  */
-public class InvalidPhoneNumberException extends RuntimeException{
+public class InvalidMobileNumberException extends RuntimeException{
 
 	private final ValidationErrorCode code;
 
-	public InvalidPhoneNumberException(String message, ValidationErrorCode code) {
+	public InvalidMobileNumberException(String message, ValidationErrorCode code) {
 		super(message);
 		this.code = code;
 	}

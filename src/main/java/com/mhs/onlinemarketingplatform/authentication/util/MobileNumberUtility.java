@@ -18,7 +18,7 @@ package com.mhs.onlinemarketingplatform.authentication.util;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
-import com.mhs.onlinemarketingplatform.authentication.error.validation.InvalidPhoneNumberException;
+import com.mhs.onlinemarketingplatform.authentication.error.validation.InvalidMobileNumberException;
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationErrorCode;
 import com.mhs.onlinemarketingplatform.authentication.props.ApplicationProperties;
 import org.springframework.context.MessageSource;
@@ -35,13 +35,13 @@ public interface MobileNumberUtility {
 }
 
 @Component
-class GooglePhoneNumberNormalizer implements MobileNumberUtility {
+class GoogleMobileNumberNormalizer implements MobileNumberUtility {
 
 	private final PhoneNumberUtil util = PhoneNumberUtil.getInstance();
 	private final ApplicationProperties properties;
 	private final MessageSource messageSource;
 
-	public GooglePhoneNumberNormalizer(
+	public GoogleMobileNumberNormalizer(
 			ApplicationProperties properties,
 			MessageSource messageSource) {
 		this.properties = properties;
@@ -54,7 +54,7 @@ class GooglePhoneNumberNormalizer implements MobileNumberUtility {
 			PhoneNumber number =  util.parse(phoneNumber.trim(),properties.userMobileNumberRegion());
 
 			if(!util.isValidNumber(number))
-				throw new InvalidPhoneNumberException(
+				throw new InvalidMobileNumberException(
 						messageSource.getMessage("error.validation.phone.number.invalid",
 								new Object[] {phoneNumber},
 								Locale.getDefault()),
@@ -63,7 +63,7 @@ class GooglePhoneNumberNormalizer implements MobileNumberUtility {
 			return util.format(number, PhoneNumberUtil.PhoneNumberFormat.E164);
 
 		} catch (NumberParseException e) {
-			throw new InvalidPhoneNumberException(
+			throw new InvalidMobileNumberException(
 					messageSource.getMessage("error.validation.phone.number.invalid",
 							new Object[] {phoneNumber},
 							Locale.getDefault()),
