@@ -15,6 +15,12 @@
  */
 package com.mhs.onlinemarketingplatform.authentication.error;
 
+import com.mhs.onlinemarketingplatform.authentication.error.admin.AdminAlreadyRegisteredException;
+import com.mhs.onlinemarketingplatform.authentication.error.admin.AdminNotFoundException;
+import com.mhs.onlinemarketingplatform.authentication.error.admin.AdminUnauthorizedDomainException;
+import com.mhs.onlinemarketingplatform.authentication.error.hash.HashMechanismInvalidDataException;
+import com.mhs.onlinemarketingplatform.authentication.error.devicebinding.UnauthorizedDeviceException;
+import com.mhs.onlinemarketingplatform.authentication.error.otp.*;
 import com.mhs.onlinemarketingplatform.authentication.error.permission.PermissionAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.authentication.error.permission.PermissionNotFoundException;
 import com.mhs.onlinemarketingplatform.authentication.error.role.RoleAlreadyExistsException;
@@ -24,6 +30,7 @@ import com.mhs.onlinemarketingplatform.authentication.error.token.InvalidRefresh
 import com.mhs.onlinemarketingplatform.authentication.error.token.TokenDecodingException;
 import com.mhs.onlinemarketingplatform.authentication.error.user.UserAlreadyExistsException;
 import com.mhs.onlinemarketingplatform.authentication.error.user.UserNotFoundException;
+import com.mhs.onlinemarketingplatform.authentication.error.validation.*;
 import com.mhs.onlinemarketingplatform.common.ErrorLogger;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ConstraintViolation;
@@ -68,69 +75,133 @@ public class AuthenticationExceptionHandler {
 
 
 
-	@ExceptionHandler(UserNotFoundException.class)
-	public ResponseEntity<ApiErrorMessage> handleUserNotFoundException(UserNotFoundException ex) {
-		ApiErrorMessage error = new ApiErrorMessage(
-				HttpStatus.NOT_FOUND.value(),
-				ex.getMessage(),
-				"USER_NOT_FOUND",
-				null
-		);
-		errorLogger.logError("USER", "USER_NOT_FOUND", "Error: " + ex.getMessage());
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-	}
-
-	@ExceptionHandler(UserAlreadyExistsException.class)
-	public ResponseEntity<ApiErrorMessage> handleUserAlreadyExistsException(UserAlreadyExistsException ex) {
+	@ExceptionHandler(AdminAlreadyRegisteredException.class)
+	public ResponseEntity<ApiErrorMessage> handleAdminAlreadyRegisteredException(AdminAlreadyRegisteredException ex) {
 		ApiErrorMessage error = new ApiErrorMessage(
 				HttpStatus.BAD_REQUEST.value(),
 				ex.getMessage(),
-				"USER_ALREADY_EXISTS",
+				"ADMIN_ALREADY_REGISTERED",
 				null
 		);
-		errorLogger.logError("USER", "USER_ALREADY_EXISTS", "Error: " + ex.getMessage());
+		errorLogger.logError("ADMIN", "ADMIN_ALREADY_REGISTERED", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
-
-
-	@ExceptionHandler(RoleNotFoundException.class)
-	public ResponseEntity<ApiErrorMessage> handleRoleNotFoundException(RoleNotFoundException ex) {
+	@ExceptionHandler(AdminNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleAdminNotFoundException(AdminNotFoundException ex) {
 		ApiErrorMessage error = new ApiErrorMessage(
 				HttpStatus.NOT_FOUND.value(),
 				ex.getMessage(),
-				"ROLE_NOT_FOUND",
+				"ADMIN_NOT_FOUND",
 				null
 		);
-		errorLogger.logError("ROLE", "ROLE_NOT_FOUND", "Error: " + ex.getMessage());
+		errorLogger.logError("ADMIN", "ADMIN_NOT_FOUND", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
 	}
 
-	@ExceptionHandler(RoleAlreadyExistsException.class)
-	public ResponseEntity<ApiErrorMessage> handleRoleAlreadyExistsException(RoleAlreadyExistsException ex) {
+	@ExceptionHandler(AdminUnauthorizedDomainException.class)
+	public ResponseEntity<ApiErrorMessage> handleAdminUnauthorizedDomainException(AdminUnauthorizedDomainException ex) {
 		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.UNAUTHORIZED.value(),
+				ex.getMessage(),
+				"ADMIN_UNAUTHORIZED_DOMAIN",
+				null
+		);
+		errorLogger.logError("ADMIN", "ADMIN_UNAUTHORIZED_DOMAIN", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+	}
+
+
+
+	@ExceptionHandler(UnauthorizedDeviceException.class)
+	public ResponseEntity<ApiErrorMessage> handleUnauthorizedDeviceException(UnauthorizedDeviceException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.UNAUTHORIZED.value(),
+				ex.getMessage(),
+				"UNAUTHORIZED_DEVICE",
+				null
+		);
+		errorLogger.logError("DEVICE_BINDING", "UNAUTHORIZED_DEVICE", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+	}
+
+
+
+	@ExceptionHandler(HashMechanismInvalidDataException.class)
+	ResponseEntity<ApiErrorMessage> handleHashMechanismInavlidDataException(HashMechanismInvalidDataException ex) {
+		ApiErrorMessage response = new ApiErrorMessage(
 				HttpStatus.BAD_REQUEST.value(),
-				ex.getMessage(),
-				"ROLE_ALREADY_EXISTS",
+				"HASH_INVALID_DATA",
+				"HASH_INVALID_DATA",
 				null
 		);
-		errorLogger.logError("ROLE", "ROLE_ALREADY_EXISTS", "Error: " + ex.getMessage());
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+		errorLogger.logError("HASH_INVALID_DATA", "HASH_INVALID_DATA", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 	}
 
 
 
-	@ExceptionHandler(PermissionNotFoundException.class)
-	public ResponseEntity<ApiErrorMessage> handlePermissionNotFoundException(PermissionNotFoundException ex) {
-		ApiErrorMessage error = new ApiErrorMessage(
-				HttpStatus.NOT_FOUND.value(),
-				ex.getMessage(),
-				"PERMISSION_NOT_FOUND",
+	@ExceptionHandler(InvalidOtpException.class)
+	ResponseEntity<ApiErrorMessage> handleInvalidOtpException(InvalidOtpException ex) {
+		ApiErrorMessage response = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				"OTP_INVALID",
+				"OTP_INVALID",
 				null
 		);
-		errorLogger.logError("PERMISSION", "PERMISSION_NOT_FOUND", "Error: " + ex.getMessage());
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+		errorLogger.logError("OTP_INVALID", "OTP_INVALID", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 	}
+
+	@ExceptionHandler(OtpBlockedException.class)
+	ResponseEntity<ApiErrorMessage> handleOtpBlockedException(OtpBlockedException ex) {
+		ApiErrorMessage response = new ApiErrorMessage(
+				HttpStatus.TOO_MANY_REQUESTS.value(),
+				"OTP_BLOCKED_TOO_MANY_REQUEST",
+				"OTP_BLOCKED_TOO_MANY_REQUEST",
+				null
+		);
+		errorLogger.logError("OTP_BLOCKED_TOO_MANY_REQUEST", "RATE_LIMIT", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
+	}
+
+	@ExceptionHandler(OtpConfigurationException.class)
+	ResponseEntity<ApiErrorMessage> handleOtpConfigurationException(OtpConfigurationException ex) {
+		ApiErrorMessage response = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				"OTP_INVALID",
+				"OTP_INVALID",
+				null
+		);
+		errorLogger.logError("OTP_INVALID", "OTP_INVALID", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+	}
+
+	@ExceptionHandler(OtpCoolDownException.class)
+	ResponseEntity<ApiErrorMessage> handleOtpCoolDownException(OtpCoolDownException ex) {
+		ApiErrorMessage response = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				"OTP_COOLDOWN",
+				"OTP_COOLDOWN",
+				null
+		);
+		errorLogger.logError("OTP_COOLDOWN", "OTP_COOLDOWN", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+	}
+
+	@ExceptionHandler(OtpRateLimitExceededException.class)
+	ResponseEntity<ApiErrorMessage> handleOtpRateLimitExceededException(OtpRateLimitExceededException ex) {
+		ApiErrorMessage response = new ApiErrorMessage(
+				HttpStatus.TOO_MANY_REQUESTS.value(),
+				"OTP_TOO_MANY_REQUEST",
+				"OTP_TOO_MANY_REQUEST",
+				null
+		);
+		errorLogger.logError("OTP_TOO_MANY_REQUEST", "RATE_LIMIT", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
+	}
+
+
 
 	@ExceptionHandler(PermissionAlreadyExistsException.class)
 	public ResponseEntity<ApiErrorMessage> handlePermissionAlreadyExistsException(PermissionAlreadyExistsException ex) {
@@ -144,19 +215,45 @@ public class AuthenticationExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
-
-
-	@ExceptionHandler(TokenDecodingException.class)
-	public ResponseEntity<ApiErrorMessage> handleTokenDecodingException(TokenDecodingException ex) {
+	@ExceptionHandler(PermissionNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handlePermissionNotFoundException(PermissionNotFoundException ex) {
 		ApiErrorMessage error = new ApiErrorMessage(
-				HttpStatus.UNAUTHORIZED.value(),
+				HttpStatus.NOT_FOUND.value(),
 				ex.getMessage(),
-				"TOKEN_DECODING",
+				"PERMISSION_NOT_FOUND",
 				null
 		);
-		errorLogger.logError("TOKEN", "TOKEN_DECODING", "Error: " + ex.getMessage());
-		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+		errorLogger.logError("PERMISSION", "PERMISSION_NOT_FOUND", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
 	}
+
+
+
+	@ExceptionHandler(RoleAlreadyExistsException.class)
+	public ResponseEntity<ApiErrorMessage> handleRoleAlreadyExistsException(RoleAlreadyExistsException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"ROLE_ALREADY_EXISTS",
+				null
+		);
+		errorLogger.logError("ROLE", "ROLE_ALREADY_EXISTS", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(RoleNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleRoleNotFoundException(RoleNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"ROLE_NOT_FOUND",
+				null
+		);
+		errorLogger.logError("ROLE", "ROLE_NOT_FOUND", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+
 
 	@ExceptionHandler(InvalidAccessTokenException.class)
 	public ResponseEntity<ApiErrorMessage> handleInvalidAccessTokenException(InvalidAccessTokenException ex) {
@@ -180,6 +277,96 @@ public class AuthenticationExceptionHandler {
 		);
 		errorLogger.logError("REFRESH_TOKEN", "INVALID_REFRESH_TOKEN", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+	}
+
+	@ExceptionHandler(TokenDecodingException.class)
+	public ResponseEntity<ApiErrorMessage> handleTokenDecodingException(TokenDecodingException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.UNAUTHORIZED.value(),
+				ex.getMessage(),
+				"TOKEN_DECODING",
+				null
+		);
+		errorLogger.logError("TOKEN", "TOKEN_DECODING", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+	}
+
+
+
+	@ExceptionHandler(UserAlreadyExistsException.class)
+	public ResponseEntity<ApiErrorMessage> handleUserAlreadyExistsException(UserAlreadyExistsException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"USER_ALREADY_EXISTS",
+				null
+		);
+		errorLogger.logError("USER", "USER_ALREADY_EXISTS", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(UserNotFoundException.class)
+	public ResponseEntity<ApiErrorMessage> handleUserNotFoundException(UserNotFoundException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.NOT_FOUND.value(),
+				ex.getMessage(),
+				"USER_NOT_FOUND",
+				null
+		);
+		errorLogger.logError("USER", "USER_NOT_FOUND", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	}
+
+
+
+
+	@ExceptionHandler(CustomValidationException.class)
+	public ResponseEntity<ApiErrorMessage> handleCustomValidationException(CustomValidationException ex) {
+		ValidationError validationError = new ValidationError(ex.getMessage(),ex.getField(), ex.getCode());
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				"VALIDATION_FAILED",
+				"VALIDATION_FAILED",
+				validationError
+		);
+		errorLogger.logError("VALIDATION_FAILED", ex.getField(), "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(InvalidMobileNumberException.class)
+	public ResponseEntity<ApiErrorMessage> handleInvalidPhoneNumberException(InvalidMobileNumberException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"INVALID_MOBILE_NUMBER",
+				null
+		);
+		errorLogger.logError("INVALID_MOBILE_NUMBER", "INVALID_MOBILE_NUMBER", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(PasswordMismatchException.class)
+	public ResponseEntity<ApiErrorMessage> handlePasswordMismatchException(PasswordMismatchException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"PASSWORD_MISMATCH",
+				null
+		);
+		errorLogger.logError("PASSWORD", "PASSWORD_MISMATCH", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	@ExceptionHandler(PhoneNumberRequiredException.class)
+	public ResponseEntity<ApiErrorMessage> handlePhoneNumberRequiredException(PhoneNumberRequiredException ex) {
+		ApiErrorMessage error = new ApiErrorMessage(
+				HttpStatus.BAD_REQUEST.value(),
+				ex.getMessage(),
+				"PHONENUMBER_REQUIRED",
+				null
+		);
+		errorLogger.logError("PHONENUMBER", "PHONENUMBER_REQUIRED", "Error: " + ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
 
@@ -236,7 +423,6 @@ public class AuthenticationExceptionHandler {
 				Map.of(ex.getName(), List.of("Expected type: " + ex.getRequiredType().getSimpleName()))
 		);
 
-
 		errorLogger.logError("VALIDATION_FAILED", "PATH_VARIABLE_TYPE_MISMATCH", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 	}
@@ -249,9 +435,9 @@ public class AuthenticationExceptionHandler {
 				"EMPTY_REQUEST_BODY",
 				null
 		);
+
 		errorLogger.logError("VALIDATION_FAILED", "EMPTY_REQUEST_BODY", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-
 	}
 
 	@ExceptionHandler(MissingPathVariableException.class)
@@ -277,8 +463,5 @@ public class AuthenticationExceptionHandler {
 		errorLogger.logError("HTTP_METHOD_NOT_SUPPORTED", "HTTP_METHOD_NOT_SUPPORTED", "Error: " + ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 	}
-
-
-
 
 }
