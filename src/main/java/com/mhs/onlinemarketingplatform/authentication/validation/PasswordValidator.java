@@ -16,7 +16,6 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
-import com.mhs.onlinemarketingplatform.authentication.props.ApplicationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -87,9 +86,9 @@ class PasswordComplexity implements PasswordValidationStrategy {
 @Component
 class PasswordLength implements PasswordValidationStrategy {
 
-	private final ApplicationProperties properties;
+	private final ValidationProperties properties;
 
-	public PasswordLength(ApplicationProperties properties) {
+	public PasswordLength(ValidationProperties properties) {
 		this.properties = properties;
 	}
 

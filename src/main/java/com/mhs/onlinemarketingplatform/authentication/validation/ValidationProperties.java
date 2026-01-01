@@ -13,23 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mhs.onlinemarketingplatform.authentication.sms;
+package com.mhs.onlinemarketingplatform.authentication.validation;
 
-import org.springframework.stereotype.Service;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * @author Milad Haghighat Shahedi
  */
-public interface SmsSender {
-	void sendOtpSms(String destination,String message);
-}
-
-@Service
-class OtpSmsSender implements SmsSender {
-
-	@Override
-	public void sendOtpSms(String destination, String message) {
-		System.out.println(destination+"-----"+message);
-	}
-
-}
-
+@ConfigurationProperties(prefix = "validation")
+public record ValidationProperties (
+		int mobileNumberLength,
+		int passwordMinLength
+) {}

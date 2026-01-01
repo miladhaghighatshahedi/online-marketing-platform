@@ -23,8 +23,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ApplicationProperties(
 		int corporateEmailMinLength,
 		int corporateEmailMaxLength,
-		int userMobileNumberLength,
-		int passwordMinLength,
 		String corporateDomain,
 		String userMobileNumberRegion
 ) {}
