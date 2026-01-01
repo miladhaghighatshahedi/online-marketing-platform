@@ -16,7 +16,6 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
-import com.mhs.onlinemarketingplatform.authentication.props.ApplicationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -67,18 +66,18 @@ class MobileNumberBlank implements MobileNumberValidationStrategy {
 @Component
 class MobileNumberLength implements MobileNumberValidationStrategy {
 
-	private final ApplicationProperties properties;
+	private final ValidationProperties properties;
 
-	public MobileNumberLength(ApplicationProperties properties) {
+	public MobileNumberLength(ValidationProperties properties) {
 		this.properties = properties;
 	}
 
 	@Override
 	public Optional<ValidationError> isValid(String mobileNumber) {
-		if(mobileNumber.length() != properties.userMobileNumberLength()) {
+		if(mobileNumber.length() != this.properties.mobileNumberLength()) {
 			return Optional.of(
 					new ValidationError(
-							String.format("MOBILE-NUMBER must be % charachter long",properties.userMobileNumberLength()),
+							String.format("MOBILE-NUMBER must be %d charachter long",this.properties.mobileNumberLength()),
 							"MOBILE-NUMBER",
 							"MOBILE_NUMBER_BLANK"
 					));}
