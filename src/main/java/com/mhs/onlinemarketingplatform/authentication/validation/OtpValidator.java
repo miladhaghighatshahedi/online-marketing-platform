@@ -76,10 +76,10 @@ class OtpLength implements OtpValidationStrategy {
 
 	@Override
 	public Optional<ValidationError> isValid(String otpCode) {
-		if (otpCode.length() < this.properties.length()) {
+		if (otpCode.length() != this.properties.length()) {
 			return Optional.of(
 					new ValidationError(
-							String.format("OTP_CODE must be exactly % characters long!",properties.length()),
+							String.format("OTP_CODE must be exactly %d characters long!",properties.length()),
 							"OTP_CODE",
 							"OTP_CODE_INVALID_LENGTH"));}
 		return Optional.empty();
