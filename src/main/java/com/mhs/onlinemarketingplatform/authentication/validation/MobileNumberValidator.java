@@ -21,7 +21,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-
 /**
  * @author Milad Haghighat Shahedi
  */
@@ -102,7 +101,7 @@ class MobileNumberPattern implements MobileNumberValidationStrategy {
 		if(!pattern.matcher(mobileNumber).matches()) {
 			return Optional.of(
 					new ValidationError(
-							String.format("MOBILE-NUMBER format is invalid"),
+							"MOBILE-NUMBER format is invalid",
 							"MOBILE-NUMBER",
 							"MOBILE_NUMBER_INVALID_PATTERN"
 					));}
