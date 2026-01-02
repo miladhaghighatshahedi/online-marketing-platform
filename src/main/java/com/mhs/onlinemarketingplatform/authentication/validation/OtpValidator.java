@@ -17,6 +17,7 @@ package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
 import com.mhs.onlinemarketingplatform.authentication.otp.OtpCoreProperties;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -50,6 +51,7 @@ interface OtpValidationStrategy {
 }
 
 @Component
+@Order(1)
 class OtpBlank implements OtpValidationStrategy {
 
 	@Override
@@ -66,6 +68,7 @@ class OtpBlank implements OtpValidationStrategy {
 }
 
 @Component
+@Order(2)
 class OtpLength implements OtpValidationStrategy {
 
 	private final OtpCoreProperties properties;
