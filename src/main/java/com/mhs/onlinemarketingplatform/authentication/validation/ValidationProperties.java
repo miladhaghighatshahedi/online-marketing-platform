@@ -22,5 +22,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "validation")
 public record ValidationProperties (
 		int mobileNumberLength,
+		String mobileNumberPattern,
 		int passwordMinLength
 ) {}

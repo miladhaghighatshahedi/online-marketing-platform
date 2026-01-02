@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
+
 /**
  * @author Milad Haghighat Shahedi
  */
@@ -80,6 +82,29 @@ class MobileNumberLength implements MobileNumberValidationStrategy {
 							String.format("MOBILE-NUMBER must be %d charachter long",this.properties.mobileNumberLength()),
 							"MOBILE-NUMBER",
 							"MOBILE_NUMBER_BLANK"
+					));}
+		return Optional.empty();
+	}
+
+}
+
+@Component
+class MobileNumberPattern implements MobileNumberValidationStrategy {
+
+	private final Pattern pattern;
+
+	public MobileNumberPattern(ValidationProperties properties) {
+		this.pattern = Pattern.compile(properties.mobileNumberPattern());
+	}
+
+	@Override
+	public Optional<ValidationError> isValid(String mobileNumber) {
+		if(!pattern.matcher(mobileNumber).matches()) {
+			return Optional.of(
+					new ValidationError(
+							String.format("MOBILE-NUMBER format is invalid"),
+							"MOBILE-NUMBER",
+							"MOBILE_NUMBER_INVALID_PATTERN"
 					));}
 		return Optional.empty();
 	}
