@@ -80,7 +80,7 @@ class MobileNumberLength implements MobileNumberValidationStrategy {
 					new ValidationError(
 							String.format("MOBILE-NUMBER must be %d charachter long",this.properties.mobileNumberLength()),
 							"MOBILE-NUMBER",
-							"MOBILE_NUMBER_BLANK"
+							"MOBILE_NUMBER_LENGTH"
 					));}
 		return Optional.empty();
 	}
