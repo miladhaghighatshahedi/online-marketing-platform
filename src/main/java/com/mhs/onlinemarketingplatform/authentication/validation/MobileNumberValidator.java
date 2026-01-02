@@ -16,6 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -49,6 +50,7 @@ interface MobileNumberValidationStrategy {
 }
 
 @Component
+@Order(1)
 class MobileNumberBlank implements MobileNumberValidationStrategy {
 
 	@Override
@@ -65,6 +67,7 @@ class MobileNumberBlank implements MobileNumberValidationStrategy {
 }
 
 @Component
+@Order(2)
 class MobileNumberLength implements MobileNumberValidationStrategy {
 
 	private final ValidationProperties properties;
@@ -88,6 +91,7 @@ class MobileNumberLength implements MobileNumberValidationStrategy {
 }
 
 @Component
+@Order(3)
 class MobileNumberPattern implements MobileNumberValidationStrategy {
 
 	private final Pattern pattern;
