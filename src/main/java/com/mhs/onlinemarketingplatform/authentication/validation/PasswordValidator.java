@@ -16,6 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -50,6 +51,7 @@ interface PasswordValidationStrategy {
 }
 
 @Component
+@Order(1)
 class PasswordBlank implements PasswordValidationStrategy {
 
 	@Override
@@ -65,25 +67,9 @@ class PasswordBlank implements PasswordValidationStrategy {
 
 }
 
-@Component
-class PasswordComplexity implements PasswordValidationStrategy {
-
-	private static final Pattern PASSWORD_STRENGTH = Pattern.compile("^(?=.*[0-9])(?=.*[!@#$%^&*]).{8,}$",Pattern.CASE_INSENSITIVE);
-
-	@Override
-	public Optional<ValidationError> isValid(String password) {
-		if(!PASSWORD_STRENGTH.matcher(password).matches()){
-			return Optional.of(
-					new ValidationError(
-							"Password must contain at least one number and one special character!",
-							"PASSWORD",
-							"PASSWORD_WEAK"));}
-		return Optional.empty();
-	}
-
-}
 
 @Component
+@Order(2)
 class PasswordLength implements PasswordValidationStrategy {
 
 	private final ValidationProperties properties;
@@ -94,10 +80,10 @@ class PasswordLength implements PasswordValidationStrategy {
 
 	@Override
 	public Optional<ValidationError> isValid(String password) {
-		if (password.length() < properties.passwordMinLength()) {
+		if (password.length() < this.properties.passwordMinLength()) {
 			return Optional.of(
 					new ValidationError(
-							String.format("Password must be min % characters long!",properties.passwordMinLength()),
+							String.format("Password must be min %d characters long!",this.properties.passwordMinLength()),
 							"PASSWORD",
 							"PASSWORD_INVALID_LENGTH"));}
 		return Optional.empty();
@@ -105,4 +91,25 @@ class PasswordLength implements PasswordValidationStrategy {
 
 }
 
+@Component
+@Order(3)
+class PasswordComplexity implements PasswordValidationStrategy {
 
+	private final Pattern pattern;
+
+	public PasswordComplexity(ValidationProperties properties) {
+		this.pattern = Pattern.compile(properties.passwordPattern(),Pattern.CASE_INSENSITIVE);
+	}
+
+	@Override
+	public Optional<ValidationError> isValid(String password) {
+		if(!this.pattern.matcher(password).matches()){
+			return Optional.of(
+					new ValidationError(
+							"Password must contain at least one number and one special character!",
+							"PASSWORD",
+							"PASSWORD_WEAK"));}
+		return Optional.empty();
+	}
+
+}
