@@ -23,5 +23,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ValidationProperties (
 		int mobileNumberLength,
 		String mobileNumberPattern,
-		int passwordMinLength
+		int passwordMinLength,
+		String passwordPattern,
+		int emailMinLength,
+		int emailMaxLength,
+		String emailPattern
 ) {}
