@@ -48,10 +48,6 @@ public class OtpBlankUnitTest {
 	void isValid_shouldFail_WhenOtpIsBlank() {
 		// Arrange
 		String otpCode = "";
-		ValidationError validationError = new ValidationError(
-				"OTP_CODE can not be null or blank!",
-				"OTP_CODE",
-				"OTP_CODE_BLANK");
 		// Act
 		Optional<ValidationError> result = this.otpBlank.isValid(otpCode);
 		// Assert
@@ -65,10 +61,6 @@ public class OtpBlankUnitTest {
 	void isValid_shouldFail_WhenOtpIsEmpty() {
 		// Arrange
 		String otpCode = "";
-		ValidationError validationError = new ValidationError(
-				"OTP_CODE can not be null or blank!",
-				"OTP_CODE",
-				"OTP_CODE_BLANK");
 		// Act
 		Optional<ValidationError> result = this.otpBlank.isValid(otpCode);
 		// Assert
@@ -82,10 +74,6 @@ public class OtpBlankUnitTest {
 	void isValid_shouldFail_WhenOtpIsEmptySpace() {
 		// Arrange
 		String otpCode = " ";
-		ValidationError validationError = new ValidationError(
-				"OTP_CODE can not be null or blank!",
-				"OTP_CODE",
-				"OTP_CODE_BLANK");
 		// Act
 		Optional<ValidationError> result = this.otpBlank.isValid(otpCode);
 		// Assert
