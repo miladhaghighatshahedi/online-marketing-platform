@@ -16,7 +16,7 @@
 package com.mhs.onlinemarketingplatform.authentication.validation;
 
 import com.mhs.onlinemarketingplatform.authentication.error.validation.ValidationError;
-import com.mhs.onlinemarketingplatform.authentication.props.ApplicationProperties;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -51,6 +51,7 @@ interface EmailValidationStrategy {
 }
 
 @Component
+@Order(1)
 class EmailBlank implements EmailValidationStrategy {
 
 	@Override
@@ -68,22 +69,23 @@ class EmailBlank implements EmailValidationStrategy {
 }
 
 @Component
+@Order(2)
 class EmailLength implements EmailValidationStrategy {
 
-	private final ApplicationProperties properties;
+	private final ValidationProperties properties;
 
-	public EmailLength(ApplicationProperties properties) {
+	public EmailLength(ValidationProperties properties) {
 		this.properties = properties;
 	}
 
 	@Override
 	public Optional<ValidationError> isValid(String email) {
-		if(email.length() < properties.corporateEmailMinLength() || email.length() > properties.corporateEmailMaxLength()) {
+		if(email.length() < this.properties.emailMinLength() || email.length() > this.properties.emailMaxLength()) {
 			return Optional.of(
 					new ValidationError(
-							String.format("EMAIL must be between % and % charachters",
-									properties.corporateEmailMinLength(),
-									properties.corporateEmailMaxLength()),
+							String.format("EMAIL must be between %d and %d charachters",
+									this.properties.emailMinLength(),
+									this.properties.emailMaxLength()),
 							"EMAIL",
 							"EMAIL_INVALID_LENGTH"
 					));
@@ -94,14 +96,18 @@ class EmailLength implements EmailValidationStrategy {
 }
 
 @Component
+@Order(3)
 class EmailPattern implements EmailValidationStrategy {
 
-	private static final Pattern EMAIL_PATTERN =
-			Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",Pattern.CASE_INSENSITIVE);
+	private final Pattern pattern;
+
+	public EmailPattern(ValidationProperties properties) {
+		this.pattern = Pattern.compile(properties.emailPattern(),Pattern.CASE_INSENSITIVE);
+	}
 
 	@Override
 	public Optional<ValidationError> isValid(String email) {
-		if(!EMAIL_PATTERN.matcher(email).matches()) {
+		if(!this.pattern.matcher(email).matches()) {
 			return Optional.of(
 					new ValidationError(
 					"EMAIL must have a valid pattern!",
